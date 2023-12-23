@@ -41,6 +41,44 @@ public class GWS : MonoBehaviour
         return 2 * maxDistance / maxTextureExtent; // Multiply by 2 to cover both positive and negative directions
     }
 
+    public void PNGFromBoolArray(bool[,] boolArray)
+    {
+        // Ensure the boolean array is not null
+        if (boolArray == null)
+        {
+            Debug.LogError("Boolean array is null.");
+            return;
+        }
+
+        // Create a new texture with the same dimensions as the boolean array
+        Texture2D texture = new Texture2D(boolArray.GetLength(0), boolArray.GetLength(1), TextureFormat.RGBA32, false);
+
+        // Set each pixel's color based on the boolean array
+        for (int y = 0; y < texture.height; y++)
+        {
+            for (int x = 0; x < texture.width; x++)
+            {
+                Color pixelColor = boolArray[x, y] ? Color.white : new Color(0, 0, 0, 0); // White for true, transparent for false
+                texture.SetPixel(x, y, pixelColor);
+            }
+        }
+
+        // Apply changes to the texture
+        texture.Apply();
+
+        // Encode the texture to PNG format
+        byte[] pngBytes = ImageConversion.EncodeToPNG(texture);
+
+        // Save the PNG file
+        string path = "Assets/Data/boolArrayImage.png"; // Change the path as needed
+        File.WriteAllBytes(path, pngBytes);
+
+        // Refresh the asset database to ensure changes are reflected
+        AssetDatabase.Refresh();
+
+        Debug.Log("Image saved as PNG to: " + path);
+    }
+
     public Vector3 TextureToWorld(int texX, int texY)
     {
         return new Vector3(

@@ -729,14 +729,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.38679248, g: 0.29374334, b: 0.29374334, a: 1}
+  m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Texture: {fileID: 2800000, guid: c8de2b1ef3fefd54ba7ec67c25548ad8, type: 3}
+  m_Texture: {fileID: 2800000, guid: d5be35f1b8ffe2f4b9579a212c4e2e34, type: 3}
   m_UVRect:
     serializedVersion: 2
     x: 0
@@ -2838,13 +2838,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   explorationTexture: {fileID: 2800000, guid: c8de2b1ef3fefd54ba7ec67c25548ad8, type: 3}
-  isExploring: 0
-  purgeArrayData: 0
-  fillArrayData: 0
   randomizeArrayData: 0
+  fillArrayData: 0
+  purgeArrayData: 0
   printArrayData: 0
-  saveExplorationTexture: 0
-  initialExplorationRadius: 5
+  createExplorationRadiusBoolArray: 0
+  playerTextureCoords: {x: 0, y: 0}
+  initialExplorationRadius: 1.5
+  explorationDiameter: 0
 --- !u!1 &907605191
 GameObject:
   m_ObjectHideFlags: 0
