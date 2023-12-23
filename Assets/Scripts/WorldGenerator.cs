@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class WorldGenerator : MonoBehaviour
 {
-    GWS gws;
+    GWS _gws;
 
     public int numberOfAsteroids = 1000;
     public float appliedScale;
@@ -10,44 +10,41 @@ public class WorldGenerator : MonoBehaviour
 
     void Start()
     {
-        // Get a reference to the GWS script component
-        gws = GetComponent<GWS>();
-        appliedScale = gws.scaleFactor;
+        _gws = GetComponent<GWS>();
+        appliedScale = _gws.scaleFactor;
         SpawnRandomAsteroids();
     }
 
-    void Update()
-    {
-        // Update logic if needed
-    }
+    void Update() { }
 
-    public void RandomizeSector(int x, int y)
-    {
-
-    }
+    public void RandomizeSector(int x, int y) { }
 
     void SpawnRandomAsteroids()
-{
-    // Randomly instantiate asteroids
-    for (int i = 0; i < numberOfAsteroids; i++)
     {
-        // Generate random position within the desired world range
-        float randomX = Random.Range(-gws.worldTexture.width / 2f, gws.worldTexture.width / 2f) * appliedScale;
-        float randomZ = Random.Range(-gws.worldTexture.height / 2f, gws.worldTexture.height / 2f) * appliedScale;
+        for (int i = 0; i < numberOfAsteroids; i++)
+        {
+            // Generate random position within the desired world range
+            float randomX =
+                Random.Range(-_gws.worldTexture.width / 2f, _gws.worldTexture.width / 2f)
+                * appliedScale;
+            float randomZ =
+                Random.Range(-_gws.worldTexture.height / 2f, _gws.worldTexture.height / 2f)
+                * appliedScale;
 
-        // Convert the random position to world coordinates
-        Vector3 asteroidPosition = new Vector3(randomX, 0f, randomZ);
+            Vector3 asteroidPosition = new Vector3(randomX, 0f, randomZ);
 
-        // Instantiate the asteroid prefab
-        GameObject asteroid = Instantiate(gws.asteroidPrefab, asteroidPosition, Quaternion.identity);
+            // Instantiate the asteroid prefab
+            GameObject asteroid = Instantiate(
+                _gws.asteroidPrefab,
+                asteroidPosition,
+                Quaternion.identity
+            );
 
-        // Convert the asteroid's position to texture coordinates and write to the texture
-        Vector2 textureCoords = gws.WorldToTexture(asteroidPosition);
-        gws.WritePixelToTexture(textureCoords, Color.grey);
+            // Convert the asteroid's position to texture coordinates and write to the texture
+            Vector2 textureCoords = _gws.WorldToTexture(asteroidPosition);
+            _gws.WritePixelToTexture(textureCoords, Color.grey);
+        }
+
+        _gws.SaveWorldTexture();
     }
-    
-   gws.SaveWorldTexture();
 }
-
-}
-

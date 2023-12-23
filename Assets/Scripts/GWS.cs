@@ -1,6 +1,7 @@
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+
 //created local git repo
 public class GWS : MonoBehaviour
 {
@@ -38,6 +39,23 @@ public class GWS : MonoBehaviour
 
         // Calculate the scale factor based on the maximum distance and texture extent
         return 2 * maxDistance / maxTextureExtent; // Multiply by 2 to cover both positive and negative directions
+    }
+
+    public Vector3 TextureToWorld(int texX, int texY)
+    {
+        return new Vector3(
+            (texX - worldTexture.width / 2) * scaleFactor,
+            0,
+            (texY - worldTexture.height / 2) * scaleFactor
+        );
+    }
+
+    public Vector2 WorldToTexture(Vector3 worldPos)
+    {
+        return new Vector2(
+            (worldPos.x / scaleFactor + worldTexture.width / 2f), // Adjust for center and scale
+            (worldPos.z / scaleFactor + worldTexture.height / 2f) // Adjust for center, scale, and flip Y
+        );
     }
 
     void ReadAndPlaceGOs()
@@ -81,23 +99,6 @@ public class GWS : MonoBehaviour
         AssetDatabase.Refresh();
 
         Debug.Log("WorldTexture saved");
-    }
-
-    public Vector2 WorldToTexture(Vector3 worldPos)
-    {
-        return new Vector2(
-            (worldPos.x / scaleFactor + worldTexture.width / 2f), // Adjust for center and scale
-            (worldPos.z / scaleFactor + worldTexture.height / 2f) // Adjust for center, scale, and flip Y
-        );
-    }
-
-    public Vector3 TextureToWorld(int texX, int texY)
-    {
-        return new Vector3(
-            (texX - worldTexture.width / 2) * scaleFactor,
-            0,
-            (texY - worldTexture.height / 2) * scaleFactor
-        );
     }
 
     GameObjectType DecodeObjectType(Color pixelColor)

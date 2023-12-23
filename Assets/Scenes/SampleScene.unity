@@ -2824,6 +2824,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   numberOfAsteroids: 1000
   appliedScale: 0
+  texture: {fileID: 0}
 --- !u!114 &899711107
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2836,7 +2837,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 60f36ac1b81bf924fb92c5a0cefb46b3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  explorationTexture: {fileID: 0}
+  explorationTexture: {fileID: 2800000, guid: c8de2b1ef3fefd54ba7ec67c25548ad8, type: 3}
   isExploring: 0
   purgeArrayData: 0
   fillArrayData: 0
