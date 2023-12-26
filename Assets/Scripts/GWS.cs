@@ -1,9 +1,11 @@
-using System;
 using System.IO;
 using UnityEditor;
 using UnityEngine;
+<<<<<<< HEAD
 using UnityEngine.Experimental.Rendering;
 using System.Collections;
+=======
+>>>>>>> parent of c198987 (Exploratio Implementation)
 
 //created local git repo
 public class GWS : MonoBehaviour

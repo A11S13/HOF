@@ -49,10 +49,7 @@ public class WorldGenerator : MonoBehaviour
         }
     }
 
-    public void RandomizeSector(int x, int y)
-    {
-        //
-    }
+    public void RandomizeSector(int x, int y) { }
 
     void SpawnRandomAsteroids()
     {
