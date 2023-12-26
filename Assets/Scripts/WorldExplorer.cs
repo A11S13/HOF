@@ -37,6 +37,7 @@ public class WorldExplorer : MonoBehaviour
             Mathf.RoundToInt(playerTextureCoords.x),
             Mathf.RoundToInt(playerTextureCoords.y)
         );
+<<<<<<< HEAD
         UpdateExplorationData();
         StartCoroutine(_gws.GenerateTextureOnThread(explorationBoolArray, "Exploration_data"));
     }
@@ -49,6 +50,8 @@ public class WorldExplorer : MonoBehaviour
         }
 =======
 >>>>>>> parent of c198987 (Exploratio Implementation)
+=======
+>>>>>>> parent of fe6b937 (Revert "Exploratio Implementation")
     }
 
     void Update()
@@ -93,9 +96,14 @@ public class WorldExplorer : MonoBehaviour
         await Task.Run(() =>
         {
             _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data.bin");
+<<<<<<< HEAD
         });
 
         StartCoroutine(_gws.GenerateTextureOnThread(explorationBoolArray, "Exploration_data"));
+=======
+            _gws.PNGFromBoolArray(explorationBoolArray, "Exploration_data");
+        });
+>>>>>>> parent of fe6b937 (Revert "Exploratio Implementation")
     }
 
     public void RadiusArrayPixelPosition(int x, int y)
