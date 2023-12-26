@@ -1,6 +1,9 @@
 using System;
 using System.IO;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
+using Unity.Burst;
+using Unity.Jobs;
 using UnityEditor;
 using UnityEngine;
 
@@ -9,14 +12,18 @@ public class WorldExplorer : MonoBehaviour
     GWS _gws;
     WorldGenerator _worldGenerator;
 
-    public bool createExplorationRadiusBoolArray = false;
+    public bool createExplorationRadius = false;
+    public bool eraseExplorationData = false;
 
     public Vector2 playerTextureCoords;
     public float initialExplorationRadius = 1.5f;
     public bool[,] explorationBoolArray;
     public bool[,] explorationRadiusBoolArray;
     public int explorationDiameter;
+    public int RAPPX;
+    public int RAPPY;
 
+    private Vector2 lastPlayerTextureCoords;
     private float lastInitialExplorationRadius = 1;
     private Texture2D _worldTexture;
     private GameObject _player;
@@ -29,7 +36,6 @@ public class WorldExplorer : MonoBehaviour
         _worldTexture = _gws.worldTexture;
         explorationBoolArray = new bool[_worldTexture.width, _worldTexture.height];
         LoadExplorationData();
-<<<<<<< HEAD
         PlayerPixelPosition();
         ExplorationDiameterRounding();
         ExplorationRadiusInitialize();
@@ -37,7 +43,6 @@ public class WorldExplorer : MonoBehaviour
             Mathf.RoundToInt(playerTextureCoords.x),
             Mathf.RoundToInt(playerTextureCoords.y)
         );
-<<<<<<< HEAD
         UpdateExplorationData();
         StartCoroutine(_gws.GenerateTextureOnThread(explorationBoolArray, "Exploration_data"));
     }
@@ -48,20 +53,14 @@ public class WorldExplorer : MonoBehaviour
         {
             UpdateExplorationData();
         }
-=======
->>>>>>> parent of c198987 (Exploratio Implementation)
-=======
->>>>>>> parent of fe6b937 (Revert "Exploratio Implementation")
     }
 
     void Update()
     {
         PlayerPixelPosition();
         ExplorationDiameterRounding();
-
-        if (createExplorationRadiusBoolArray)
+        if (eraseExplorationData)
         {
-<<<<<<< HEAD
             EraseExplorationData();
         }
         if (createExplorationRadius)
@@ -91,20 +90,12 @@ public class WorldExplorer : MonoBehaviour
         return false;
     }
 
-    public async void UpdateExplorationData()
-    {
-        await Task.Run(() =>
-        {
-            _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data.bin");
-<<<<<<< HEAD
-        });
+    IEnumerator UpdateExplorationData()
+{
+    _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data.bin");
 
-        StartCoroutine(_gws.GenerateTextureOnThread(explorationBoolArray, "Exploration_data"));
-=======
-            _gws.PNGFromBoolArray(explorationBoolArray, "Exploration_data");
-        });
->>>>>>> parent of fe6b937 (Revert "Exploratio Implementation")
-    }
+    yield return StartCoroutine(_gws.PNGFromBoolArrayAsync(explorationBoolArray, "Exploration_data"));
+}
 
     public void RadiusArrayPixelPosition(int x, int y)
     {
@@ -144,20 +135,13 @@ public class WorldExplorer : MonoBehaviour
     }
 
     public void ExplorationRadiusInitialize()
-=======
-            ExplorationRadiusArray();
-        }
-    }
-
-    public void ExplorationRadiusArray()
->>>>>>> parent of c198987 (Exploratio Implementation)
     {
         explorationRadiusBoolArray = new bool[explorationDiameter, explorationDiameter];
-        _worldGenerator.FillArray(explorationRadiusBoolArray, "ExplorationRadius");
+        _worldGenerator.FillArray(explorationRadiusBoolArray, "ExplorationRadius.bin");
         SquareToCircle(explorationRadiusBoolArray);
         _worldGenerator.PrintArray(explorationRadiusBoolArray);
         _worldGenerator.DrawArray(explorationRadiusBoolArray, "ExplorationRadius");
-        createExplorationRadiusBoolArray = false;
+        createExplorationRadius = false;
     }
 
     private void ExplorationDiameterRounding()
@@ -233,14 +217,10 @@ public class WorldExplorer : MonoBehaviour
         else
         {
             Debug.Log("Exploration data not found. Creating empty Exploration data");
-            _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data");
+            _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data.bin");
             AssetDatabase.Refresh();
         }
     }
-
-   
-
-    
 
     public void PlayerPixelPosition()
     {

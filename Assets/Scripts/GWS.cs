@@ -116,7 +116,7 @@ IEnumerator PopulateTextureData(Texture2D texture, bool[,] passedBooleanArray)
 }
 
 
-    public void PNGFromBoolArray(bool[,] passedBooleanArray, string file)
+    public IEnumerator PNGFromBoolArrayAsync(bool[,] passedBooleanArray, string file)
     {
         // Ensure the boolean array is not null
         if (passedBooleanArray == null)
@@ -159,6 +159,7 @@ IEnumerator PopulateTextureData(Texture2D texture, bool[,] passedBooleanArray)
         AssetDatabase.Refresh();
 
         Debug.Log("Image saved as PNG to: " + path);
+         yield return null; // Yield to allow other coroutines to run
     }
 
     public Vector3 TextureToWorld(int texX, int texY)
