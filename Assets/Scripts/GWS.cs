@@ -1,11 +1,6 @@
 using System.IO;
 using UnityEditor;
 using UnityEngine;
-<<<<<<< HEAD
-using UnityEngine.Experimental.Rendering;
-using System.Collections;
-=======
->>>>>>> parent of c198987 (Exploratio Implementation)
 
 //created local git repo
 public class GWS : MonoBehaviour
@@ -67,56 +62,52 @@ public class GWS : MonoBehaviour
         }
     }
 
-    public IEnumerator GenerateTextureOnThread(bool[,] passedBooleanArray, string file)
-{
-    // Create the Texture2D on the main thread
-    Texture2D texture = new Texture2D(
-        passedBooleanArray.GetLength(0),
-        passedBooleanArray.GetLength(1),
-        TextureFormat.RGBA32,
-        false
-    );
-
-    // Start a coroutine to populate the texture data on a separate thread
-    yield return StartCoroutine(PopulateTextureData(texture, passedBooleanArray));
-
-    // Apply changes to the texture on the main thread
-    texture.Apply();
-
-    // Encode and save the PNG on the main thread
-    byte[] pngBytes = ImageConversion.EncodeToPNG(texture);
-    string path = $"Assets/Data/{file}.png";
-    File.WriteAllBytes(path, pngBytes);
-
-    AssetDatabase.Refresh();
-    Debug.Log("Image saved as PNG to: " + path);
-}
-
-IEnumerator PopulateTextureData(Texture2D texture, bool[,] passedBooleanArray)
-{
-    // Get raw texture data on the separate thread
-    var rawTextureData = texture.GetRawTextureData<Color32>();
-
-    // Populate the raw texture data from the boolean array
-    for (int y = 0; y < texture.height; y++)
+    public void EXRFromBoolArray(bool[,] passedBooleanArray, string file)
     {
-        for (int x = 0; x < texture.width; x++)
+        // Ensure the boolean array is not null
+        if (passedBooleanArray == null)
         {
-            rawTextureData[y * texture.width + x] = passedBooleanArray[x, y]
-                ? Color.white
-                : Color.clear;
+            Debug.LogError("Boolean array is null.");
+            return;
         }
+
+        // Create a new texture with the same dimensions as the boolean array
+        Texture2D texture = new Texture2D(
+            passedBooleanArray.GetLength(0),
+            passedBooleanArray.GetLength(1),
+            TextureFormat.RGBAFloat,
+            false
+        );
+
+        // Set each pixel's color based on the boolean array
+        for (int y = 0; y < texture.height; y++)
+        {
+            for (int x = 0; x < texture.width; x++)
+            {
+                Color pixelColor = passedBooleanArray[x, y] ? Color.white : new Color(0, 0, 0, 0); // White for true, transparent for false
+                texture.SetPixel(x, y, pixelColor);
+            }
+        }
+
+        texture.filterMode = FilterMode.Point;
+
+        // Apply changes to the texture
+        texture.Apply();
+
+        // Encode the texture to EXR format
+        byte[] exrBytes = ImageConversion.EncodeToEXR(texture, Texture2D.EXRFlags.CompressZIP);
+
+        // Save the EXR file with the specified file name
+        string path = $"Assets/Data/{file}.exr";
+        File.WriteAllBytes(path, exrBytes);
+
+        // Refresh the asset database to ensure changes are reflected
+        AssetDatabase.Refresh();
+
+        Debug.Log("Image saved as OpenEXR to: " + path);
     }
 
-    // Yield back to the main thread to apply changes
-    yield return null;
-
-    // Copy the modified data back to the texture on the main thread
-    texture.LoadRawTextureData(rawTextureData);
-}
-
-
-    public IEnumerator PNGFromBoolArrayAsync(bool[,] passedBooleanArray, string file)
+    public void PNGFromBoolArray(bool[,] passedBooleanArray, string file)
     {
         // Ensure the boolean array is not null
         if (passedBooleanArray == null)
@@ -159,7 +150,6 @@ IEnumerator PopulateTextureData(Texture2D texture, bool[,] passedBooleanArray)
         AssetDatabase.Refresh();
 
         Debug.Log("Image saved as PNG to: " + path);
-         yield return null; // Yield to allow other coroutines to run
     }
 
     public Vector3 TextureToWorld(int texX, int texY)

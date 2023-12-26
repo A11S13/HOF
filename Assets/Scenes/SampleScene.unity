@@ -732,11 +732,11 @@ MonoBehaviour:
   m_Color: {r: 1, g: 1, b: 1, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
-  m_Maskable: 1
+  m_Maskable: 0
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Texture: {fileID: 2800000, guid: d5be35f1b8ffe2f4b9579a212c4e2e34, type: 3}
+  m_Texture: {fileID: 2800000, guid: 3becf6355209a464fa7025739d1b5313, type: 3}
   m_UVRect:
     serializedVersion: 2
     x: 0
@@ -903,7 +903,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.33208558, g: 0.6698113, b: 0.33174616, a: 1}
+  m_Color: {r: 0, g: 0, b: 0, a: 1}
   m_RaycastTarget: 0
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 0
@@ -1702,7 +1702,7 @@ Transform:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 433032876}
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -1, z: 0}
+  m_LocalPosition: {x: 0, y: -1, z: -100000}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_Children:
   - {fileID: 2239112340433964451}
@@ -2817,14 +2817,15 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 899711103}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 407e513c77992be4c856c69ba90d0723, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  randomizeArrayData: 0
+  randomizeMethod: 0
   numberOfAsteroids: 1000
-  appliedScale: 0
-  texture: {fileID: 0}
+  spawnAsteroid: 0
 --- !u!114 &899711107
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2837,15 +2838,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 60f36ac1b81bf924fb92c5a0cefb46b3, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  explorationTexture: {fileID: 2800000, guid: c8de2b1ef3fefd54ba7ec67c25548ad8, type: 3}
-  randomizeArrayData: 0
-  fillArrayData: 0
-  purgeArrayData: 0
-  printArrayData: 0
-  createExplorationRadiusBoolArray: 0
+  createExplorationRadius: 0
+  eraseExplorationData: 0
+  DrawExploration: 1
   playerTextureCoords: {x: 0, y: 0}
-  initialExplorationRadius: 1.5
+  initialExplorationRadius: 6.6
   explorationDiameter: 0
+  RAPPX: 0
+  RAPPY: 0
 --- !u!1 &907605191
 GameObject:
   m_ObjectHideFlags: 0

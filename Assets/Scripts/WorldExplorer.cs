@@ -14,6 +14,7 @@ public class WorldExplorer : MonoBehaviour
 
     public bool createExplorationRadius = false;
     public bool eraseExplorationData = false;
+    public bool DrawExploration = true;
 
     public Vector2 playerTextureCoords;
     public float initialExplorationRadius = 1.5f;
@@ -43,22 +44,15 @@ public class WorldExplorer : MonoBehaviour
             Mathf.RoundToInt(playerTextureCoords.x),
             Mathf.RoundToInt(playerTextureCoords.y)
         );
+        ArraysCompare();
         UpdateExplorationData();
-        StartCoroutine(_gws.GenerateTextureOnThread(explorationBoolArray, "Exploration_data"));
-    }
-
-    void LateUpdate()
-    {
-        if (PPPChanged())
-        {
-            UpdateExplorationData();
-        }
     }
 
     void Update()
     {
         PlayerPixelPosition();
         ExplorationDiameterRounding();
+
         if (eraseExplorationData)
         {
             EraseExplorationData();
@@ -67,9 +61,9 @@ public class WorldExplorer : MonoBehaviour
         {
             ExplorationRadiusInitialize();
         }
-        ArraysCompare();
         if (PPPChanged())
         {
+            ArraysCompare();
             UpdateExplorationData();
         }
     }
@@ -90,28 +84,35 @@ public class WorldExplorer : MonoBehaviour
         return false;
     }
 
-    IEnumerator UpdateExplorationData()
-{
-    _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data.bin");
-
-    yield return StartCoroutine(_gws.PNGFromBoolArrayAsync(explorationBoolArray, "Exploration_data"));
-}
+    public void UpdateExplorationData()
+    {
+        _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data.bin");
+        if(DrawExploration)
+        {
+        _gws.EXRFromBoolArray(explorationBoolArray, "Exploration_data");
+        }
+    }
 
     public void RadiusArrayPixelPosition(int x, int y)
-    {
-        int ExplorationRadiusCenter = (explorationDiameter - 1) / 2 + 1;
-        int shiftX = ExplorationRadiusCenter - x;
-        int shiftY = ExplorationRadiusCenter - y;
-        int PPPX = Mathf.RoundToInt(playerTextureCoords.x);
-        int PPPY = Mathf.RoundToInt(playerTextureCoords.y);
-        RAPPX = PPPX - shiftX;
-        RAPPY = PPPY - shiftY;
+{
+    int ExplorationRadiusCenter = (explorationDiameter - 1) / 2 + 1;
+    int shiftX = ExplorationRadiusCenter - x;
+    int shiftY = ExplorationRadiusCenter - y;
+    int PPPX = Mathf.RoundToInt(playerTextureCoords.x);
+    int PPPY = Mathf.RoundToInt(playerTextureCoords.y);
+    RAPPX = PPPX - shiftX;
+    RAPPY = PPPY - shiftY;
 
+    // Check if RAPPX and RAPPY are within the bounds of _worldTexture
+    if (RAPPX >= 0 && RAPPX < _worldTexture.width && RAPPY >= 0 && RAPPY < _worldTexture.height)
+    {
         if (!explorationBoolArray[RAPPX, RAPPY])
         {
             explorationBoolArray[RAPPX, RAPPY] = true;
         }
     }
+}
+
 
     public void ArraysCompare()
     {
@@ -130,7 +131,7 @@ public class WorldExplorer : MonoBehaviour
     public void EraseExplorationData()
     {
         _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data.bin");
-        _gws.PNGFromBoolArray(explorationBoolArray, "Exploration_data");
+        _gws.EXRFromBoolArray(explorationBoolArray, "Exploration_data");
         eraseExplorationData = false;
     }
 
