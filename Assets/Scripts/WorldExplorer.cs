@@ -41,6 +41,7 @@ public class WorldExplorer : MonoBehaviour
             Mathf.RoundToInt(playerTextureCoords.x),
             Mathf.RoundToInt(playerTextureCoords.y)
         );
+        UpdateEplorationData();
     }
 
     void Update()
@@ -80,11 +81,8 @@ public class WorldExplorer : MonoBehaviour
 
     public async void UpdateEplorationData()
     {
-        await Task.Run(() =>
-        {
-            _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data.bin");
-            _gws.PNGFromBoolArray(explorationBoolArray, "Exploration_data");
-        });
+        _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data.bin");
+        _gws.PNGFromBoolArray(explorationBoolArray, "Exploration_data");
     }
 
     public void RadiusArrayPixelPosition(int x, int y)
