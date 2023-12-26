@@ -41,6 +41,27 @@ public class GWS : MonoBehaviour
         return 2 * maxDistance / maxTextureExtent; // Multiply by 2 to cover both positive and negative directions
     }
 
+    void ReadAndPlaceGOs()
+    {
+        for (int y = 0; y < worldTexture.height; y++)
+        {
+            for (int x = 0; x < worldTexture.width; x++)
+            {
+                Color pixelColor = worldTexture.GetPixel(x, y);
+
+                if (!pixelColor.a.Equals(0))
+                {
+                    GameObjectType type = DecodeObjectType(pixelColor);
+                    GameObject go = Instantiate(
+                        GetPrefabForObjectType(type),
+                        TextureToWorld(x, y),
+                        Quaternion.identity
+                    );
+                }
+            }
+        }
+    }
+
     public void PNGFromBoolArray(bool[,] passedBooleanArray, string file)
     {
         // Ensure the boolean array is not null
@@ -67,6 +88,8 @@ public class GWS : MonoBehaviour
                 texture.SetPixel(x, y, pixelColor);
             }
         }
+
+        texture.filterMode = FilterMode.Point;
 
         // Apply changes to the texture
         texture.Apply();
@@ -99,27 +122,6 @@ public class GWS : MonoBehaviour
             (worldPos.x / scaleFactor + worldTexture.width / 2f), // Adjust for center and scale
             (worldPos.z / scaleFactor + worldTexture.height / 2f) // Adjust for center, scale, and flip Y
         );
-    }
-
-    void ReadAndPlaceGOs()
-    {
-        for (int y = 0; y < worldTexture.height; y++)
-        {
-            for (int x = 0; x < worldTexture.width; x++)
-            {
-                Color pixelColor = worldTexture.GetPixel(x, y);
-
-                if (!pixelColor.a.Equals(0))
-                {
-                    GameObjectType type = DecodeObjectType(pixelColor);
-                    GameObject go = Instantiate(
-                        GetPrefabForObjectType(type),
-                        TextureToWorld(x, y),
-                        Quaternion.identity
-                    );
-                }
-            }
-        }
     }
 
     public void WritePixelToTexture(Vector2 textureCoords, Color pixelColor)
