@@ -1,6 +1,7 @@
 using System;
 using System.IO;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 
@@ -9,14 +10,18 @@ public class WorldExplorer : MonoBehaviour
     GWS _gws;
     WorldGenerator _worldGenerator;
 
-    public bool createExplorationRadiusBoolArray = false;
+    public bool createExplorationRadius = false;
+    public bool eraseExplorationData = false;
 
     public Vector2 playerTextureCoords;
     public float initialExplorationRadius = 1.5f;
     public bool[,] explorationBoolArray;
     public bool[,] explorationRadiusBoolArray;
     public int explorationDiameter;
+    public int RAPPX;
+    public int RAPPY;
 
+    private Vector2 lastPlayerTextureCoords;
     private float lastInitialExplorationRadius = 1;
     private Texture2D _worldTexture;
     private GameObject _player;
@@ -29,27 +34,104 @@ public class WorldExplorer : MonoBehaviour
         _worldTexture = _gws.worldTexture;
         explorationBoolArray = new bool[_worldTexture.width, _worldTexture.height];
         LoadExplorationData();
+        PlayerPixelPosition();
+        ExplorationDiameterRounding();
+        ExplorationRadiusInitialize();
+        lastPlayerTextureCoords = new Vector2(
+            Mathf.RoundToInt(playerTextureCoords.x),
+            Mathf.RoundToInt(playerTextureCoords.y)
+        );
     }
 
     void Update()
     {
         PlayerPixelPosition();
         ExplorationDiameterRounding();
-
-        if (createExplorationRadiusBoolArray)
+        if (eraseExplorationData)
         {
-            ExplorationRadiusArray();
+            EraseExplorationData();
+        }
+        if (createExplorationRadius)
+        {
+            ExplorationRadiusInitialize();
+        }
+        ArraysCompare();
+        if (PPPChanged())
+        {
+            UpdateEplorationData();
         }
     }
 
-    public void ExplorationRadiusArray()
+    public bool PPPChanged()
+    {
+        Vector2 currentPlayerTextureCoords = new Vector2(
+            Mathf.RoundToInt(playerTextureCoords.x),
+            Mathf.RoundToInt(playerTextureCoords.y)
+        );
+
+        if (currentPlayerTextureCoords != lastPlayerTextureCoords)
+        {
+            lastPlayerTextureCoords = currentPlayerTextureCoords; // Update the last position
+            return true;
+        }
+
+        return false;
+    }
+
+    public async void UpdateEplorationData()
+    {
+        await Task.Run(() =>
+        {
+            _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data.bin");
+            _gws.PNGFromBoolArray(explorationBoolArray, "Exploration_data");
+        });
+    }
+
+    public void RadiusArrayPixelPosition(int x, int y)
+    {
+        int ExplorationRadiusCenter = (explorationDiameter - 1) / 2 + 1;
+        int shiftX = ExplorationRadiusCenter - x;
+        int shiftY = ExplorationRadiusCenter - y;
+        int PPPX = Mathf.RoundToInt(playerTextureCoords.x);
+        int PPPY = Mathf.RoundToInt(playerTextureCoords.y);
+        RAPPX = PPPX - shiftX;
+        RAPPY = PPPY - shiftY;
+
+        if (!explorationBoolArray[RAPPX, RAPPY])
+        {
+            explorationBoolArray[RAPPX, RAPPY] = true;
+        }
+    }
+
+    public void ArraysCompare()
+    {
+        for (int x = 0; x < explorationRadiusBoolArray.GetLength(0); x++)
+        {
+            for (int y = 0; y < explorationRadiusBoolArray.GetLength(1); y++)
+            {
+                if (explorationRadiusBoolArray[x, y] && !explorationBoolArray[x, y])
+                {
+                    RadiusArrayPixelPosition(x, y);
+                }
+            }
+        }
+    }
+
+    public void EraseExplorationData()
+    {
+        _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data.bin");
+        _gws.PNGFromBoolArray(explorationBoolArray, "Exploration_data");
+        eraseExplorationData = false;
+    }
+
+    public void ExplorationRadiusInitialize()
     {
         explorationRadiusBoolArray = new bool[explorationDiameter, explorationDiameter];
-        _worldGenerator.FillArray(explorationRadiusBoolArray, "ExplorationRadius");
+        _worldGenerator.FillArray(explorationRadiusBoolArray, "ExplorationRadius.bin");
         SquareToCircle(explorationRadiusBoolArray);
         _worldGenerator.PrintArray(explorationRadiusBoolArray);
         _worldGenerator.DrawArray(explorationRadiusBoolArray, "ExplorationRadius");
-        createExplorationRadiusBoolArray = false;
+        createExplorationRadius = false;
     }
 
     private void ExplorationDiameterRounding()
@@ -125,14 +207,10 @@ public class WorldExplorer : MonoBehaviour
         else
         {
             Debug.Log("Exploration data not found. Creating empty Exploration data");
-            _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data");
+            _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data.bin");
             AssetDatabase.Refresh();
         }
     }
-
-   
-
-    
 
     public void PlayerPixelPosition()
     {
