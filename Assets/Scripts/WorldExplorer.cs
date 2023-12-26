@@ -41,7 +41,16 @@ public class WorldExplorer : MonoBehaviour
             Mathf.RoundToInt(playerTextureCoords.x),
             Mathf.RoundToInt(playerTextureCoords.y)
         );
-        UpdateEplorationData();
+        UpdateExplorationData();
+        StartCoroutine(_gws.GenerateTextureOnThread(explorationBoolArray, "Exploration_data"));
+    }
+
+    void LateUpdate()
+    {
+        if (PPPChanged())
+        {
+            UpdateExplorationData();
+        }
     }
 
     void Update()
@@ -59,7 +68,7 @@ public class WorldExplorer : MonoBehaviour
         ArraysCompare();
         if (PPPChanged())
         {
-            UpdateEplorationData();
+            UpdateExplorationData();
         }
     }
 
@@ -79,10 +88,14 @@ public class WorldExplorer : MonoBehaviour
         return false;
     }
 
-    public async void UpdateEplorationData()
+    public async void UpdateExplorationData()
     {
-        _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data.bin");
-        _gws.PNGFromBoolArray(explorationBoolArray, "Exploration_data");
+        await Task.Run(() =>
+        {
+            _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data.bin");
+        });
+
+        StartCoroutine(_gws.GenerateTextureOnThread(explorationBoolArray, "Exploration_data"));
     }
 
     public void RadiusArrayPixelPosition(int x, int y)
