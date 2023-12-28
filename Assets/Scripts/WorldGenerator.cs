@@ -40,7 +40,7 @@ public class WorldGenerator : MonoBehaviour
     {
         if (spawnAsteroid)
         {
-            SpawnRandomAsteroids();
+            //SpawnRandomAsteroids();
             spawnAsteroid = false;
         }
         if (randomizeArrayData)
@@ -51,7 +51,7 @@ public class WorldGenerator : MonoBehaviour
 
     public void RandomizeSector(int x, int y) { }
 
-    void SpawnRandomAsteroids()
+    /*void SpawnRandomAsteroids()
     {
         for (int i = 0; i < numberOfAsteroids; i++)
         {
@@ -82,7 +82,7 @@ public class WorldGenerator : MonoBehaviour
         }
 
         _gws.SaveWorldTexture();
-    }
+    }*/
 
     public void SaveArrayData(bool[,] passedBooleanArray, string file)
     {
@@ -128,27 +128,6 @@ public class WorldGenerator : MonoBehaviour
         Debug.Log("Boolean array saved to: " + path);
     }
 
-    public void FillArray(bool[,] passedBooleanArray, string file)
-    {
-        // Fill the array with ones
-        for (int y = 0; y < passedBooleanArray.GetLength(1); y++)
-        {
-            for (int x = 0; x < passedBooleanArray.GetLength(0); x++)
-            {
-                passedBooleanArray[x, y] = true;
-            }
-        }
-
-        // Save the modified array
-        SaveArrayData(passedBooleanArray, file);
-    }
-
-    private double NextLCGValue()
-    {
-        lcgSeed = (lcgA * lcgSeed + lcgC) % lcgM;
-        return lcgSeed / lcgM;
-    }
-
     private void RandomizeArrayLCG(bool[,] passedBooleanArray, string file)
     {
         for (int y = 0; y < passedBooleanArray.GetLength(1); y++)
@@ -162,6 +141,12 @@ public class WorldGenerator : MonoBehaviour
 
         SaveArrayData(passedBooleanArray, file); // Pass the array to SaveArrayData
         randomizeArrayData = false;
+    }
+
+    private double NextLCGValue()
+    {
+        lcgSeed = (lcgA * lcgSeed + lcgC) % lcgM;
+        return lcgSeed / lcgM;
     }
 
     private void RandomizeArrayCrypto(bool[,] passedBooleanArray, string file)
@@ -230,6 +215,21 @@ public class WorldGenerator : MonoBehaviour
 
         DrawArray(passedBooleanArray, file);
         randomizeArrayData = false;
+    }
+
+    public void FillArray(bool[,] passedBooleanArray, string file)
+    {
+        // Fill the array with ones
+        for (int y = 0; y < passedBooleanArray.GetLength(1); y++)
+        {
+            for (int x = 0; x < passedBooleanArray.GetLength(0); x++)
+            {
+                passedBooleanArray[x, y] = true;
+            }
+        }
+
+        // Save the modified array
+        SaveArrayData(passedBooleanArray, file);
     }
 
     public void PurgeArray(bool[,] passedBooleanArray, string file)

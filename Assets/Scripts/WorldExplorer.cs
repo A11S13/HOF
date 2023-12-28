@@ -4,8 +4,10 @@ using System.Security.Cryptography;
 using System.Threading.Tasks;
 using Unity.Burst;
 using Unity.Jobs;
-using UnityEditor;
 using UnityEngine;
+#if UNITY_EDITOR
+    using UnityEditor;
+#endif
 
 public class WorldExplorer : MonoBehaviour
 {
@@ -87,32 +89,31 @@ public class WorldExplorer : MonoBehaviour
     public void UpdateExplorationData()
     {
         _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data.bin");
-        if(DrawExploration)
+        if (DrawExploration)
         {
-        _gws.EXRFromBoolArray(explorationBoolArray, "Exploration_data");
+            _gws.EXRFromBoolArray(explorationBoolArray, "Exploration_data");
         }
     }
 
     public void RadiusArrayPixelPosition(int x, int y)
-{
-    int ExplorationRadiusCenter = (explorationDiameter - 1) / 2 + 1;
-    int shiftX = ExplorationRadiusCenter - x;
-    int shiftY = ExplorationRadiusCenter - y;
-    int PPPX = Mathf.RoundToInt(playerTextureCoords.x);
-    int PPPY = Mathf.RoundToInt(playerTextureCoords.y);
-    RAPPX = PPPX - shiftX;
-    RAPPY = PPPY - shiftY;
-
-    // Check if RAPPX and RAPPY are within the bounds of _worldTexture
-    if (RAPPX >= 0 && RAPPX < _worldTexture.width && RAPPY >= 0 && RAPPY < _worldTexture.height)
     {
-        if (!explorationBoolArray[RAPPX, RAPPY])
+        int ExplorationRadiusCenter = (explorationDiameter - 1) / 2 + 1;
+        int shiftX = ExplorationRadiusCenter - x;
+        int shiftY = ExplorationRadiusCenter - y;
+        int PPPX = Mathf.RoundToInt(playerTextureCoords.x);
+        int PPPY = Mathf.RoundToInt(playerTextureCoords.y);
+        RAPPX = PPPX - shiftX;
+        RAPPY = PPPY - shiftY;
+
+        // Check if RAPPX and RAPPY are within the bounds of _worldTexture
+        if (RAPPX >= 0 && RAPPX < _worldTexture.width && RAPPY >= 0 && RAPPY < _worldTexture.height)
         {
-            explorationBoolArray[RAPPX, RAPPY] = true;
+            if (!explorationBoolArray[RAPPX, RAPPY])
+            {
+                explorationBoolArray[RAPPX, RAPPY] = true;
+            }
         }
     }
-}
-
 
     public void ArraysCompare()
     {
@@ -219,7 +220,9 @@ public class WorldExplorer : MonoBehaviour
         {
             Debug.Log("Exploration data not found. Creating empty Exploration data");
             _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data.bin");
+#if UNITY_EDITOR
             AssetDatabase.Refresh();
+#endif
         }
     }
 

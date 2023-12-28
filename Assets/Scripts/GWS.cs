@@ -1,7 +1,8 @@
 using System.IO;
-using UnityEditor;
 using UnityEngine;
-
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 //created local git repo
 public class GWS : MonoBehaviour
 {
@@ -101,8 +102,9 @@ public class GWS : MonoBehaviour
         string path = $"Assets/Data/{file}.exr";
         File.WriteAllBytes(path, exrBytes);
 
-        // Refresh the asset database to ensure changes are reflected
+#if UNITY_EDITOR
         AssetDatabase.Refresh();
+#endif
 
         Debug.Log("Image saved as OpenEXR to: " + path);
     }
@@ -146,10 +148,38 @@ public class GWS : MonoBehaviour
         string path = $"Assets/Data/{file}.png";
         File.WriteAllBytes(path, pngBytes);
 
-        // Refresh the asset database to ensure changes are reflected
+#if UNITY_EDITOR
         AssetDatabase.Refresh();
+#endif
 
         Debug.Log("Image saved as PNG to: " + path);
+    }
+
+    public void WritePixelToTexture(Vector2 textureCoords, Color pixelColor)
+    {
+        int texX = Mathf.RoundToInt(textureCoords.x);
+        int texY = Mathf.RoundToInt(worldTexture.height - textureCoords.y) - 1; // Adjust Y-coordinate
+
+        if (texX >= 0 && texX < worldTexture.width && texY >= 0 && texY < worldTexture.height)
+        {
+            worldTexture.SetPixel(texX, texY, pixelColor);
+            worldTexture.Apply();
+        }
+    }
+
+    public void SaveTexture()
+    {
+        worldTexture.Apply();
+        byte[] pngBytes = ImageConversion.EncodeToPNG(worldTexture);
+        string filePath = Path.Combine(Application.persistentDataPath, "worldTexture.png");
+        File.WriteAllBytes(filePath, pngBytes);
+
+#if UNITY_EDITOR
+        // Only refresh the AssetDatabase in the Unity Editor
+        UnityEditor.AssetDatabase.Refresh();
+#endif
+
+        Debug.Log("WorldTexture saved");
     }
 
     public Vector3 TextureToWorld(int texX, int texY)
@@ -167,28 +197,6 @@ public class GWS : MonoBehaviour
             (worldPos.x / scaleFactor + worldTexture.width / 2f), // Adjust for center and scale
             (worldPos.z / scaleFactor + worldTexture.height / 2f) // Adjust for center, scale, and flip Y
         );
-    }
-
-    public void WritePixelToTexture(Vector2 textureCoords, Color pixelColor)
-    {
-        int texX = Mathf.RoundToInt(textureCoords.x);
-        int texY = Mathf.RoundToInt(worldTexture.height - textureCoords.y) - 1; // Adjust Y-coordinate
-
-        if (texX >= 0 && texX < worldTexture.width && texY >= 0 && texY < worldTexture.height)
-        {
-            worldTexture.SetPixel(texX, texY, pixelColor);
-            worldTexture.Apply();
-        }
-    }
-
-    public void SaveWorldTexture()
-    {
-        worldTexture.Apply();
-        byte[] pngBytes = ImageConversion.EncodeToPNG(worldTexture);
-        File.WriteAllBytes(AssetDatabase.GetAssetPath(worldTexture), pngBytes);
-        AssetDatabase.Refresh();
-
-        Debug.Log("WorldTexture saved");
     }
 
     GameObjectType DecodeObjectType(Color pixelColor)
