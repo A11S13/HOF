@@ -5,6 +5,7 @@ using UnityEngine;
 
 public class ChaosGenerator : MonoBehaviour
 {
+    RandomSounds _rs;
     public float xRotation { get; private set; }
     public float yRotation { get; private set; }
     public float zRotation { get; private set; }
@@ -40,6 +41,7 @@ public class ChaosGenerator : MonoBehaviour
     private char[] prevResult = new char[5];
 
     public Gyroscope _gyro;
+    private CanvasDebug _canvasDebug;
 
     void Awake()
     {
@@ -58,6 +60,9 @@ public class ChaosGenerator : MonoBehaviour
 
     void Start()
     {
+        
+
+        _rs = GetComponent<RandomSounds>();
         StartCoroutine(InitializeGyro());
         previousValue = _gyro.attitude.x;
         value = previousValue;
@@ -65,8 +70,8 @@ public class ChaosGenerator : MonoBehaviour
 
     void Update()
     {
-        //ProcessGyroData();
-        ProcessSingleGyroData();
+        ProcessGyroData();
+        //ProcessSingleGyroData();
     }
 
     void ProcessGyroData()
@@ -108,7 +113,7 @@ public class ChaosGenerator : MonoBehaviour
         extractedNumbers.Add(ExtractNumber(Input.gyro.userAcceleration.z));
     }
 
-    private char[] ExtractNumber(float value)
+    public char[] ExtractNumber(float value)
     {
         value = Math.Abs(value);
         char[] result = new char[5];
@@ -129,7 +134,6 @@ public class ChaosGenerator : MonoBehaviour
             while (lastIndex >= 0 && charValue[lastIndex] == '0')
             {
                 lastIndex--;
-                Debug.Log("LI " + lastIndex);
             }
             if (lastIndex < 6)
             {
@@ -137,10 +141,10 @@ public class ChaosGenerator : MonoBehaviour
                 {
                     result[i] = charValue[lastIndex - i];
                 }
-                for (int i =0; i < 5; i++)
+                for (int i = 0; i < 5; i++)
                 {
                     if (result[i] == default(char))
-                    result[i] = '0';
+                        result[i] = '0';
                 }
             }
             else
@@ -157,13 +161,15 @@ public class ChaosGenerator : MonoBehaviour
             matches++;
             Debug.Log("OOOPS, MATCH! " + string.Join("", prevResult));
         }
+        Extracted = result;
         prevResult = result;
+        _rs.PlaySound(result);
         return result;
     }
 
     void ProcessSingleGyroData()
     {
-        value = 1.0f;
+        //value = 1.0f;
         if (_gyro != null && value != 0)
         {
             if (!isWaiting)

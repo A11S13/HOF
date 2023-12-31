@@ -49,41 +49,6 @@ public class WorldGenerator : MonoBehaviour
         }
     }
 
-    public void RandomizeSector(int x, int y) { }
-
-    /*void SpawnRandomAsteroids()
-    {
-        for (int i = 0; i < numberOfAsteroids; i++)
-        {
-            // Generate random position within the desired world range
-            float randomX =
-                UnityEngine.Random.Range(
-                    -_gws.worldTexture.width / 2f,
-                    _gws.worldTexture.width / 2f
-                ) * _gws.scaleFactor;
-            float randomZ =
-                UnityEngine.Random.Range(
-                    -_gws.worldTexture.height / 2f,
-                    _gws.worldTexture.height / 2f
-                ) * _gws.scaleFactor;
-
-            Vector3 asteroidPosition = new Vector3(randomX, 0f, randomZ);
-
-            // Instantiate the asteroid prefab
-            GameObject asteroid = Instantiate(
-                _gws.asteroidPrefab,
-                asteroidPosition,
-                Quaternion.identity
-            );
-
-            // Convert the asteroid's position to texture coordinates and write to the texture
-            Vector2 textureCoords = _gws.WorldToTexture(asteroidPosition);
-            _gws.WritePixelToTexture(textureCoords, Color.grey);
-        }
-
-        _gws.SaveWorldTexture();
-    }*/
-
     public void SaveArrayData(bool[,] passedBooleanArray, string file)
     {
         Debug.Log("SAVING BINARY DATA");
@@ -118,14 +83,39 @@ public class WorldGenerator : MonoBehaviour
         }
 
         // Save the byte array to a file in the "Data" folder
-        string path = Path.Combine("Assets/Data", file);
+        string filePath = Path.Combine(GWS.fullPath, file);
 
-        using (FileStream fileStream = new FileStream(path, FileMode.Create))
+        using (FileStream fileStream = new FileStream(filePath, FileMode.Create))
         {
             fileStream.Write(bytes, 0, byteCount);
         }
 
-        Debug.Log("Boolean array saved to: " + path);
+        Debug.Log("Boolean array saved to: " + filePath);
+    }
+
+    public void RandomizeSector(int x, int y) { }
+
+    private void RandomizeArray(bool[,] passedBooleanArray, RandomizeMethod method, string file)
+    {
+        switch (method)
+        {
+            case RandomizeMethod.LCG:
+                RandomizeArrayLCG(passedBooleanArray, file);
+                break;
+            case RandomizeMethod.Crypto:
+                RandomizeArrayCrypto(passedBooleanArray, file);
+                break;
+            case RandomizeMethod.Simple:
+                RandomizeArraySimple(passedBooleanArray, file);
+                break;
+            default:
+                // Handle unexpected value or provide a default method
+                Debug.LogWarning("Unexpected randomization method: " + method);
+                break;
+        }
+
+        DrawArray(passedBooleanArray, file);
+        randomizeArrayData = false;
     }
 
     private void RandomizeArrayLCG(bool[,] passedBooleanArray, string file)
@@ -194,29 +184,6 @@ public class WorldGenerator : MonoBehaviour
         randomizeArrayData = false; // Set randomizeArrayData to false here
     }
 
-    private void RandomizeArray(bool[,] passedBooleanArray, RandomizeMethod method, string file)
-    {
-        switch (method)
-        {
-            case RandomizeMethod.LCG:
-                RandomizeArrayLCG(passedBooleanArray, file);
-                break;
-            case RandomizeMethod.Crypto:
-                RandomizeArrayCrypto(passedBooleanArray, file);
-                break;
-            case RandomizeMethod.Simple:
-                RandomizeArraySimple(passedBooleanArray, file);
-                break;
-            default:
-                // Handle unexpected value or provide a default method
-                Debug.LogWarning("Unexpected randomization method: " + method);
-                break;
-        }
-
-        DrawArray(passedBooleanArray, file);
-        randomizeArrayData = false;
-    }
-
     public void FillArray(bool[,] passedBooleanArray, string file)
     {
         // Fill the array with ones
@@ -246,6 +213,11 @@ public class WorldGenerator : MonoBehaviour
         SaveArrayData(passedBooleanArray, file); // Pass the array to SaveArrayData
     }
 
+    public void DrawArray(bool[,] passedBooleanArray, string file)
+    {
+        _gws.PNGFromBoolArray(passedBooleanArray, file);
+    }
+
     public void PrintArray(bool[,] passedBooleanArray)
     {
         Debug.Log("Printing Boolean Array:");
@@ -269,8 +241,36 @@ public class WorldGenerator : MonoBehaviour
         Debug.Log(matrixStringBuilder.ToString());
     }
 
-    public void DrawArray(bool[,] passedBooleanArray, string file)
-    {
-        _gws.PNGFromBoolArray(passedBooleanArray, file);
-    }
+    /*void SpawnRandomAsteroids()
+        {
+            for (int i = 0; i < numberOfAsteroids; i++)
+            {
+                // Generate random position within the desired world range
+                float randomX =
+                    UnityEngine.Random.Range(
+                        -_gws.worldTexture.width / 2f,
+                        _gws.worldTexture.width / 2f
+                    ) * _gws.scaleFactor;
+                float randomZ =
+                    UnityEngine.Random.Range(
+                        -_gws.worldTexture.height / 2f,
+                        _gws.worldTexture.height / 2f
+                    ) * _gws.scaleFactor;
+    
+                Vector3 asteroidPosition = new Vector3(randomX, 0f, randomZ);
+    
+                // Instantiate the asteroid prefab
+                GameObject asteroid = Instantiate(
+                    _gws.asteroidPrefab,
+                    asteroidPosition,
+                    Quaternion.identity
+                );
+    
+                // Convert the asteroid's position to texture coordinates and write to the texture
+                Vector2 textureCoords = _gws.WorldToTexture(asteroidPosition);
+                _gws.WritePixelToTexture(textureCoords, Color.grey);
+            }
+    
+            _gws.SaveWorldTexture();
+        }*/
 }

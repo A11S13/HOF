@@ -44,8 +44,13 @@ public class Turret : MonoBehaviour
     void Update()
     {
         HandleTurretRotation();
-        HandleFire();
+        
         // Add other turret-related functionality here if needed
+    }
+
+    void FixedUpdate()
+    {
+        HandleFire();
     }
 
     public void UpdateFirePower(float weaponsDistributedEnergy)

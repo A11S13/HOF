@@ -6,7 +6,7 @@ using Unity.Burst;
 using Unity.Jobs;
 using UnityEngine;
 #if UNITY_EDITOR
-    using UnityEditor;
+using UnityEditor;
 #endif
 
 public class WorldExplorer : MonoBehaviour
@@ -70,32 +70,64 @@ public class WorldExplorer : MonoBehaviour
         }
     }
 
-    public bool PPPChanged()
-    {
-        Vector2 currentPlayerTextureCoords = new Vector2(
-            Mathf.RoundToInt(playerTextureCoords.x),
-            Mathf.RoundToInt(playerTextureCoords.y)
-        );
-
-        if (currentPlayerTextureCoords != lastPlayerTextureCoords)
-        {
-            lastPlayerTextureCoords = currentPlayerTextureCoords; // Update the last position
-            return true;
-        }
-
-        return false;
-    }
-
     public void UpdateExplorationData()
     {
         _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data.bin");
         if (DrawExploration)
         {
-            _gws.EXRFromBoolArray(explorationBoolArray, "Exploration_data");
+            _gws.PNGFromBoolArray(explorationBoolArray, "Exploration_data");
+            _gws._mapLoader.LoadAndAssignTexture();
         }
     }
 
-    public void RadiusArrayPixelPosition(int x, int y)
+    private void LoadExplorationData()
+    {
+        Debug.Log("LOADING BINARY DATA");
+        string filePath = Path.Combine(GWS.fullPath, "Exploration_data.bin");
+        //string filePath = Path.Combine(Application.persistentDataPath, "Exploration_data.bin");
+        if (File.Exists(filePath))
+        {
+            using (FileStream fileStream = new FileStream(filePath, FileMode.Open))
+            {
+                byte[] bytes = new byte[explorationBoolArray.Length / 8];
+                fileStream.Read(bytes, 0, bytes.Length);
+                // Unpack bytes into the boolean array
+                int byteIndex = 0;
+                int bitIndex = 0;
+                for (int y = 0; y < _worldTexture.height; y++)
+                {
+                    for (int x = 0; x < _worldTexture.width; x++)
+                    {
+                        explorationBoolArray[x, y] = (bytes[byteIndex] & (1 << bitIndex)) != 0;
+
+                        bitIndex++;
+                        if (bitIndex == 8)
+                        {
+                            bitIndex = 0;
+                            byteIndex++;
+                        }
+                    }
+                }
+            }
+        }
+        else
+        {
+            Debug.Log("Exploration data not found. Creating empty Exploration data");
+            _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data.bin");
+#if UNITY_EDITOR
+            AssetDatabase.Refresh();
+#endif
+        }
+    }
+
+    public void EraseExplorationData()
+    {
+        _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data.bin");
+        _gws.PNGFromBoolArray(explorationBoolArray, "Exploration_data");
+        eraseExplorationData = false;
+    }
+
+    public void RadiusArrayPixelPosition(int x, int y) //Updates Exploration Array by Exploration Radius
     {
         int ExplorationRadiusCenter = (explorationDiameter - 1) / 2 + 1;
         int shiftX = ExplorationRadiusCenter - x;
@@ -108,7 +140,7 @@ public class WorldExplorer : MonoBehaviour
         // Check if RAPPX and RAPPY are within the bounds of _worldTexture
         if (RAPPX >= 0 && RAPPX < _worldTexture.width && RAPPY >= 0 && RAPPY < _worldTexture.height)
         {
-            if (!explorationBoolArray[RAPPX, RAPPY])
+            if (!explorationBoolArray[RAPPX, RAPPY]) // is Unexplored
             {
                 explorationBoolArray[RAPPX, RAPPY] = true;
             }
@@ -127,13 +159,6 @@ public class WorldExplorer : MonoBehaviour
                 }
             }
         }
-    }
-
-    public void EraseExplorationData()
-    {
-        _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data.bin");
-        _gws.EXRFromBoolArray(explorationBoolArray, "Exploration_data");
-        eraseExplorationData = false;
     }
 
     public void ExplorationRadiusInitialize()
@@ -187,43 +212,20 @@ public class WorldExplorer : MonoBehaviour
         }
     }
 
-    private void LoadExplorationData()
+    public bool PPPChanged()
     {
-        Debug.Log("LOADING BINARY DATA");
-        string filePath = "Assets/Data/Exploration_data.bin";
-        if (File.Exists(filePath))
-        {
-            using (FileStream fileStream = new FileStream(filePath, FileMode.Open))
-            {
-                byte[] bytes = new byte[explorationBoolArray.Length / 8];
-                fileStream.Read(bytes, 0, bytes.Length);
-                // Unpack bytes into the boolean array
-                int byteIndex = 0;
-                int bitIndex = 0;
-                for (int y = 0; y < _worldTexture.height; y++)
-                {
-                    for (int x = 0; x < _worldTexture.width; x++)
-                    {
-                        explorationBoolArray[x, y] = (bytes[byteIndex] & (1 << bitIndex)) != 0;
+        Vector2 currentPlayerTextureCoords = new Vector2(
+            Mathf.RoundToInt(playerTextureCoords.x),
+            Mathf.RoundToInt(playerTextureCoords.y)
+        );
 
-                        bitIndex++;
-                        if (bitIndex == 8)
-                        {
-                            bitIndex = 0;
-                            byteIndex++;
-                        }
-                    }
-                }
-            }
-        }
-        else
+        if (currentPlayerTextureCoords != lastPlayerTextureCoords)
         {
-            Debug.Log("Exploration data not found. Creating empty Exploration data");
-            _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data.bin");
-#if UNITY_EDITOR
-            AssetDatabase.Refresh();
-#endif
+            lastPlayerTextureCoords = currentPlayerTextureCoords; // Update the last position
+            return true;
         }
+
+        return false;
     }
 
     public void PlayerPixelPosition()

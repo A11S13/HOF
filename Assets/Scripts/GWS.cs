@@ -6,6 +6,9 @@ using UnityEditor;
 //created local git repo
 public class GWS : MonoBehaviour
 {
+    public MapLoader _mapLoader;
+    public static string dataFolder = "Assets/Data/";
+    public static string fullPath;
     public GameObject centralMindPrefab;
     public GameObject asteroidPrefab;
 
@@ -21,12 +24,19 @@ public class GWS : MonoBehaviour
 
     void Awake()
     {
+#if UNITY_EDITOR
+        fullPath = dataFolder;
+#else
+        fullPath = Application.persistentDataPath;
+#endif
         // Calculate the scale factor based on the world texture dimensions
         scaleFactor = CalculateScaleFactor();
     }
 
     void Start()
     {
+        Canvas canvas = FindObjectOfType<Canvas>();
+        _mapLoader = canvas.GetComponentInChildren<MapLoader>();
         ReadAndPlaceGOs();
     }
 
@@ -99,14 +109,14 @@ public class GWS : MonoBehaviour
         byte[] exrBytes = ImageConversion.EncodeToEXR(texture, Texture2D.EXRFlags.CompressZIP);
 
         // Save the EXR file with the specified file name
-        string path = $"Assets/Data/{file}.exr";
-        File.WriteAllBytes(path, exrBytes);
+        string filePath = Path.Combine(fullPath, $"{file}.exr");
+        File.WriteAllBytes(filePath, exrBytes);
 
 #if UNITY_EDITOR
         AssetDatabase.Refresh();
 #endif
 
-        Debug.Log("Image saved as OpenEXR to: " + path);
+        Debug.Log("Image saved as OpenEXR to: " + filePath);
     }
 
     public void PNGFromBoolArray(bool[,] passedBooleanArray, string file)
@@ -145,14 +155,14 @@ public class GWS : MonoBehaviour
         byte[] pngBytes = ImageConversion.EncodeToPNG(texture);
 
         // Save the PNG file with the specified file name
-        string path = $"Assets/Data/{file}.png";
-        File.WriteAllBytes(path, pngBytes);
+        string filePath = Path.Combine(fullPath, $"{file}.png");
+        File.WriteAllBytes(filePath, pngBytes);
 
 #if UNITY_EDITOR
         AssetDatabase.Refresh();
 #endif
 
-        Debug.Log("Image saved as PNG to: " + path);
+        Debug.Log("Image saved as PNG to: " + filePath);
     }
 
     public void WritePixelToTexture(Vector2 textureCoords, Color pixelColor)

@@ -3,19 +3,21 @@ using UnityEngine;
 
 public class CanvasDebug : MonoBehaviour
 {
-    private Gyroscope _gyro;
-    // Start is called before the first frame update
+    private Text textComponent;
+
     void Start()
     {
-        ChaosGenerator _chaosGenerator = FindObjectOfType<ChaosGenerator>();
-        _gyro = Input.gyro;
-        
+        textComponent = GetComponent<Text>();
     }
 
-    // Update is called once per frame
     void Update()
     {
-        Text textComponent = GetComponent<Text>();
-        textComponent.text = "Gyro Attitude X: " + _gyro.attitude.x.ToString("F12");
+        textComponent.text = "ROLLING";
+    }
+
+    public void ShowResult(char[] result)
+    {
+        // Update the textComponent with the passed result
+        textComponent.text = new string(result);
     }
 }
