@@ -54,14 +54,17 @@ public class ChaosGenerator : MonoBehaviour
         {
             _gyro = null;
         }
+        _canvasDebug = GameObject
+            .Find("Canvas")
+            ?.transform
+            .Find("DEBUG")
+            ?.GetComponent<CanvasDebug>();
 
         extractedNumbers = new List<char[]>();
     }
 
     void Start()
     {
-        
-
         _rs = GetComponent<RandomSounds>();
         StartCoroutine(InitializeGyro());
         previousValue = _gyro.attitude.x;
@@ -95,26 +98,27 @@ public class ChaosGenerator : MonoBehaviour
     void ExtractAllNumbers()
     {
         extractedNumbers.Clear();
-        extractedNumbers.Add(ExtractNumber(Input.gyro.attitude.x));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.attitude.y));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.attitude.z));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.attitude.w));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.rotationRate.x));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.rotationRate.y));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.rotationRate.z));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.rotationRateUnbiased.x));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.rotationRateUnbiased.y));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.rotationRateUnbiased.z));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.gravity.x));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.gravity.y));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.gravity.z));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.userAcceleration.x));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.userAcceleration.y));
-        extractedNumbers.Add(ExtractNumber(Input.gyro.userAcceleration.z));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.attitude.x, "AX"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.attitude.y, "AY"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.attitude.z, "AZ"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.attitude.w, "AW"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.rotationRate.x, "RX"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.rotationRate.y, "RY"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.rotationRate.z, "RZ"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.rotationRateUnbiased.x, "UX"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.rotationRateUnbiased.y, "UY"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.rotationRateUnbiased.z, "UZ"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.gravity.x, "GX"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.gravity.y, "GY"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.gravity.z, "GZ"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.userAcceleration.x, "CX"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.userAcceleration.y, "CY"));
+        extractedNumbers.Add(ExtractNumber(Input.gyro.userAcceleration.z, "CZ"));
     }
 
-    public char[] ExtractNumber(float value)
+    public char[] ExtractNumber(float value, string name)
     {
+
         value = Math.Abs(value);
         char[] result = new char[5];
         char[] prevResult = new char[5];
@@ -155,7 +159,7 @@ public class ChaosGenerator : MonoBehaviour
                 }
             }
         }
-        Reverse5Digits(result);
+        Reverse5Digits(result, name);
         if (Match5Digits(prevResult, result))
         {
             matches++;
@@ -163,7 +167,8 @@ public class ChaosGenerator : MonoBehaviour
         }
         Extracted = result;
         prevResult = result;
-        _rs.PlaySound(result);
+        _canvasDebug.ShowResult(result);
+        
         return result;
     }
 
@@ -176,7 +181,7 @@ public class ChaosGenerator : MonoBehaviour
             {
                 if (!Mathf.Approximately(previousValue, value))
                 {
-                    char[] extractedXRotation = ExtractNumber(value);
+                    char[] extractedXRotation = ExtractNumber(value, "RX");
                     Extracted = extractedXRotation;
                     previousValue = value;
                 }
@@ -204,10 +209,12 @@ public class ChaosGenerator : MonoBehaviour
         return matchedCount == 5; // Return true only if all 5 digits match
     }
 
-    private char[] Reverse5Digits(char[] array)
+    private char[] Reverse5Digits(char[] array, string name)
     {
-        if (CheckAllElementsEqual(array))
+        if (CheckAllElementsEqual(array, name))
         {
+            _rs.PlaySound(array);
+            _canvasDebug.ShowMatched(array, name);
             lastBeautyNumber = array;
             lastBeautyValue = value;
             beautyNumbers++;
@@ -232,7 +239,7 @@ public class ChaosGenerator : MonoBehaviour
         return array;
     }
 
-    private bool CheckAllElementsEqual(char[] array)
+    private bool CheckAllElementsEqual(char[] array, string name)
     {
         return array[0] == array[1]
             && array[1] == array[2]

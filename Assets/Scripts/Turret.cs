@@ -11,7 +11,8 @@ public class Turret : MonoBehaviour
     private Transform projectileSpawnPoint;
 
     // Adjustable parameters for firing rate
-    public float fireRate = 1.0f;  // Adjust as needed
+    public float initialFireRate = 40f;
+    [SerializeField] private float fireRate; // Adjust as needed
     private float nextFireTime;
 
     // Projectile prefab reference
@@ -32,7 +33,9 @@ public class Turret : MonoBehaviour
 
             if (turretJoystick == null)
             {
-                Debug.LogError("FixedJoystick component not found on the GameObject with tag 'TurretJoystick'");
+                Debug.LogError(
+                    "FixedJoystick component not found on the GameObject with tag 'TurretJoystick'"
+                );
             }
         }
         else
@@ -44,18 +47,13 @@ public class Turret : MonoBehaviour
     void Update()
     {
         HandleTurretRotation();
-        
+
         // Add other turret-related functionality here if needed
     }
 
     void FixedUpdate()
     {
         HandleFire();
-    }
-
-    public void UpdateFirePower(float weaponsDistributedEnergy)
-    {
-        fireRate = weaponsDistributedEnergy * 0.1f;
     }
 
     void FindProjectileSpawnPoint()
@@ -66,33 +64,52 @@ public class Turret : MonoBehaviour
         // Check if the spawnPointObject is found
         if (projectileSpawnPoint == null)
         {
-            Debug.LogError("ProjectileSpawnPoint not found as a child of the turret. Make sure to set up the hierarchy correctly.");
+            Debug.LogError(
+                "ProjectileSpawnPoint not found as a child of the turret. Make sure to set up the hierarchy correctly."
+            );
         }
     }
 
     void HandleTurretRotation()
-{
-    Vector3 turretDirection = new Vector3(turretJoystick.Direction.x, 0, turretJoystick.Direction.y);
-
-    // Check if the turret joystick is touched outside the dead zone
-    if (turretDirection.magnitude > turretJoystick.DeadZone)
     {
-        // Check if the joystick is touched outside the dead zone for rotation
-        if (turretDirection.magnitude > rotationDeadZone)
-        {
-            float angle = Vector3.SignedAngle(Vector3.forward, turretDirection, Vector3.up);
-            Quaternion targetRotation = Quaternion.Euler(0f, angle, 0f);
+        Vector3 turretDirection = new Vector3(
+            turretJoystick.Direction.x,
+            0,
+            turretJoystick.Direction.y
+        );
 
-            // Smoothly rotate the turret
-            transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, Time.deltaTime * rotationSpeed);
+        // Check if the turret joystick is touched outside the dead zone
+        if (turretDirection.magnitude > turretJoystick.DeadZone)
+        {
+            // Check if the joystick is touched outside the dead zone for rotation
+            if (turretDirection.magnitude > rotationDeadZone)
+            {
+                float angle = Vector3.SignedAngle(Vector3.forward, turretDirection, Vector3.up);
+                Quaternion targetRotation = Quaternion.Euler(0f, angle, 0f);
+
+                // Smoothly rotate the turret
+                transform.rotation = Quaternion.Slerp(
+                    transform.rotation,
+                    targetRotation,
+                    Time.deltaTime * rotationSpeed
+                );
+            }
         }
     }
-}
+
+    public void UpdateFirePower(float weaponsDistributedEnergy)
+    {
+        fireRate = initialFireRate * weaponsDistributedEnergy * 0.01f + 2f;
+    }
 
     void HandleFire()
     {
         // Assuming FixedJoystick is a Unity Input System Joystick
-        Vector3 fireDirection = new Vector3(turretJoystick.Direction.x, 0, turretJoystick.Direction.y);
+        Vector3 fireDirection = new Vector3(
+            turretJoystick.Direction.x,
+            0,
+            turretJoystick.Direction.y
+        );
 
         // Check if the fire joystick is touched within the dead zone
         if (fireDirection.magnitude > turretJoystick.DeadZone)
@@ -111,10 +128,19 @@ public class Turret : MonoBehaviour
         if (CanFire())
         {
             // Instantiate the projectile at the spawn point
-            GameObject newProjectile = Instantiate(projectilePrefab, projectileSpawnPoint.position, projectileSpawnPoint.rotation);
+            GameObject newProjectile = Instantiate(
+                projectilePrefab,
+                projectileSpawnPoint.position,
+                projectileSpawnPoint.rotation
+            );
 
             // Instantiate the ProjectileSoundHolder as a child of the turret
-            GameObject soundHolder = Instantiate(projectileSoundHolderPrefab, transform.position, Quaternion.identity, transform);
+            GameObject soundHolder = Instantiate(
+                projectileSoundHolderPrefab,
+                transform.position,
+                Quaternion.identity,
+                transform
+            );
 
             // Get the AudioSource component from the ProjectileSoundHolder
             AudioSource soundHolderAudioSource = soundHolder.GetComponent<AudioSource>();
@@ -130,7 +156,7 @@ public class Turret : MonoBehaviour
             // ...
 
             // Update the nextFireTime for the firing rate control
-            nextFireTime = Time.time + 1.0f / fireRate;
+            nextFireTime = Time.fixedTime + 1.0f / fireRate;
 
             // Set a time delay for destroying the projectile and sound holder
             float projectileLifetime = 3.0f; // Adjust as needed
@@ -141,7 +167,7 @@ public class Turret : MonoBehaviour
 
     bool CanFire()
     {
-        // Check if enough time has passed since the last firing, adjusted by Time.deltaTime
-        return Time.time >= nextFireTime && Time.deltaTime > 0;
+        // Check if enough time has passed since the last firing, adjusted by Time.fixedDeltaTime
+        return Time.fixedTime >= nextFireTime && Time.fixedDeltaTime > 0;
     }
 }

@@ -28,10 +28,10 @@ public class Projectile : MonoBehaviour
         // Your existing Projectile code...
     }
 
-    void Update()
+    void FixedUpdate()
     {
         // Move the projectile forward
-        transform.Translate(Vector3.forward * speed * Time.deltaTime);
+        transform.Translate(Vector3.forward * speed * Time.fixedDeltaTime);
 
         // Add any other projectile behavior here
         // ...
