@@ -93,8 +93,6 @@ public class WorldGenerator : MonoBehaviour
         Debug.Log("Boolean array saved to: " + filePath);
     }
 
-    public void RandomizeSector(int x, int y) { }
-
     private void RandomizeArray(bool[,] passedBooleanArray, RandomizeMethod method, string file)
     {
         switch (method)
@@ -240,6 +238,8 @@ public class WorldGenerator : MonoBehaviour
         // Print the entire matrix as a single message
         Debug.Log(matrixStringBuilder.ToString());
     }
+
+    public void RandomizeSector(int x, int y) { }
 
     /*void SpawnRandomAsteroids()
         {
