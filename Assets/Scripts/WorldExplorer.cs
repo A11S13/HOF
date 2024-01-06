@@ -72,7 +72,7 @@ public class WorldExplorer : MonoBehaviour
 
     public void UpdateExplorationData()
     {
-        _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data.bin");
+        _worldGenerator.SaveArrayData(explorationBoolArray, "Exploration_data");
         if (DrawExploration)
         {
             _gws.PNGFromBoolArray(explorationBoolArray, "Exploration_data");
@@ -83,7 +83,7 @@ public class WorldExplorer : MonoBehaviour
     private void LoadExplorationData()
     {
         Debug.Log("LOADING BINARY DATA");
-        string filePath = Path.Combine(GWS.fullPath, "Exploration_data.bin");
+        string filePath = Path.Combine(GWS.fullPath, "Exploration_data");
         //string filePath = Path.Combine(Application.persistentDataPath, "Exploration_data.bin");
         if (File.Exists(filePath))
         {
@@ -113,7 +113,7 @@ public class WorldExplorer : MonoBehaviour
         else
         {
             Debug.Log("Exploration data not found. Creating empty Exploration data");
-            _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data.bin");
+            _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data");
 #if UNITY_EDITOR
             AssetDatabase.Refresh();
 #endif
@@ -122,7 +122,7 @@ public class WorldExplorer : MonoBehaviour
 
     public void EraseExplorationData()
     {
-        _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data.bin");
+        _worldGenerator.PurgeArray(explorationBoolArray, "Exploration_data");
         _gws.PNGFromBoolArray(explorationBoolArray, "Exploration_data");
         eraseExplorationData = false;
     }
@@ -164,7 +164,7 @@ public class WorldExplorer : MonoBehaviour
     public void ExplorationRadiusInitialize()
     {
         explorationRadiusBoolArray = new bool[explorationDiameter, explorationDiameter];
-        _worldGenerator.FillArray(explorationRadiusBoolArray, "ExplorationRadius.bin");
+        _worldGenerator.FillArray(explorationRadiusBoolArray, "ExplorationRadius");
         SquareToCircle(explorationRadiusBoolArray);
         _worldGenerator.PrintArray(explorationRadiusBoolArray);
         _worldGenerator.DrawArray(explorationRadiusBoolArray, "ExplorationRadius");

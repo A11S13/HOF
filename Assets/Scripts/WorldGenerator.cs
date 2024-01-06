@@ -7,6 +7,9 @@ using UnityEngine;
 public class WorldGenerator : MonoBehaviour
 {
     GWS _gws;
+    ComputeShaderController _csc;
+
+    public bool RDD = false;
     public bool randomizeArrayData;
     public bool[,] defaultBoolArray;
     public RandomizeMethod randomizeMethod;
@@ -30,14 +33,20 @@ public class WorldGenerator : MonoBehaviour
 
     void Start()
     {
+        RDD = true;
+        randomizeMethod = RandomizeMethod.Crypto;
+        _csc = GameObject.Find("RandomDataDraw").GetComponent<ComputeShaderController>();
         _gws = GetComponent<GWS>();
         _worldTexture = _gws.worldTexture;
         defaultBoolArray = new bool[_worldTexture.width, _worldTexture.height];
-        default_data = "Default_data";
     }
 
     void Update()
     {
+        if (RDD)
+        {
+            _csc.RandomDataDraw();
+        }
         if (spawnAsteroid)
         {
             //SpawnRandomAsteroids();
@@ -45,7 +54,7 @@ public class WorldGenerator : MonoBehaviour
         }
         if (randomizeArrayData)
         {
-            RandomizeArray(defaultBoolArray, randomizeMethod, default_data);
+            RandomizeArray(defaultBoolArray, randomizeMethod, "default_data");
         }
     }
 
@@ -83,7 +92,7 @@ public class WorldGenerator : MonoBehaviour
         }
 
         // Save the byte array to a file in the "Data" folder
-        string filePath = Path.Combine(GWS.fullPath, file);
+        string filePath = Path.Combine(GWS.fullPath, $"{file}.bin");
 
         using (FileStream fileStream = new FileStream(filePath, FileMode.Create))
         {
@@ -91,6 +100,9 @@ public class WorldGenerator : MonoBehaviour
         }
 
         Debug.Log("Boolean array saved to: " + filePath);
+#if UNITY_EDITOR
+        AssetDatabase.Refresh();
+#endif
     }
 
     private void RandomizeArray(bool[,] passedBooleanArray, RandomizeMethod method, string file)
@@ -112,7 +124,10 @@ public class WorldGenerator : MonoBehaviour
                 break;
         }
 
-        DrawArray(passedBooleanArray, file);
+        _csc.RandomDataDraw();
+
+
+        //DrawArray(passedBooleanArray, file);
         randomizeArrayData = false;
     }
 
@@ -240,6 +255,11 @@ public class WorldGenerator : MonoBehaviour
     }
 
     public void RandomizeSector(int x, int y) { }
+
+    public void RButton()
+    {
+        randomizeArrayData = !randomizeArrayData;
+    }
 
     /*void SpawnRandomAsteroids()
         {
