@@ -3,14 +3,15 @@ using System.IO;
 using System.Security.Cryptography;
 using UnityEditor;
 using UnityEngine;
+using UnityEngine.UI;
 
 public class WorldGenerator : MonoBehaviour
 {
     GWS _gws;
-    ComputeShaderController _csc;
+    UnlitShaderController _csc;
 
     public bool RDD = false;
-    public bool randomizeArrayData;
+    public bool randomizeArrayData = false;
     public bool[,] defaultBoolArray;
     public RandomizeMethod randomizeMethod;
 
@@ -23,6 +24,7 @@ public class WorldGenerator : MonoBehaviour
 
     public int numberOfAsteroids = 1000;
     public bool spawnAsteroid;
+    public Text consoleText;
 
     private string default_data;
     private Texture2D _worldTexture;
@@ -31,11 +33,17 @@ public class WorldGenerator : MonoBehaviour
     private const long lcgM = 4294967296; // Modulus
     private double lcgSeed = 42; // Initial seed for LCG
 
+    void Awake()
+    {
+        consoleText = GameObject.Find("Canvas/console").GetComponent<Text>();
+    }
+
+
     void Start()
     {
-        RDD = true;
+        RDD = false;
         randomizeMethod = RandomizeMethod.Crypto;
-        _csc = GameObject.Find("RandomDataDraw").GetComponent<ComputeShaderController>();
+        _csc = GameObject.Find("RandomDataDraw").GetComponent<UnlitShaderController>();
         _gws = GetComponent<GWS>();
         _worldTexture = _gws.worldTexture;
         defaultBoolArray = new bool[_worldTexture.width, _worldTexture.height];
@@ -46,6 +54,7 @@ public class WorldGenerator : MonoBehaviour
         if (RDD)
         {
             _csc.RandomDataDraw();
+            RDD = false;
         }
         if (spawnAsteroid)
         {
@@ -54,7 +63,8 @@ public class WorldGenerator : MonoBehaviour
         }
         if (randomizeArrayData)
         {
-            RandomizeArray(defaultBoolArray, randomizeMethod, "default_data");
+            RandomizeArray(defaultBoolArray, randomizeMethod, "Default_data");
+            randomizeArrayData = false;
         }
     }
 
@@ -123,10 +133,6 @@ public class WorldGenerator : MonoBehaviour
                 Debug.LogWarning("Unexpected randomization method: " + method);
                 break;
         }
-
-        _csc.RandomDataDraw();
-
-
         //DrawArray(passedBooleanArray, file);
         randomizeArrayData = false;
     }
@@ -259,6 +265,11 @@ public class WorldGenerator : MonoBehaviour
     public void RButton()
     {
         randomizeArrayData = !randomizeArrayData;
+    }
+
+    public void RDDButton()
+    {
+        RDD = !RDD;
     }
 
     /*void SpawnRandomAsteroids()
