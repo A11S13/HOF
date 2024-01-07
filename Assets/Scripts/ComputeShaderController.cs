@@ -1,20 +1,24 @@
 using System.Collections.Generic;
 using System.IO;
+using System.Threading.Tasks;
 using UnityEngine;
 using UnityEngine.UI;
 
 public class ComputeShaderController : MonoBehaviour
 {
+    WorldGenerator _wG;
     public ComputeShader computeShader;
     public RenderTexture booleanArrayRenderTexture;
     public RawImage rawImage;
     public Text consoleText;
 
-    // Declare the ComputeBuffer at the class level
+    private object fileLock = new object();
+
     ComputeBuffer binaryBuffer = null;
 
     void Start()
     {
+        _wG = GameObject.Find("GWS").GetComponent<WorldGenerator>();
         consoleText = GameObject.Find("Canvas/console").GetComponent<Text>();
         rawImage = GameObject.Find("Canvas/RDD").GetComponent<RawImage>();
         computeShader = Resources.Load<ComputeShader>("BooleanArrayComputeShader");
@@ -33,11 +37,6 @@ public class ComputeShaderController : MonoBehaviour
         booleanArrayRenderTexture.enableRandomWrite = true;
         booleanArrayRenderTexture.filterMode = FilterMode.Point; // Ensure point filtering
         booleanArrayRenderTexture.Create();
-
-        if (booleanArrayRenderTexture != null)
-        {
-            consoleText.text = "RT Created";
-        }
 
         // Set the Render Texture to the Compute Shader using the kernel index
         computeShader.SetTexture(kernelIndex, "Result", booleanArrayRenderTexture);
@@ -68,41 +67,23 @@ public class ComputeShaderController : MonoBehaviour
     void UpdateBufferData()
     {
         // Load binary data from file or generate it dynamically
-        string filePath = Path.Combine(GWS.fullPath, "Default_data.bin");
-        byte[] binaryData = System.IO.File.ReadAllBytes(filePath);
-
-        // Convert Bytes to Bits
-        List<bool> bits = new List<bool>();
-        foreach (byte b in binaryData)
-        {
-            for (int i = 7; i >= 0; i--)
-            {
-                bits.Add((b & (1 << i)) != 0);
-            }
-        }
-
-        // Form uint Array
-        uint[] uintArray = new uint[bits.Count];
-        for (int i = 0; i < bits.Count; i++)
-        {
-            uintArray[i] = bits[i] ? 1u : 0u;
-        }
+        //string filePath = Path.Combine(GWS.fullPath, "Default_data.bin");
+        //byte[] binaryData = System.IO.File.ReadAllBytes(filePath);
+        byte[] binaryData = _wG.serializedBollArray;
 
         // If the buffer is already created, release it before creating a new one
         if (binaryBuffer != null)
+        {
             binaryBuffer.Release();
-
+        }
         // Pass binary data to the compute shader
-        int expectedBufferWidth = 262144;
-        binaryBuffer = new ComputeBuffer(expectedBufferWidth, sizeof(uint));
-        binaryBuffer.SetData(uintArray);
+        binaryBuffer = new ComputeBuffer(binaryData.Length / sizeof(uint), sizeof(uint));
+        binaryBuffer.SetData(binaryData);
         computeShader.SetBuffer(
             computeShader.FindKernel("CSMain"),
             "BinaryDataBuffer",
             binaryBuffer
         );
-
-        Debug.Log("Buffer Width: " + binaryBuffer.count);
     }
 
     void DispatchComputeShader(int kernelIndex)

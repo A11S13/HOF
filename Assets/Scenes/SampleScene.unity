@@ -1346,11 +1346,11 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 8135886326569738822, guid: 56fae09712773584fb63896d473a98ee, type: 3}
       propertyPath: m_SizeDelta.x
-      value: 800
+      value: 661
       objectReference: {fileID: 0}
     - target: {fileID: 8135886326569738822, guid: 56fae09712773584fb63896d473a98ee, type: 3}
       propertyPath: m_SizeDelta.y
-      value: 720
+      value: 583.3
       objectReference: {fileID: 0}
     - target: {fileID: 8135886326569738822, guid: 56fae09712773584fb63896d473a98ee, type: 3}
       propertyPath: m_LocalPosition.x
@@ -3233,12 +3233,15 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 407e513c77992be4c856c69ba90d0723, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  delay: 0.005
+  isWaiting: 0
   RDD: 0
   randomizeArrayData: 0
   randomizeMethod: 0
   numberOfAsteroids: 1000
   spawnAsteroid: 0
   consoleText: {fileID: 0}
+  serializedBollArray: 
 --- !u!114 &899711107
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -5858,7 +5861,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 1462514400}
-  - component: {fileID: 1462514401}
+  - component: {fileID: 1462514399}
   m_Layer: 0
   m_Name: RandomDataDraw
   m_TagString: Untagged
@@ -5866,6 +5869,22 @@ GameObject:
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
   m_IsActive: 1
+--- !u!114 &1462514399
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1462514398}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5962e87597fdc494ca4e48c50b149a3f, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  computeShader: {fileID: 0}
+  booleanArrayRenderTexture: {fileID: 0}
+  rawImage: {fileID: 0}
+  consoleText: {fileID: 0}
 --- !u!4 &1462514400
 Transform:
   m_ObjectHideFlags: 0
@@ -5880,22 +5899,6 @@ Transform:
   m_Father: {fileID: 0}
   m_RootOrder: 10
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1462514401
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1462514398}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4cbbc571840083246bed89cd23d12bb2, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  unlitShader: {fileID: 0}
-  booleanArrayRenderTexture: {fileID: 8400000, guid: 57474054d69c82a4babe2a116b44d77e, type: 2}
-  rawImage: {fileID: 0}
-  consoleText: {fileID: 0}
 --- !u!1 &1551508867
 GameObject:
   m_ObjectHideFlags: 0
@@ -6226,14 +6229,14 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   m_Material: {fileID: 0}
-  m_Color: {r: 0.38679248, g: 0.0018244971, b: 0.0018244971, a: 1}
+  m_Color: {r: 0.2924528, g: 0.2924528, b: 0.2924528, a: 1}
   m_RaycastTarget: 1
   m_RaycastPadding: {x: 0, y: 0, z: 0, w: 0}
   m_Maskable: 1
   m_OnCullStateChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_Texture: {fileID: 8400000, guid: 57474054d69c82a4babe2a116b44d77e, type: 2}
+  m_Texture: {fileID: 0}
   m_UVRect:
     serializedVersion: 2
     x: 0

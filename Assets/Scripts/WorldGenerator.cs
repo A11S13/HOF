@@ -1,6 +1,8 @@
 using System;
+using System.Collections;
 using System.IO;
 using System.Security.Cryptography;
+using System.Threading.Tasks;
 using UnityEditor;
 using UnityEngine;
 using UnityEngine.UI;
@@ -8,10 +10,12 @@ using UnityEngine.UI;
 public class WorldGenerator : MonoBehaviour
 {
     GWS _gws;
-    UnlitShaderController _csc;
+    ComputeShaderController _csc;
 
-    public bool RDD = false;
-    public bool randomizeArrayData = false;
+    public float delay = 1f;
+    public bool isWaiting;
+    public bool RDD;
+    public bool randomizeArrayData;
     public bool[,] defaultBoolArray;
     public RandomizeMethod randomizeMethod;
 
@@ -25,7 +29,9 @@ public class WorldGenerator : MonoBehaviour
     public int numberOfAsteroids = 1000;
     public bool spawnAsteroid;
     public Text consoleText;
+    public byte[] serializedBollArray;
 
+    private object fileLock = new object(); // Define a lock object
     private string default_data;
     private Texture2D _worldTexture;
     private const int lcgA = 1664525; // Multiplier
@@ -36,14 +42,14 @@ public class WorldGenerator : MonoBehaviour
     void Awake()
     {
         consoleText = GameObject.Find("Canvas/console").GetComponent<Text>();
+        serializedBollArray = new byte[32768];
     }
-
 
     void Start()
     {
         RDD = false;
         randomizeMethod = RandomizeMethod.Crypto;
-        _csc = GameObject.Find("RandomDataDraw").GetComponent<UnlitShaderController>();
+        _csc = GameObject.Find("RandomDataDraw").GetComponent<ComputeShaderController>();
         _gws = GetComponent<GWS>();
         _worldTexture = _gws.worldTexture;
         defaultBoolArray = new bool[_worldTexture.width, _worldTexture.height];
@@ -54,7 +60,7 @@ public class WorldGenerator : MonoBehaviour
         if (RDD)
         {
             _csc.RandomDataDraw();
-            RDD = false;
+            //RDD = false;
         }
         if (spawnAsteroid)
         {
@@ -63,8 +69,42 @@ public class WorldGenerator : MonoBehaviour
         }
         if (randomizeArrayData)
         {
-            RandomizeArray(defaultBoolArray, randomizeMethod, "Default_data");
-            randomizeArrayData = false;
+            if (!isWaiting)
+            {
+                RandomizeArray(defaultBoolArray, randomizeMethod, "Default_data");
+                StartCoroutine(Wait(delay));
+            }
+        }
+    }
+
+    public void SerializeBoolArrayData(bool[,] passedBooleanArray)
+    {
+        int width = passedBooleanArray.GetLength(0);
+        int height = passedBooleanArray.GetLength(1);
+
+        // Create a byte array to hold the boolean data efficiently
+        int byteCount = (width * height + 7) / 8; // Ensure space for all bits
+        serializedBollArray = new byte[byteCount];
+
+        int byteIndex = 0;
+        int bitIndex = 0;
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                // Pack booleans into bytes
+                if (passedBooleanArray[x, y])
+                {
+                    serializedBollArray[byteIndex] |= (byte)(1 << bitIndex); // Set the corresponding bit
+                }
+
+                bitIndex++;
+                if (bitIndex == 8)
+                {
+                    bitIndex = 0;
+                    byteIndex++;
+                }
+            }
         }
     }
 
@@ -81,7 +121,6 @@ public class WorldGenerator : MonoBehaviour
 
         int byteIndex = 0;
         int bitIndex = 0;
-
         for (int y = 0; y < height; y++)
         {
             for (int x = 0; x < width; x++)
@@ -103,7 +142,6 @@ public class WorldGenerator : MonoBehaviour
 
         // Save the byte array to a file in the "Data" folder
         string filePath = Path.Combine(GWS.fullPath, $"{file}.bin");
-
         using (FileStream fileStream = new FileStream(filePath, FileMode.Create))
         {
             fileStream.Write(bytes, 0, byteCount);
@@ -111,7 +149,7 @@ public class WorldGenerator : MonoBehaviour
 
         Debug.Log("Boolean array saved to: " + filePath);
 #if UNITY_EDITOR
-        AssetDatabase.Refresh();
+        // AssetDatabase.Refresh();
 #endif
     }
 
@@ -133,8 +171,7 @@ public class WorldGenerator : MonoBehaviour
                 Debug.LogWarning("Unexpected randomization method: " + method);
                 break;
         }
-        //DrawArray(passedBooleanArray, file);
-        randomizeArrayData = false;
+        consoleText.text = method.ToString();
     }
 
     private void RandomizeArrayLCG(bool[,] passedBooleanArray, string file)
@@ -143,50 +180,52 @@ public class WorldGenerator : MonoBehaviour
         {
             for (int x = 0; x < passedBooleanArray.GetLength(0); x++)
             {
-                // Map the result to a boolean value and assign to the array
-                passedBooleanArray[x, y] = NextLCGValue() > 0.5;
-            }
-        }
-
-        SaveArrayData(passedBooleanArray, file); // Pass the array to SaveArrayData
-        randomizeArrayData = false;
-    }
-
-    private double NextLCGValue()
-    {
-        lcgSeed = (lcgA * lcgSeed + lcgC) % lcgM;
-        return lcgSeed / lcgM;
-    }
-
-    private void RandomizeArrayCrypto(bool[,] passedBooleanArray, string file)
-    {
-        byte[] randomBytes = new byte[
-            passedBooleanArray.GetLength(0) * passedBooleanArray.GetLength(1) / 8
-        ];
-
-        using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
-        {
-            rng.GetBytes(randomBytes);
-        }
-
-        int byteIndex = 0;
-
-        for (int y = 0; y < passedBooleanArray.GetLength(0); y++)
-        {
-            for (int x = 0; x < passedBooleanArray.GetLength(1); x++)
-            {
-                // Extract the relevant bit from the byte to get a boolean value
-                passedBooleanArray[x, y] = (randomBytes[byteIndex] & (1 << (x % 8))) != 0;
-
-                if (x % 8 == 7)
-                {
-                    byteIndex++;
-                }
+                lcgSeed = (lcgA * lcgSeed + lcgC) % lcgM;
+                passedBooleanArray[x, y] = lcgSeed / lcgM > 0.5;
             }
         }
 
         SaveArrayData(passedBooleanArray, file);
-        randomizeArrayData = false;
+        //randomizeArrayData = false;
+    }
+
+    private async void RandomizeArrayCrypto(bool[,] passedBooleanArray, string file)
+    {
+        byte[] randomBytes = null;
+        await Task.Run(() =>
+        {
+            int totalBits = passedBooleanArray.GetLength(0) * passedBooleanArray.GetLength(1);
+            int totalBytes = totalBits / 8;
+
+            randomBytes = new byte[totalBytes];
+
+            using (RandomNumberGenerator rng = RandomNumberGenerator.Create())
+            {
+                rng.GetBytes(randomBytes);
+            }
+
+            int byteIndex = 0;
+            for (int y = 0; y < passedBooleanArray.GetLength(1); y++)
+            {
+                for (int x = 0; x < passedBooleanArray.GetLength(0); x++)
+                {
+                    // Extract the relevant bit from the byte to get a boolean value
+                    passedBooleanArray[x, y] = (randomBytes[byteIndex] & (1 << (x % 8))) != 0;
+
+                    if (x % 8 == 7)
+                    {
+                        byteIndex++;
+                    }
+                }
+            }
+        });
+        // Assign randomBytes to serializedBollArray
+        serializedBollArray = randomBytes;
+
+        //SerializeBoolArrayData(passedBooleanArray);
+
+        //SaveArrayData(passedBooleanArray, file);
+        //randomizeArrayData = false;
     }
 
     private void RandomizeArraySimple(bool[,] passedBooleanArray, string file)
@@ -200,7 +239,7 @@ public class WorldGenerator : MonoBehaviour
         }
 
         SaveArrayData(passedBooleanArray, file); // Pass the array to SaveArrayData
-        randomizeArrayData = false; // Set randomizeArrayData to false here
+        //randomizeArrayData = false; // Set randomizeArrayData to false here
     }
 
     public void FillArray(bool[,] passedBooleanArray, string file)
@@ -262,6 +301,13 @@ public class WorldGenerator : MonoBehaviour
 
     public void RandomizeSector(int x, int y) { }
 
+    private IEnumerator Wait(float delay)
+    {
+        isWaiting = true;
+        yield return new WaitForSeconds(delay);
+        isWaiting = false;
+    }
+
     public void RButton()
     {
         randomizeArrayData = !randomizeArrayData;
@@ -270,6 +316,14 @@ public class WorldGenerator : MonoBehaviour
     public void RDDButton()
     {
         RDD = !RDD;
+        if (RDD)
+        {
+            consoleText.text = "DRAWING";
+        }
+        else
+        {
+            consoleText.text = "waiting";
+        }
     }
 
     /*void SpawnRandomAsteroids()

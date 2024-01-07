@@ -1,22 +1,26 @@
 #pragma kernel CSMain
 
-// Declare a StructuredBuffer<uint> to hold the binary array data
 StructuredBuffer<uint> BinaryDataBuffer;
-
-// Define a RWTexture2D to hold the boolean array result
 RWTexture2D<float4> Result;
 
-// Set the actual width of your texture
 static const int TextureWidth = 512;
 
-[numthreads(1, 1, 1)]
+[numthreads(8, 8, 1)]
 void CSMain(uint3 id : SV_DispatchThreadID) {
-    // Sample binary data
-    uint binaryValue = BinaryDataBuffer[id.x + id.y * TextureWidth];
+    // Calculate linear index from 2D coordinates
+    uint linearIndex = id.x + id.y * TextureWidth;
 
-    // Convert uint to boolean in HLSL directly
-    bool value = binaryValue != 0;
+    // Calculate index for uint buffer
+    uint bufferIndex = linearIndex / 32u; // Use uint for division
+    uint bitOffset = linearIndex % 32u;   // Use uint for modulo
 
-    // Output boolean array result directly to Render Texture
-    Result[id.xy] = float4(value, value, value, 1.0);
+    // Access the uint from the buffer
+    uint binaryValue = BinaryDataBuffer[bufferIndex];
+
+    // Extract the specific bit from the uint
+    bool bitResult = (binaryValue & (1u << bitOffset)) != 0;
+
+    // For example, set the color of the Result texture based on the extracted bit
+    Result[id.xy] = float4(bitResult ? 1.0 : 0.0, bitResult ? 1.0 : 0.0, bitResult ? 1.0 : 0.0, 1.0);
+
 }
