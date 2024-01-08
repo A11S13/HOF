@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System;
 using System.IO;
 using System.Threading.Tasks;
 using UnityEngine;
@@ -7,6 +8,7 @@ using UnityEngine.UI;
 public class ComputeShaderController : MonoBehaviour
 {
     WorldGenerator _wG;
+    ChaosGenerator _cG;
     public ComputeShader computeShader;
     public RenderTexture booleanArrayRenderTexture;
     public RawImage rawImage;
@@ -19,6 +21,7 @@ public class ComputeShaderController : MonoBehaviour
     void Start()
     {
         _wG = GameObject.Find("GWS").GetComponent<WorldGenerator>();
+        _cG = GameObject.Find("ChaosGenerator").GetComponent<ChaosGenerator>();
         consoleText = GameObject.Find("Canvas/console").GetComponent<Text>();
         rawImage = GameObject.Find("Canvas/RDD").GetComponent<RawImage>();
         computeShader = Resources.Load<ComputeShader>("BooleanArrayComputeShader");
@@ -51,6 +54,11 @@ public class ComputeShaderController : MonoBehaviour
         rawImage.texture = booleanArrayRenderTexture;
     }
 
+    void Update()
+    {
+
+    }
+
     public void RandomDataDraw()
     {
         UpdateBufferData();
@@ -69,7 +77,10 @@ public class ComputeShaderController : MonoBehaviour
         // Load binary data from file or generate it dynamically
         //string filePath = Path.Combine(GWS.fullPath, "Default_data.bin");
         //byte[] binaryData = System.IO.File.ReadAllBytes(filePath);
-        byte[] binaryData = _wG.serializedBollArray;
+        //byte[] binaryData = _wG.serializedBollArray;
+        byte[] binaryData = _cG.serializedBollArray;
+
+
 
         // If the buffer is already created, release it before creating a new one
         if (binaryBuffer != null)

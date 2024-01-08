@@ -47,7 +47,7 @@ public class WorldGenerator : MonoBehaviour
 
     void Start()
     {
-        RDD = false;
+        RDD = true;
         randomizeMethod = RandomizeMethod.Crypto;
         _csc = GameObject.Find("RandomDataDraw").GetComponent<ComputeShaderController>();
         _gws = GetComponent<GWS>();

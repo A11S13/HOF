@@ -1,11 +1,15 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.Linq;
 using System.Security.Cryptography;
 using UnityEngine;
 
 public class ChaosGenerator : MonoBehaviour
 {
+    public int NLRPScale = 7;
+    public int NLRPOffset = 28;
+    public bool eraseSRN;
     public float delay = 1f;
     public bool isWaiting;
     public float value;
@@ -15,12 +19,19 @@ public class ChaosGenerator : MonoBehaviour
     public int beautyNumbers = 0;
     public int matches = 0;
     public char[] lastBeautyNumber = new char[5];
+    public List<int> reducedNumbers = new List<int>();
     public List<char[]> extractedNumbers = new List<char[]>();
     public List<double> doubleNumbers = new List<double>();
 
+    public byte[] serializedBollArray;
+
+    int prevMax = 0;
+    int prevMin = 512;
     private Gyroscope _gyro;
     private CanvasDebug _cD;
     private RandomSounds _rS;
+    private List<int[]> pairs = new List<int[]>();
+    private bool[,] uSRN = new bool[512, 512];
 
     void Awake()
     {
@@ -38,14 +49,24 @@ public class ChaosGenerator : MonoBehaviour
 
     void Start()
     {
+        reducedNumbers = new List<int>(Enumerable.Repeat(0, 16));
+        InitializePairsList();
         _rS = GetComponent<RandomSounds>();
         _cD = GameObject.Find("Canvas")?.transform.Find("DEBUG")?.GetComponent<CanvasDebug>();
         InitializeDataTables();
+        serializedBollArray = new byte[32768];
     }
 
     void Update()
     {
         ProcessGyroData();
+        SerializeReducedNumbers();
+
+        if(eraseSRN)
+        {
+            uSRN = new bool[512, 512];
+            eraseSRN = false;
+        }
     }
 
     void ProcessGyroData()
@@ -53,6 +74,8 @@ public class ChaosGenerator : MonoBehaviour
         if (!isWaiting)
         {
             ExtractAllNumbers();
+            ReduceAllNumbers();
+
             StartCoroutine(Wait(delay));
         }
     }
@@ -76,6 +99,7 @@ public class ChaosGenerator : MonoBehaviour
                         for (int i = 0; i < 5; i++)
                         {
                             result[i] = '0';
+                            _rS.PlaySound(new char[] { '0', '0', '0', '0', '0' });
                         }
                     }
                     else
@@ -138,13 +162,26 @@ public class ChaosGenerator : MonoBehaviour
                     }
                     Extracted = result;
                     _cD.ShowResult(result);
+                    CheckForZero(result, name);
                     return result;
                 }
                 return GetPrevResult(name);
             }
+            //return Randomize5Digits();
             return GetPrevResult(name);
         }
         return GetPrevResult(name);
+    }
+
+    private void CheckForZero(char[] result, string name)
+    {
+        char[] zeroArray = new char[] { '0', '0', '0', '0', '0' };
+
+        if (Enumerable.SequenceEqual(result, zeroArray))
+        {
+            _rS.PlaySound(zeroArray);
+            Debug.Log(name);
+        }
     }
 
     private bool CheckAllElementsEqual(char[] result, string name)
@@ -254,24 +291,117 @@ public class ChaosGenerator : MonoBehaviour
         }
     }
 
-    void CreateValueList()
+    private void InitializePairsList()
     {
-        doubleNumbers[0] = Input.gyro.attitude.x;
-        doubleNumbers[1] = Input.gyro.attitude.y;
-        doubleNumbers[2] = Input.gyro.attitude.z;
-        doubleNumbers[3] = Input.gyro.attitude.w;
-        doubleNumbers[4] = Input.gyro.rotationRate.x;
-        doubleNumbers[5] = Input.gyro.rotationRate.y;
-        doubleNumbers[6] = Input.gyro.rotationRate.z;
-        doubleNumbers[7] = Input.gyro.rotationRateUnbiased.x;
-        doubleNumbers[8] = Input.gyro.rotationRateUnbiased.y;
-        doubleNumbers[9] = Input.gyro.rotationRateUnbiased.z;
-        doubleNumbers[10] = Input.gyro.gravity.x;
-        doubleNumbers[11] = Input.gyro.gravity.y;
-        doubleNumbers[12] = Input.gyro.gravity.z;
-        doubleNumbers[13] = Input.gyro.userAcceleration.x;
-        doubleNumbers[14] = Input.gyro.userAcceleration.y;
-        doubleNumbers[15] = Input.gyro.userAcceleration.z;
+        for (int i = 0; i < 8; i++)
+        {
+            pairs.Add(new int[] { 0, 0 });
+        }
+    }
+
+    private void SerializeReducedNumbers()
+    {
+        pairs[0] = new int[] { reducedNumbers[0], reducedNumbers[1] };
+        pairs[1] = new int[] { reducedNumbers[2], reducedNumbers[3] };
+        pairs[2] = new int[] { reducedNumbers[4], reducedNumbers[5] };
+        pairs[3] = new int[] { reducedNumbers[6], reducedNumbers[7] };
+        pairs[4] = new int[] { reducedNumbers[8], reducedNumbers[9] };
+        pairs[5] = new int[] { reducedNumbers[10], reducedNumbers[11] };
+        pairs[6] = new int[] { reducedNumbers[12], reducedNumbers[13] };
+        pairs[7] = new int[] { reducedNumbers[14], reducedNumbers[15] };
+
+        // Set elements in uSRN based on the pairs using a loop
+        foreach (var pair in pairs)
+        {
+            int x = pair[0];
+            int y = pair[1];
+
+            uSRN[x - 1, y - 1] = true;
+        }
+
+        int width = uSRN.GetLength(0);
+        int height = uSRN.GetLength(1);
+
+        // Create a byte array to hold the boolean data efficiently
+        int byteCount = width * height / 8; // Each byte holds 8 bits
+        byte[] bytes = new byte[byteCount];
+
+        int byteIndex = 0;
+        int bitIndex = 0;
+        for (int y = 0; y < height; y++)
+        {
+            for (int x = 0; x < width; x++)
+            {
+                // Pack booleans into bytes
+                if (uSRN[x, y])
+                {
+                    bytes[byteIndex] |= (byte)(1 << (7 - bitIndex)); // Set the corresponding bit
+                }
+
+                bitIndex++;
+                if (bitIndex == 8)
+                {
+                    bitIndex = 0;
+                    byteIndex++;
+                }
+            }
+        }
+        serializedBollArray = bytes;
+    }
+
+    private void NRLPCalibrator(int outputInteger)
+    {
+        if (outputInteger > prevMax)
+            prevMax = outputInteger;
+        if (outputInteger < prevMin)
+            prevMin = outputInteger;
+
+        Debug.Log("MAX: " + prevMax + " MIN: " + prevMin);
+    }
+
+    private int ApplyNRLP(char[] inputDigits)
+    {
+        // Structured Projection Vectors
+        char[][] projectionVectors = new char[][]
+        {
+            new char[] { '1', '0', '1', '0', '1' },
+            new char[] { '0', '1', '0', '1', '0' },
+            new char[] { '1', '0', '1', '0', '1' }
+        };
+
+        // Project onto each vector and combine results
+        int projectedValue = 0;
+        foreach (char[] projectionVector in projectionVectors)
+        {
+            int dotProduct = 0;
+            for (int i = 0; i < 5; i++)
+            {
+                dotProduct += (int)(inputDigits[i] - '0') * (int)(projectionVector[i] - '0');
+            }
+            projectedValue += dotProduct;
+        }
+
+        // Scale to 1-512 range
+        int scaledValue = projectedValue * NLRPScale; // Manual calibration default is 7
+        int outputInteger = scaledValue - NLRPOffset; // Shift to not exceed 512 default is 28
+        if (outputInteger < 1)
+            outputInteger = 1;
+        if (outputInteger > 512)
+            outputInteger = 512;
+        NRLPCalibrator(outputInteger);
+
+        return outputInteger;
+    }
+
+    void ReduceAllNumbers()
+    {
+        // Iterate over each char[] in extractedNumbers and apply ApplyNRLP
+        for (int i = 0; i < extractedNumbers.Count; i++)
+        {
+            int reducedNumber = ApplyNRLP(extractedNumbers[i]);
+            // Assign to existing element in reducedNumbers
+            reducedNumbers[i] = reducedNumber;
+        }
     }
 
     void ExtractAllNumbers()
@@ -292,6 +422,26 @@ public class ChaosGenerator : MonoBehaviour
         extractedNumbers[13] = ExtractNumber(Input.gyro.userAcceleration.x, "CX");
         extractedNumbers[14] = ExtractNumber(Input.gyro.userAcceleration.y, "CY");
         extractedNumbers[15] = ExtractNumber(Input.gyro.userAcceleration.z, "CZ");
+    }
+
+    void CreateValueList()
+    {
+        doubleNumbers[0] = Input.gyro.attitude.x;
+        doubleNumbers[1] = Input.gyro.attitude.y;
+        doubleNumbers[2] = Input.gyro.attitude.z;
+        doubleNumbers[3] = Input.gyro.attitude.w;
+        doubleNumbers[4] = Input.gyro.rotationRate.x;
+        doubleNumbers[5] = Input.gyro.rotationRate.y;
+        doubleNumbers[6] = Input.gyro.rotationRate.z;
+        doubleNumbers[7] = Input.gyro.rotationRateUnbiased.x;
+        doubleNumbers[8] = Input.gyro.rotationRateUnbiased.y;
+        doubleNumbers[9] = Input.gyro.rotationRateUnbiased.z;
+        doubleNumbers[10] = Input.gyro.gravity.x;
+        doubleNumbers[11] = Input.gyro.gravity.y;
+        doubleNumbers[12] = Input.gyro.gravity.z;
+        doubleNumbers[13] = Input.gyro.userAcceleration.x;
+        doubleNumbers[14] = Input.gyro.userAcceleration.y;
+        doubleNumbers[15] = Input.gyro.userAcceleration.z;
     }
 
     void UpdateValueInList(double value, string name)
@@ -446,6 +596,11 @@ public class ChaosGenerator : MonoBehaviour
         }
 
         CreateValueList();
+    }
+
+    public void EraseSRNButton()
+    {
+        eraseSRN = true;
     }
 
     IEnumerator InitializeGyro()
