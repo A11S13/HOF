@@ -10,8 +10,8 @@ public class ShipCore : MonoBehaviour
     // MovementControl instance
     private MovementControl movementControl;
 
-     // Reference to turret scripts
-    public Turret[] turrets;
+    // Reference to Weapon scripts
+    public static Weapon[] Weapons;
 
     // References to sliders (make sure to assign them in the Unity Editor)
     public Slider shieldsSlider;
@@ -22,8 +22,11 @@ public class ShipCore : MonoBehaviour
     float enginesDistributedEnergy;
     float weaponsDistributedEnergy;
 
-    private void Start()
+    void Awake() { }
+
+    void Start()
     {
+        Weapons = FindObjectsOfType<Weapon>();
         // Assuming the MovementControl component is attached to the same GameObject as ShipCore
         movementControl = GetComponent<MovementControl>();
 
@@ -35,18 +38,17 @@ public class ShipCore : MonoBehaviour
         float initialWeaponsValue = weaponsSlider.value;
         weaponsDistributedEnergy = shipData.overallEnergy * initialWeaponsValue;
 
-
         // Update acceleration in MovementControl with the initial value
         movementControl.UpdateMaxSpeed(enginesDistributedEnergy);
 
-        // Find all turret scripts in the scene and store references dynamically
-        turrets = FindObjectsOfType<Turret>();
+        // Find all Weapon scripts in the scene and store references dynamically
 
 
-        // Notify turrets about initial energy distribution
-        foreach (var turret in turrets)
+
+        // Notify Weapons about initial energy distribution
+        foreach (var Weapon in Weapons)
         {
-            turret.UpdateFirePower(weaponsDistributedEnergy);
+            Weapon.UpdateFirePower(weaponsDistributedEnergy);
         }
     }
 
@@ -72,10 +74,10 @@ public class ShipCore : MonoBehaviour
     // Method to handle weapons slider change
     public void OnWeaponsSliderChanged(float weaponsValue)
     {
-         weaponsDistributedEnergy = shipData.overallEnergy * weaponsValue;
-         foreach (var turret in turrets)
+        weaponsDistributedEnergy = shipData.overallEnergy * weaponsValue;
+        foreach (var Weapon in Weapons)
         {
-            turret.UpdateFirePower(weaponsDistributedEnergy);
+            Weapon.UpdateFirePower(weaponsDistributedEnergy);
         }
     }
 
