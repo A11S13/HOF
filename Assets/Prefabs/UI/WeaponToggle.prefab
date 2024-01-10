@@ -10,8 +10,9 @@ GameObject:
   m_Component:
   - component: {fileID: 7877916510193046888}
   - component: {fileID: 7877916510193046889}
+  - component: {fileID: 1388991826246521128}
   m_Layer: 5
-  m_Name: Toggle
+  m_Name: WeaponToggle
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -85,6 +86,19 @@ MonoBehaviour:
     m_PersistentCalls:
       m_Calls: []
   m_IsOn: 1
+--- !u!114 &1388991826246521128
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7877916510193046891}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e35bfefd8b5cc9e478ec989b40149d8d, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  toggle: {fileID: 0}
 --- !u!1 &7877916510212774983
 GameObject:
   m_ObjectHideFlags: 0

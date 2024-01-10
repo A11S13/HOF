@@ -11,7 +11,7 @@ GameObject:
   - component: {fileID: 6374583425330089732}
   - component: {fileID: 1927891095392796442}
   - component: {fileID: 4764680081116668066}
-  - component: {fileID: 6818992787711157343}
+  - component: {fileID: 4148148021345650851}
   m_Layer: 0
   m_Name: Explode
   m_TagString: Untagged
@@ -4863,7 +4863,7 @@ ParticleSystemRenderer:
   m_Mesh2: {fileID: 0}
   m_Mesh3: {fileID: 0}
   m_MaskInteraction: 0
---- !u!82 &6818992787711157343
+--- !u!82 &4148148021345650851
 AudioSource:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -4875,7 +4875,7 @@ AudioSource:
   OutputAudioMixerGroup: {fileID: 2586130552583045800, guid: 49cd38965b49c0b45bc893d993408560, type: 2}
   m_audioClip: {fileID: 8300000, guid: c46ad024cc640b646822c13518926517, type: 3}
   m_PlayOnAwake: 1
-  m_Volume: 0.755
+  m_Volume: 1
   m_Pitch: 1
   Loop: 0
   Mute: 0

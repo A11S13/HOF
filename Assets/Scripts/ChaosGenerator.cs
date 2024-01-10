@@ -62,7 +62,7 @@ public class ChaosGenerator : MonoBehaviour
         ProcessGyroData();
         SerializeReducedNumbers();
 
-        if(eraseSRN)
+        if (eraseSRN)
         {
             uSRN = new bool[512, 512];
             eraseSRN = false;
@@ -355,8 +355,6 @@ public class ChaosGenerator : MonoBehaviour
             prevMax = outputInteger;
         if (outputInteger < prevMin)
             prevMin = outputInteger;
-
-        Debug.Log("MAX: " + prevMax + " MIN: " + prevMin);
     }
 
     private int ApplyNRLP(char[] inputDigits)

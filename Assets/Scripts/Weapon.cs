@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class Weapon : MonoBehaviour
 {
-    // Public variables for rotation settings
+    ShipCore _sC;
 
     public bool isAI;
     public float localRotationDeadZone = 0.1f;
@@ -25,6 +25,7 @@ public class Weapon : MonoBehaviour
 
     void Start()
     {
+        _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
         FindProjectileSpawnPoint();
         turretJoystick = GameObject
             .FindGameObjectWithTag("TurretJoystick")
@@ -47,7 +48,141 @@ public class Weapon : MonoBehaviour
 
     private void AIControl()
     {
-        //
+        // 1. Pick Target
+        GameObject target = PrioritizeTarget();
+
+        if (target != null)
+        {
+            // 2. Rotate Towards Target
+            RotateTowardsTarget(target.transform.position);
+
+            // 3. Fire if Aimed
+            if (IsAimedAtTarget(target.transform.position))
+            {
+                if (CanFire())
+                {
+                    Fire();
+                }
+            }
+        }
+    }
+
+    private GameObject PrioritizeTarget()
+    {
+        var (closestEnemy, closestDistance) = FindClosest();
+        var (angularClosestEnemy, angularClosestDistance) = FindAngularClosest();
+
+        if (!(closestEnemy == null && angularClosestEnemy == null))
+        {
+            closestDistance = closestDistance * _sC.distanceThreshold;
+            angularClosestDistance = angularClosestDistance * _sC.angularThreshold;
+
+            // Prioritize target based on both distance and angular distance
+            if (angularClosestDistance < closestDistance)
+            {
+                return angularClosestEnemy;
+            }
+            else
+            {
+                return closestEnemy;
+            }
+        }
+
+        return null;
+    }
+
+    private (GameObject, float) FindAngularClosest()
+    {
+        GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
+
+        if (enemies.Length > 0)
+        {
+            GameObject closestEnemy = null;
+            float closestAngularDistance = float.MaxValue;
+
+            foreach (GameObject enemy in enemies)
+            {
+                Vector3 directionToEnemy = enemy.transform.position - transform.position;
+                directionToEnemy.y = 0f;
+
+                Vector3 turretForward = transform.forward;
+
+                float angularDistance = Vector3.Angle(turretForward, directionToEnemy);
+
+                if (angularDistance < closestAngularDistance)
+                {
+                    closestAngularDistance = angularDistance;
+                    closestEnemy = enemy;
+                }
+            }
+
+            return (closestEnemy, closestAngularDistance);
+        }
+
+        return (null, float.MaxValue); // Return a large angular distance if no enemy found
+    }
+
+    private (GameObject, float) FindClosest()
+    {
+        // Implement your logic to find a target here, for example, find the closest enemy
+        // You can use tags or layers to identify enemy game objects
+        GameObject[] enemies = GameObject.FindGameObjectsWithTag("Enemy");
+
+        if (enemies.Length > 0)
+        {
+            GameObject closestEnemy = enemies[0];
+            float closestDistance = Vector3.Distance(
+                transform.position,
+                closestEnemy.transform.position
+            );
+
+            foreach (GameObject enemy in enemies)
+            {
+                float distance = Vector3.Distance(transform.position, enemy.transform.position);
+
+                if (distance < closestDistance)
+                {
+                    closestEnemy = enemy;
+                    closestDistance = distance;
+                }
+            }
+
+            return (closestEnemy, closestDistance);
+        }
+
+        return (null, float.MaxValue); // Return a large distance if no enemy found
+    }
+
+    // Method to rotate towards a target position
+    private void RotateTowardsTarget(Vector3 targetPosition)
+    {
+        Vector3 direction = targetPosition - transform.position;
+        direction.y = 0f; // Keep the rotation only in the horizontal plane
+
+        if (direction != Vector3.zero)
+        {
+            Quaternion targetRotation = Quaternion.LookRotation(direction);
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation,
+                targetRotation,
+                Time.deltaTime * rotationSpeed
+            );
+        }
+    }
+
+    private bool IsAimedAtTarget(Vector3 targetPosition)
+    {
+        Vector3 directionToTarget = targetPosition - transform.position;
+        directionToTarget.y = 0f; // Keep the check only in the horizontal plane
+
+        Vector3 turretForward = transform.forward;
+
+        float angleToTarget = Vector3.Angle(turretForward, directionToTarget);
+
+        // Set your firing threshold angle (adjust as needed)
+        float firingThresholdAngle = 5f;
+
+        return angleToTarget <= firingThresholdAngle;
     }
 
     public void ToggleAI()

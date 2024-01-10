@@ -57,6 +57,7 @@ public class CameraZoom : MonoBehaviour
 
     void HandleZoom()
     {
+        // Touch Input
         if (Input.touchCount == 2)
         {
             Touch touch0 = Input.GetTouch(0);
@@ -93,5 +94,10 @@ public class CameraZoom : MonoBehaviour
         {
             isZooming = false;
         }
+
+        // Mouse Scroll Input
+        float scroll = Input.GetAxis("Mouse ScrollWheel");
+        float zoomByMouse = Camera.main.orthographicSize - scroll * zoomSpeed * 5000f * Time.deltaTime;
+        Camera.main.orthographicSize = Mathf.Clamp(zoomByMouse, minZoom, maxZoom);
     }
 }

@@ -11,7 +11,9 @@ public class ShipCore : MonoBehaviour
     private MovementControl movementControl;
 
     // Reference to Weapon scripts
-    public static Weapon[] Weapons;
+    public Weapon[] Weapons;
+    public float distanceThreshold = 1; 
+    public float angularThreshold = 1;
 
     // References to sliders (make sure to assign them in the Unity Editor)
     public Slider shieldsSlider;
