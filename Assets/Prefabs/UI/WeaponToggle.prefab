@@ -85,7 +85,7 @@ MonoBehaviour:
   onValueChanged:
     m_PersistentCalls:
       m_Calls: []
-  m_IsOn: 1
+  m_IsOn: 0
 --- !u!114 &1388991826246521128
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -98,7 +98,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: e35bfefd8b5cc9e478ec989b40149d8d, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  toggle: {fileID: 0}
 --- !u!1 &7877916510212774983
 GameObject:
   m_ObjectHideFlags: 0
