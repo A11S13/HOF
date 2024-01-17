@@ -9,7 +9,7 @@ public class ApplicationSettings : MonoBehaviour
     void Start()
     {
         FPS = -1;
-        TimeScale = 0.2f;
+        TimeScale = 1f;
         // Lock the screen orientation to Landscape
         Screen.orientation = ScreenOrientation.Landscape;
 

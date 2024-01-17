@@ -132,7 +132,7 @@ public class Weapon : MonoBehaviour
             indicatorRed.SetActive(true);
             indicatorGreen.SetActive(false);
             indicatorBlue.SetActive(false);
-            Debug.Log("no fokin target");
+            //Debug.Log("no fokin target");
         }
     }
 
@@ -145,7 +145,7 @@ public class Weapon : MonoBehaviour
             {
                 target = CombinedTargets[0].TargetObject;
                 //Debug.Log("SC reduced to: " + CombinedTargets.Length);
-                Debug.Log("target ACCEPTED! " + CombinedTargets[0].UnifiedDistance);
+                //Debug.Log("target ACCEPTED! " + CombinedTargets[0].UnifiedDistance);
                 return CombinedTargets;
             }
         }
@@ -168,7 +168,7 @@ public class Weapon : MonoBehaviour
         }
 
         // Loop through the array to filter duplicates based on unifiedDistance
-        /*for (int i = 0; i < CombinedTargets.Length; i++)
+        for (int i = 0; i < CombinedTargets.Length; i++)
         {
             for (int j = i + 1; j < CombinedTargets.Length; j++)
             {
@@ -180,10 +180,10 @@ public class Weapon : MonoBehaviour
                         CombinedTargets[i] = CombinedTargets[j];
                     }
                     // Remove the duplicate
-                    CombinedTargets[j] = new TargetData(); // Use the default constructor
+                    CombinedTargets[j] = new ShipCore.TargetData(); // Use the default constructor
                 }
             }
-        }*/
+        }
 
         // Remove default entries from the array
         CombinedTargets = CombinedTargets

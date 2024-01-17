@@ -1,4 +1,6 @@
 // ShipCore.cs
+using System.Collections;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
@@ -7,13 +9,14 @@ public class ShipCore : MonoBehaviour
 {
     // Reference to ShipData Scriptable Object
     public ShipData shipData;
+    Sonar _sonar;
+    public float sonarDetectionRadius = 100f;
+
     public Weapon[] Weapons;
-    public Collider[] enemyColliders;
     public float firingThresholdAngle = 5f;
     public float distanceThreshold = 1;
     public float angularThreshold = 1;
     public float angularMarging = 10; //to not intercept on rotation
-    public float detectionRadius = 100f;
 
     public Slider shieldsSlider;
     public Slider enginesSlider;
@@ -26,14 +29,16 @@ public class ShipCore : MonoBehaviour
     private TargetData[][] AllTargetsArrays;
     public TargetData[] targetDataArray;
 
-    void Awake() { }
+    void Awake()
+    {
+        _sonar = GameObject.Find("Sonar").GetComponent<Sonar>();
+    }
 
     void EarlyUpdate() { }
 
     void Update()
     {
-        FormClosestEnemiesArray();
-        // Assign the sorted array to AllTargetsArrays
+        // Cleaning ATA
         AllTargetsArrays = new TargetData[][] { };
     }
 
@@ -41,14 +46,18 @@ public class ShipCore : MonoBehaviour
 
     void FixedUpdate()
     {
+        _sonar.DriveSonar();
+        FormClosestEnemiesArray();
         AllTargetsArrays = new TargetData[][] { };
     }
 
     void Start()
     {
+        _sonar.DriveSonar();
         FormClosestEnemiesArray();
-        AllTargetsArrays = new TargetData[][] { }; // Initialize it as an empty array
-        Weapons = FindObjectsOfType<Weapon>();
+        AllTargetsArrays = new TargetData[][] { }; // Initialize Array of input Targets Arrays
+        Weapons = FindObjectsOfType<Weapon>(); // Creates Weapons Array
+
         // Assuming the MovementControl component is attached to the same GameObject as ShipCore
         movementControl = GetComponent<MovementControl>();
 
@@ -63,10 +72,6 @@ public class ShipCore : MonoBehaviour
         // Update acceleration in MovementControl with the initial value
         movementControl.UpdateMaxSpeed(enginesDistributedEnergy);
 
-        // Find all Weapon scripts in the scene and store references dynamically
-
-
-
         // Notify Weapons about initial energy distribution
         foreach (var Weapon in Weapons)
         {
@@ -76,36 +81,29 @@ public class ShipCore : MonoBehaviour
 
     public void FormClosestEnemiesArray()
     {
-        enemyColliders = Physics.OverlapSphere(
-            transform.position,
-            detectionRadius,
-            LayerMask.GetMask("Enemy")
-        );
+        int length = Mathf.Min(_sonar.trackedColliders.Count, Weapons.Length);
 
-        targetDataArray = new TargetData[enemyColliders.Length];
+        targetDataArray = new TargetData[length];
 
-        for (int i = 0; i < enemyColliders.Length; i++)
+        for (int i = 0; i < length; i++)
         {
             float unifiedDistance = Vector3.Distance(
                 transform.position,
-                enemyColliders[i].transform.position
+                _sonar.trackedColliders[i].transform.position
             );
-            targetDataArray[i] = new TargetData(enemyColliders[i].gameObject, unifiedDistance);
+            targetDataArray[i] = new TargetData(
+                _sonar.trackedColliders[i].gameObject,
+                unifiedDistance
+            );
         }
 
-        // Sort the array of TargetData based on UnifiedDistance
-        System.Array.Sort(
-            targetDataArray,
-            (a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance)
-        );
-
-        Debug.Log("Colliders: " + enemyColliders.Length);
+        Debug.Log("Colliders: " + _sonar.trackedColliders.Count);
         Debug.Log("Targets: " + targetDataArray.Length);
     }
 
     public TargetData[] ArrangeTargets(TargetData[] passedCombinedTargets) // DELETES DUBLICATES
     {
-        Debug.Log("RECEIVING TARGET DATA");
+        //Debug.Log("RECEIVING TARGET DATA");
 
         if (AllTargetsArrays.Length == 0) // 1) ATA IS EMPTY
         {
@@ -117,6 +115,9 @@ public class ShipCore : MonoBehaviour
             passedCombinedTargets[0]
                 .TargetObject.transform.Find("IndicatorRed")
                 .gameObject.SetActive(true);
+            passedCombinedTargets[0]
+                .TargetObject.transform.Find("IndicatorBlue")
+                .gameObject.SetActive(false);
 
             return passedCombinedTargets;
         }
@@ -129,7 +130,7 @@ public class ShipCore : MonoBehaviour
                 )
             )
             {
-                Debug.Log("SKIPPING...");
+                //Debug.Log("SKIPPING...");
                 passedCombinedTargets = passedCombinedTargets.Skip(1).ToArray();
             }
             if (passedCombinedTargets.Length != 0)
@@ -141,6 +142,9 @@ public class ShipCore : MonoBehaviour
                 passedCombinedTargets[0]
                     .TargetObject.transform.Find("IndicatorRed")
                     .gameObject.SetActive(true);
+                passedCombinedTargets[0]
+                    .TargetObject.transform.Find("IndicatorBlue")
+                    .gameObject.SetActive(false);
                 return passedCombinedTargets;
             }
             return passedCombinedTargets;

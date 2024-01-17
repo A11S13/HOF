@@ -7,8 +7,8 @@ using UnityEngine;
 
 public class ChaosGenerator : MonoBehaviour
 {
-    public int NLRPScale = 7;
-    public int NLRPOffset = 28;
+    public int NRLPScale = 7;
+    public int NRLPOffset = 28;
     public bool eraseSRN;
     public float delay = 1f;
     public bool isWaiting;
@@ -380,8 +380,8 @@ public class ChaosGenerator : MonoBehaviour
         }
 
         // Scale to 1-512 range
-        int scaledValue = projectedValue * NLRPScale; // Manual calibration default is 7
-        int outputInteger = scaledValue - NLRPOffset; // Shift to not exceed 512 default is 28
+        int scaledValue = projectedValue * NRLPScale; // Manual calibration default is 7
+        int outputInteger = scaledValue - NRLPOffset; // Shift to not exceed 512 default is 28
         if (outputInteger < 1)
             outputInteger = 1;
         if (outputInteger > 512)
