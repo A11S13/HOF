@@ -4,35 +4,38 @@ using UnityEngine;
 public class Weapon : MonoBehaviour
 {
     ShipCore _sC;
+    ChipSynth _cS;
+    AudioSource audioSource;
+
+    public int ID;
 
     public ShipCore.TargetData[] CombinedTargets { get; private set; }
     public GameObject target;
     public GameObject prevTarget;
-
     public GameObject indicatorRed;
     public GameObject indicatorGreen;
     public GameObject indicatorBlue;
-
     public bool isAI;
     public float localRotationDeadZone = 0.1f;
     public float rotationSpeed = 5f;
-
-    // Private variables to store references
     private FixedJoystick turretJoystick;
     private Transform projectileSpawnPoint;
-
-    // Adjustable parameters for firing rate
     public float initialFireRate = 40f;
 
     [SerializeField]
-    private float fireRate; // Adjust as needed
+    private float fireRate;
     private float nextFireTime;
-
     public Collider[] _enemyColliders;
 
-    // Projectile prefab reference
     public GameObject projectilePrefab;
     public GameObject projectileSoundHolderPrefab;
+
+    public float initialPitch;
+    public float finalPitch;
+    public float angularDistance;
+    public float pitchIncrement;
+    public float arpeggioRange;
+    public int incrementSkipFrames;
 
     void Awake()
     {
@@ -41,41 +44,93 @@ public class Weapon : MonoBehaviour
 
     void Start()
     {
-        isAI = false;
+        isAI = true;
+        target = null;
+        audioSource = gameObject.GetComponent<AudioSource>();
+        audioSource.spatialBlend = 1.0f; //force 2D sound
+        initialPitch = 0.18f + ID / 100;
+        finalPitch = 0.3f + ID / 100;
+        incrementSkipFrames = 3;
         _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
+        _cS = GetComponent<ChipSynth>();
+        _sC.SetWeaponsID();
+        _cS.frequency1 = _cS.frequency1 + ID * 2;
+        _cS.frequency2 = _cS.frequency2 + ID * 2;
         FindProjectileSpawnPoint();
         turretJoystick = GameObject
             .FindGameObjectWithTag("TurretJoystick")
             .GetComponent<FixedJoystick>();
     }
 
-    void Update()
-    {
-        //Debug.Log("Colliders Length 13: " + _sC.enemyColliders.Length);
-    }
-
-    void LateUpdate()
-    {
-        //Debug.Log("Colliders Length 14: " + _sC.enemyColliders.Length);
-    }
-
     void FixedUpdate()
     {
         if (isAI)
         {
-            //Debug.Log("INITIALIZE AI ACTIVATION");
             AIControl();
         }
         else
         {
             ManualControl();
         }
-        //Debug.Log("Colliders Length 12: " + _sC.enemyColliders.Length);
     }
 
     private void AIControl()
     {
-        //Debug.Log("PROCEEDING TO PRIORITIZE TARGETS");
+        if (target != null)
+        {
+            target.GetComponent<Enemy>().isTargeted = true;
+            target.transform.Find("IndicatorRed").gameObject.SetActive(true);
+            target.transform.Find("IndicatorBlue").gameObject.SetActive(false);
+            // 2. Rotate Towards Target
+            RotateTowardsTarget(target.transform.position);
+            // 3. Fire if Aimed
+            if (IsAimedAtTarget(target.transform.position))
+            {
+                if (!target.GetComponent<Enemy>().isDestroyed)
+                {
+                    if (CanFire())
+                    {
+                        Fire();
+                    }
+                }
+                else
+                {
+                    //Debug.Log("+ FRAG!");
+                    _sC.ActualizeTargets();
+                    if (_sC.targetDataArray.Length > 0)
+                        PickTarget();
+                }
+            }
+        }
+        else
+        {
+            //audioSource.pitch = 0.02f;
+            //audioSource.Play();
+            if (_sC.targetDataArray.Length > 0)
+                PickTarget();
+            //Debug.Log("no fokin target");
+        }
+        if (
+            target != null
+            && Vector3.Distance(transform.position, target.transform.position)
+                > _sC.sonarDetectionRadius
+            && !target.GetComponent<Enemy>().isDestroyed
+        )
+        {
+            Debug.Log("Target is too far away");
+            target.GetComponent<Enemy>().isTargeted = false;
+            target.transform.Find("IndicatorRed").gameObject.SetActive(false);
+            _sC.ActualizeTargets();
+            PickTarget();
+        }
+    }
+
+    private void PickTarget()
+    {
+        indicatorRed.SetActive(true);
+        indicatorGreen.SetActive(false);
+        indicatorBlue.SetActive(false);
+
         PrioritizeTargets();
         if (CombinedTargets.Length != 0)
         {
@@ -85,54 +140,24 @@ public class Weapon : MonoBehaviour
         {
             prevTarget = null;
         }
-        /*Debug.Log("sending to SC");
-        for (int i = 0; i < CombinedTargets.Length; i++)
-        {
-            Debug.Log($"before SC {i}: {CombinedTargets[i].UnifiedDistance}");
-        }*/
-        RePrioritizeTarget();
-        /*for (int i = 0; i < CombinedTargets.Length; i++)
-        {
-            Debug.Log($"after SC {i}: {CombinedTargets[i].UnifiedDistance}");
-        }*/
 
+        RePrioritizeTarget();
         if (target == prevTarget && target != null)
         {
-            target = CombinedTargets[0].TargetObject;
+            //target = CombinedTargets[0].TargetObject;
             //Debug.Log("am i first? " + CombinedTargets[0].UnifiedDistance);
             indicatorRed.SetActive(false);
             indicatorGreen.SetActive(true);
             indicatorBlue.SetActive(false);
         }
 
-        if (target != prevTarget && target != null)
+        if (target != prevTarget && target != null && !target.GetComponent<Enemy>().isDestroyed)
         {
-            target = CombinedTargets[0].TargetObject;
+            //target = CombinedTargets[0].TargetObject;
             //Debug.Log("now my target is fokin unique! " + CombinedTargets[0].UnifiedDistance);
             indicatorRed.SetActive(false);
             indicatorGreen.SetActive(false);
             indicatorBlue.SetActive(true);
-        }
-
-        if (target != null)
-        {
-            // 2. Rotate Towards Target
-            RotateTowardsTarget(target.transform.position);
-            // 3. Fire if Aimed
-            if (IsAimedAtTarget(target.transform.position))
-            {
-                if (CanFire())
-                {
-                    Fire();
-                }
-            }
-        }
-        else
-        {
-            indicatorRed.SetActive(true);
-            indicatorGreen.SetActive(false);
-            indicatorBlue.SetActive(false);
-            //Debug.Log("no fokin target");
         }
     }
 
@@ -190,6 +215,11 @@ public class Weapon : MonoBehaviour
             .Where(target => !target.Equals(default(ShipCore.TargetData)))
             .ToArray();
 
+        // Remove elements with isTargeted == true
+        CombinedTargets = CombinedTargets
+            .Where(targetData => !targetData.TargetObject.GetComponent<Enemy>().isTargeted)
+            .ToArray();
+
         System.Array.Sort(
             CombinedTargets,
             (a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance)
@@ -206,10 +236,13 @@ public class Weapon : MonoBehaviour
         {
             for (int i = 0; i < length; i++)
             {
-                GameObject enemy = _sC.targetDataArray[i].GameObject ; // Use index i to get the current enemy
+                GameObject enemy = _sC.targetDataArray[i].GameObject; // Use index i to get the current enemy
                 float distance = Vector3.Distance(transform.position, enemy.transform.position);
 
-                closestTargetsArray[i] = new ShipCore.TargetData(enemy, distance * _sC.distanceThreshold);
+                closestTargetsArray[i] = new ShipCore.TargetData(
+                    enemy,
+                    distance * _sC.distanceThreshold
+                );
             }
         }
         return closestTargetsArray;
@@ -224,13 +257,16 @@ public class Weapon : MonoBehaviour
         {
             for (int i = 0; i < length; i++)
             {
-                GameObject enemy = _sC.targetDataArray[i].GameObject ;
+                GameObject enemy = _sC.targetDataArray[i].GameObject;
                 Vector3 directionToEnemy = enemy.transform.position - transform.position;
                 directionToEnemy.y = 0f;
                 Vector3 turretForward = transform.forward;
                 float angularDistance = Vector3.Angle(turretForward, directionToEnemy);
 
-                closestTargetsArray[i] = new ShipCore.TargetData(enemy, angularDistance * _sC.angularThreshold + _sC.angularMarging); 
+                closestTargetsArray[i] = new ShipCore.TargetData(
+                    enemy,
+                    angularDistance * _sC.angularThreshold + _sC.angularMarging
+                );
                 //Debug.Log($"ATA {i}: {closestTargetsArray[i].UnifiedDistance}");
             }
             //Debug.Log("Colliders Length 10: " + _sC.targetDataArray.Length);
@@ -250,6 +286,8 @@ public class Weapon : MonoBehaviour
     // Method to rotate towards a target position
     private void RotateTowardsTarget(Vector3 targetPosition)
     {
+        audioSource.Play();
+
         Vector3 direction = targetPosition - transform.position;
         direction.y = 0f; // Keep the rotation only in the horizontal plane
 
@@ -261,6 +299,23 @@ public class Weapon : MonoBehaviour
                 targetRotation,
                 Time.deltaTime * rotationSpeed
             );
+
+            if (Time.frameCount % incrementSkipFrames == 0)
+            {
+                arpeggioRange = finalPitch - audioSource.pitch;
+                // Calculate the angular distance in degrees
+                angularDistance = Quaternion.Angle(transform.rotation, targetRotation);
+
+                // Calculate the pitch increment
+                pitchIncrement = (arpeggioRange / angularDistance) * rotationSpeed;
+
+                audioSource.pitch = audioSource.pitch + pitchIncrement;
+            }
+        }
+        if (angularDistance < _sC.firingThresholdAngle)
+        {
+            audioSource.pitch = initialPitch;
+            audioSource.Stop();
         }
     }
 

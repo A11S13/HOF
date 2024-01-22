@@ -30,7 +30,9 @@ public class ChipSynth : MonoBehaviour
 
     void Start()
     {
-        PureSin = true;
+        PlayProjected1 = false;
+        PlayProjected2 = false;
+        PureSin = false;
         _cG = GameObject.Find("ChaosGenerator").GetComponent<ChaosGenerator>();
         audioSource = gameObject.GetComponent<AudioSource>();
         audioSource.spatialBlend = 0; //force 2D sound

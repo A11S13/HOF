@@ -86,19 +86,26 @@ public class Sonar : MonoBehaviour
             LayerMask.GetMask("Enemy")
         );
 
-        if (trackedColliders.Count > maxTracked)
+        trackedColliders.AddRange(enemyColliders);
+        foreach (Collider collider in trackedColliders)
         {
-            trackedColliders.AddRange(enemyColliders);
-            //sonarCurrentRadius = 0;
+            collider.transform.Find("IndicatorBlue").gameObject.SetActive(false);
         }
-        else
+
+        foreach (Collider collider in enemyColliders)
         {
-            trackedColliders.AddRange(enemyColliders);
+            collider.transform.Find("IndicatorBlue").gameObject.SetActive(true);
         }
     }
 
+
     public void MakeupTracked()
     {
+        // Remove destroyed
+        trackedColliders = trackedColliders
+            .Where(collider => !collider.GetComponent<Enemy>().isDestroyed)
+            .ToList();
+
         // Remove null elements
         trackedColliders.RemoveAll(item => item == null);
 
@@ -115,14 +122,18 @@ public class Sonar : MonoBehaviour
 
         foreach (Collider collider in trackedColliders)
         {
-            collider.transform.Find("IndicatorRed").gameObject.SetActive(false);
-            collider.transform.Find("IndicatorBlue").gameObject.SetActive(true);
+            // Set indicators based on isTargeted
+            if (collider.GetComponent<Enemy>().isTargeted)
+            {
+                collider.transform.Find("IndicatorRed").gameObject.SetActive(true);
+                collider.transform.Find("IndicatorBlue").gameObject.SetActive(false);
+            }
         }
     }
 
     public void DriveSonar()
     {
-        trackedColliders = new List<Collider>();
+        //trackedColliders = new List<Collider>();
         SonarPhysics();
         SonarCalculation();
         MakeupTracked();

@@ -2,6 +2,8 @@ using UnityEngine;
 
 public class Enemy : MonoBehaviour
 {
+    public bool isTargeted;
+    public bool isDestroyed;
     public float health = 100f;
     public float speed = 5f;
     public GameObject explosionPrefab; 
@@ -16,7 +18,7 @@ public class Enemy : MonoBehaviour
 
     void Start()
     {
-        player = GameObject.FindGameObjectWithTag("Player"); // Assign the player variable correctly
+        player = GameObject.FindGameObjectWithTag("Player"); 
     }
 
     void MoveTowardsPlayer()
@@ -49,6 +51,8 @@ public class Enemy : MonoBehaviour
         health -= damage;
         if (health <= 0)
         {
+            GetComponent<Collider>().enabled = false;
+            isDestroyed = true;
             Explode();
         }
     }
@@ -70,6 +74,6 @@ public class Enemy : MonoBehaviour
 
         Destroy(explosion, 3f);
         Destroy(soundHolder, 1f);
-        Destroy(gameObject);
+        Destroy(gameObject, 0.2f);
     }
 }

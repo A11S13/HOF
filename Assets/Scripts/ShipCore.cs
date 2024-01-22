@@ -46,15 +46,13 @@ public class ShipCore : MonoBehaviour
 
     void FixedUpdate()
     {
-        _sonar.DriveSonar();
-        FormClosestEnemiesArray();
+        ActualizeTargets();
         AllTargetsArrays = new TargetData[][] { };
     }
 
     void Start()
     {
-        _sonar.DriveSonar();
-        FormClosestEnemiesArray();
+        ActualizeTargets();
         AllTargetsArrays = new TargetData[][] { }; // Initialize Array of input Targets Arrays
         Weapons = FindObjectsOfType<Weapon>(); // Creates Weapons Array
 
@@ -79,6 +77,33 @@ public class ShipCore : MonoBehaviour
         }
     }
 
+    public void SetWeaponsID()
+    {
+        int middleIndex = Weapons.Length / 2;
+
+        for (int i = 0; i < Weapons.Length; i++)
+        {
+            int id;
+
+            if (Weapons.Length % 2 == 1) // Odd number of weapons
+            {
+                id = i - middleIndex;
+            }
+            else // Even number of weapons
+            {
+                id = i - middleIndex + 1;
+            }
+
+            Weapons[i].ID = id;
+        }
+    }
+
+    public void ActualizeTargets()
+    {
+        _sonar.DriveSonar();
+        FormClosestEnemiesArray();
+    }
+
     public void FormClosestEnemiesArray()
     {
         int length = Mathf.Min(_sonar.trackedColliders.Count, Weapons.Length);
@@ -96,8 +121,6 @@ public class ShipCore : MonoBehaviour
                 unifiedDistance
             );
         }
-        Debug.Log("Colliders: " + _sonar.trackedColliders.Count);
-        Debug.Log("Targets: " + targetDataArray.Length);
     }
 
     public TargetData[] ArrangeTargets(TargetData[] passedCombinedTargets) // DELETES DUBLICATES
@@ -110,13 +133,6 @@ public class ShipCore : MonoBehaviour
             AllTargetsArrays = AllTargetsArrays
                 .Concat(new TargetData[][] { passedCombinedTargets })
                 .ToArray();
-
-            passedCombinedTargets[0]
-                .TargetObject.transform.Find("IndicatorRed")
-                .gameObject.SetActive(true);
-            passedCombinedTargets[0]
-                .TargetObject.transform.Find("IndicatorBlue")
-                .gameObject.SetActive(false);
 
             return passedCombinedTargets;
         }
@@ -138,12 +154,7 @@ public class ShipCore : MonoBehaviour
                 AllTargetsArrays = AllTargetsArrays
                     .Concat(new TargetData[][] { passedCombinedTargets })
                     .ToArray();
-                passedCombinedTargets[0]
-                    .TargetObject.transform.Find("IndicatorRed")
-                    .gameObject.SetActive(true);
-                passedCombinedTargets[0]
-                    .TargetObject.transform.Find("IndicatorBlue")
-                    .gameObject.SetActive(false);
+
                 return passedCombinedTargets;
             }
             return passedCombinedTargets;
