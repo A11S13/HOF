@@ -114,6 +114,7 @@ MonoBehaviour:
   health: 100
   speed: 10
   explosionPrefab: {fileID: 7025978142172079491, guid: b230c4f1f63c57246b59ba47642dd901, type: 3}
+  explosionSoundHolderPrefab: {fileID: 6759132009224122183, guid: 32e4b931d584c5c46b1a2ad726f95269, type: 3}
 --- !u!54 &1967302981674616325
 Rigidbody:
   m_ObjectHideFlags: 0

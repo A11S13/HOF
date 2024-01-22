@@ -4,18 +4,23 @@ public class Enemy : MonoBehaviour
 {
     public float health = 100f;
     public float speed = 5f;
-    public GameObject explosionPrefab; // Assign the explosion particle system prefab in the Editor
+    public GameObject explosionPrefab; 
+    public GameObject explosionSoundHolderPrefab;
+
+    private GameObject player;
 
     void Update()
     {
         MoveTowardsPlayer();
     }
 
+    void Start()
+    {
+        player = GameObject.FindGameObjectWithTag("Player"); // Assign the player variable correctly
+    }
+
     void MoveTowardsPlayer()
     {
-        // Implement movement logic towards the player
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
-
         if (player != null)
         {
             Vector3 direction = (player.transform.position - transform.position).normalized;
@@ -31,12 +36,9 @@ public class Enemy : MonoBehaviour
         }
         else if (collision.gameObject.CompareTag("Projectile"))
         {
-            // Check if the collision is with a projectile
             Projectile projectile = collision.gameObject.GetComponent<Projectile>();
-
             if (projectile != null)
             {
-                // Subtract projectile damage from enemy health
                 TakeDamage(projectile.GetDamage());
             }
         }
@@ -44,10 +46,7 @@ public class Enemy : MonoBehaviour
 
     public void TakeDamage(float damage)
     {
-        // Subtract damage from health
         health -= damage;
-
-        // Check if health is less than or equal to zero
         if (health <= 0)
         {
             Explode();
@@ -55,18 +54,22 @@ public class Enemy : MonoBehaviour
     }
 
     void Explode()
-{
-    // Instantiate explosion particles at the enemy's position
-    if (explosionPrefab != null)
     {
         GameObject explosion = Instantiate(explosionPrefab, transform.position, Quaternion.identity);
-        
-        // Destroy the explosion prefab after a certain duration (adjust the time as needed)
-        Destroy(explosion, 3f); // Change 3f to the desired duration
+       
+        // Instantiate soundHolder at the player's position
+        GameObject soundHolder = Instantiate(explosionSoundHolderPrefab, player.transform.position, Quaternion.identity);
+
+        AudioSource soundHolderAudioSource = soundHolder.GetComponent<AudioSource>();
+
+        if (soundHolderAudioSource != null)
+        {
+            double playTime = AudioSettings.dspTime + 0.1;
+            soundHolderAudioSource.PlayScheduled(playTime);
+        }
+
+        Destroy(explosion, 3f);
+        Destroy(soundHolder, 1f);
+        Destroy(gameObject);
     }
-
-    // Implement other explosion logic (e.g., sound, additional effects)
-
-    Destroy(gameObject); // Destroy the enemy object when it explodes
-}
 }

@@ -6,7 +6,6 @@ using UnityEngine;
 public class Sonar : MonoBehaviour
 {
     ShipCore _sC;
-    private GameObject _sonar;
     public Collider[] enemyColliders;
     public List<Collider> trackedColliders;
     public int maxTrackedCap;
@@ -22,7 +21,6 @@ public class Sonar : MonoBehaviour
     void Awake()
     {
         _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
-        _sonar = GameObject.Find("Sonar");
         sonarPrevMaxRadius = _sC.sonarDetectionRadius;
         trackedColliders = new List<Collider>();
         CreateSonarVisual();
@@ -55,8 +53,8 @@ public class Sonar : MonoBehaviour
         sonarVisual.SetPositions(points.ToArray());
 
         // Set the width of the line
-        sonarVisual.startWidth = 0.1f; // Adjust the width as needed
-        sonarVisual.endWidth = 0.1f; // Adjust the width as needed
+        sonarVisual.startWidth = 0.2f; // Adjust the width as needed
+        sonarVisual.endWidth = 0.2f; // Adjust the width as needed
     }
 
     private void SonarCalculation()
@@ -72,8 +70,8 @@ public class Sonar : MonoBehaviour
         for (int i = 0; i < 100; i++)
         {
             float angle = i * 2 * Mathf.PI / 98;
-            float x = Mathf.Cos(angle) * sonarCurrentRadius + _sonar.transform.position.x;
-            float z = Mathf.Sin(angle) * sonarCurrentRadius + _sonar.transform.position.z;
+            float x = Mathf.Cos(angle) * sonarCurrentRadius + transform.position.x;
+            float z = Mathf.Sin(angle) * sonarCurrentRadius + transform.position.z;
             sonarVisual.SetPosition(i, new Vector3(x, 0, z));
         }
     }
@@ -83,7 +81,7 @@ public class Sonar : MonoBehaviour
         maxTracked = maxTrackedCap + _sC.Weapons.Length;
 
         enemyColliders = Physics.OverlapSphere(
-            _sonar.transform.position,
+            transform.position,
             sonarCurrentRadius,
             LayerMask.GetMask("Enemy")
         );
@@ -91,7 +89,7 @@ public class Sonar : MonoBehaviour
         if (trackedColliders.Count > maxTracked)
         {
             trackedColliders.AddRange(enemyColliders);
-            sonarCurrentRadius = 0;
+            //sonarCurrentRadius = 0;
         }
         else
         {
@@ -111,8 +109,8 @@ public class Sonar : MonoBehaviour
         trackedColliders.Sort(
             (a, b) =>
                 Vector3
-                    .Distance(a.transform.position, _sonar.transform.position)
-                    .CompareTo(Vector3.Distance(b.transform.position, _sonar.transform.position))
+                    .Distance(a.transform.position, transform.position)
+                    .CompareTo(Vector3.Distance(b.transform.position, transform.position))
         );
 
         foreach (Collider collider in trackedColliders)
@@ -124,6 +122,7 @@ public class Sonar : MonoBehaviour
 
     public void DriveSonar()
     {
+        trackedColliders = new List<Collider>();
         SonarPhysics();
         SonarCalculation();
         MakeupTracked();

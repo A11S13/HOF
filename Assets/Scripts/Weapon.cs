@@ -41,7 +41,7 @@ public class Weapon : MonoBehaviour
 
     void Start()
     {
-        isAI = true;
+        isAI = false;
         _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
         FindProjectileSpawnPoint();
         turretJoystick = GameObject

@@ -9,6 +9,8 @@ public class ChaosGenerator : MonoBehaviour
 {
     public int NRLPScale = 7;
     public int NRLPOffset = 28;
+    public int lastProjected;
+    public int preLastProjected;
     public bool eraseSRN;
     public float delay = 1f;
     public bool isWaiting;
@@ -387,6 +389,9 @@ public class ChaosGenerator : MonoBehaviour
         if (outputInteger > 512)
             outputInteger = 512;
         NRLPCalibrator(outputInteger);
+
+        preLastProjected = lastProjected;
+        lastProjected = outputInteger;
 
         return outputInteger;
     }

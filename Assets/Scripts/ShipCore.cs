@@ -96,7 +96,6 @@ public class ShipCore : MonoBehaviour
                 unifiedDistance
             );
         }
-
         Debug.Log("Colliders: " + _sonar.trackedColliders.Count);
         Debug.Log("Targets: " + targetDataArray.Length);
     }
