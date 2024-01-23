@@ -8,10 +8,10 @@ public class EnemySpawner : MonoBehaviour
     public float initialSpawnInterval = 3f;
     public float minSpawnInterval = 0.001f; // Adjusted minimum spawn interval
     public float decayRate = 0.02f; // Rate of exponential decay
-    public int maxEnemyCount = 2000; // Maximum allowed enemy count
+    public int maxEnemyCount = 1000; // Maximum allowed enemy count
 
     private Transform playerTransform;
-    private int currentEnemyCount = 0;
+    public int currentEnemyCount = 0;
 
     void Start()
     {
