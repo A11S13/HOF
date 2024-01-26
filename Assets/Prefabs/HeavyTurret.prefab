@@ -259,6 +259,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ded785100e9ea574185c5c4e0d7521bb, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  ID: 0
   target: {fileID: 0}
   prevTarget: {fileID: 0}
   indicatorRed: {fileID: 9043623084846214810}
@@ -272,6 +273,12 @@ MonoBehaviour:
   _enemyColliders: []
   projectilePrefab: {fileID: 1875161418295932753, guid: 14875d327e26ec94bbc59743387c229b, type: 3}
   projectileSoundHolderPrefab: {fileID: 5557137643636974703, guid: 6cfbf035ce1e17d4184efa1985870ee6, type: 3}
+  initialPitch: 0
+  finalPitch: 0
+  angularDistance: 0
+  pitchIncrement: 0
+  arpeggioRange: 0
+  incrementSkipFrames: 0
 --- !u!114 &6305453719481516968
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -353,7 +360,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 0
+      value: 1
       inSlope: 0
       outSlope: 0
       tangentMode: 0

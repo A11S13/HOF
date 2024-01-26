@@ -614,7 +614,7 @@ public class ChaosGenerator : MonoBehaviour
         yield return null;
     }
 
-    private IEnumerator Wait(float delay)
+    public IEnumerator Wait(float delay)
     {
         isWaiting = true;
         yield return new WaitForSeconds(delay);
