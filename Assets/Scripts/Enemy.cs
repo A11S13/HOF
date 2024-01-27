@@ -5,7 +5,7 @@ public class Enemy : MonoBehaviour
     public bool isTargeted;
     public bool isDestroyed;
     public float health = 100f;
-    public float speed = 5f;
+    public float enemySpeed = 5f;
     public GameObject explosionPrefab; 
     public GameObject explosionSoundHolderPrefab;
 
@@ -26,7 +26,7 @@ public class Enemy : MonoBehaviour
         if (player != null)
         {
             Vector3 direction = (player.transform.position - transform.position).normalized;
-            transform.Translate(direction * speed * Time.deltaTime);
+            transform.Translate(direction * enemySpeed * Time.deltaTime);
         }
     }
 

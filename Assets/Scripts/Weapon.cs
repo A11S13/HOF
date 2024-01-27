@@ -44,7 +44,7 @@ public class Weapon : MonoBehaviour
 
     void Start()
     {
-        isAI = true;
+        isAI = false;
         target = null;
         audioSource = gameObject.GetComponent<AudioSource>();
         audioSource.spatialBlend = 1.0f; //force 2D sound

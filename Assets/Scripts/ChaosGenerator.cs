@@ -7,6 +7,13 @@ using UnityEngine;
 
 public class ChaosGenerator : MonoBehaviour
 {
+    int F;
+    int M;
+    int FH;
+    int MH;
+    int FC;
+    int MC;
+    string sex;
     public int NRLPScale = 7;
     public int NRLPOffset = 28;
     public int lastProjected;
@@ -84,6 +91,8 @@ public class ChaosGenerator : MonoBehaviour
 
     public char[] ExtractNumber(double value, string name)
     {
+        //Debug.Log("ID: " + name + " Value: " + value);
+        char[] result = new char[5];
         if (value != 0)
         {
             value = Math.Abs(value);
@@ -93,7 +102,7 @@ public class ChaosGenerator : MonoBehaviour
                 if (Math.Abs(previousValue - value) != 0)
                 {
                     UpdateValueInList(value, name);
-                    char[] result = new char[5];
+
                     char[] prevResult = GetPrevResult(name);
 
                     if (value == 1)
@@ -101,8 +110,9 @@ public class ChaosGenerator : MonoBehaviour
                         for (int i = 0; i < 5; i++)
                         {
                             result[i] = '0';
-                            _rS.PlaySound(new char[] { '0', '0', '0', '0', '0' });
                         }
+                        Debug.Log("Zero");
+                        _rS.PlaySound(new char[] { '0', '0', '0', '0', '0' });
                     }
                     else
                     {
@@ -150,7 +160,7 @@ public class ChaosGenerator : MonoBehaviour
                         Debug.Log("Result:" + new string(result));
                         _rS.PlaySound(new char[] { '0', '0', '0', '0', '0' });
                         result = Randomize5Digits(); //Resolving collision
-                        _cD.ShowRandomized(result, name);
+                        //_cD.ShowRandomized(result, name);
                         Debug.Log("Randomized to: " + new string(result));
                         if (CheckAllElementsEqual(result, name)) //Additional beauty number check
                         {
@@ -163,16 +173,30 @@ public class ChaosGenerator : MonoBehaviour
                         }
                     }
                     Extracted = result;
-                    _cD.ShowResult(result);
+                    //_cD.ShowResult(result);
                     CheckForZero(result, name);
                     return result;
                 }
-                return GetPrevResult(name);
+                result = Randomize5Digits();
+                Reverse5Digits(result, name);
+                //_cD.ShowRandomized(result, name);
+                //_cD.ShowResult(result);
+                return result;
+                //return GetPrevResult(name);
             }
-            //return Randomize5Digits();
-            return GetPrevResult(name);
+            result = Randomize5Digits();
+            Reverse5Digits(result, name);
+            //_cD.ShowRandomized(result, name);
+            //_cD.ShowResult(result);
+            return result;
+            //return GetPrevResult(name);
         }
-        return GetPrevResult(name);
+        result = Randomize5Digits();
+        Reverse5Digits(result, name);
+        //_cD.ShowRandomized(result, name);
+        //_cD.ShowResult(result);
+        return result;
+        //return GetPrevResult(name);
     }
 
     private void CheckForZero(char[] result, string name)
@@ -217,6 +241,55 @@ public class ChaosGenerator : MonoBehaviour
             char temp = result[1];
             result[1] = result[3];
             result[3] = temp;
+        }
+        if (result[1] == result[3] && result[0] == result[4])
+        {
+            if (result[0] > result[2])
+            {
+                sex = "M";
+                M++;
+                _cD.UpdateM(M);
+                _cD.ShowMalesResult(result);
+                //Debug.Log("F: " + F + " M: " + M);
+            }
+            if (result[0] <= result[2])
+            {
+                sex = "F";
+                F++;
+                _cD.UpdateF(F);
+                _cD.ShowFemalesResult(result);
+                //Debug.Log("F: " + F + " M: " + M);
+            }
+            //Debug.Log("Symmetry: " + new string(result));
+            if (result[1] == result[2]) //HERO EVENT
+            {
+                _cD.ShowHeroeResult(result, sex);
+                if (sex == "F")
+                {
+                    FH++;
+                    _cD.UpdateFHCount(FH);
+                }
+                if (sex == "M")
+                {
+                    MH++;
+                    _cD.UpdateMHCount(MH);
+                }
+            }
+            if (result[0] == result[1]) //CITIZEN1 EVENT
+            {
+                _cD.ShowCitizenResult(result, sex);
+                if (sex == "F")
+                {
+                    FC++;
+                    _cD.UpdateFCCount(FC);
+                }
+                if (sex == "M")
+                {
+                    MC++;
+                    _cD.UpdateMCCount(MC);
+                }
+                //Debug.Log("Citizen 1: " + new string(result));
+            }
         }
         return result;
     }

@@ -2,9 +2,9 @@ using UnityEngine;
 
 public class Projectile : MonoBehaviour
 {
-    public float speed = 10f;
-    public float damage = 20f;
-    public float impulseMagnitude = 5f;
+    public static float speed = 100f;
+    public static float damage = 20f;
+    public static float impulseMagnitude = 0.005f;
 
     void Start()
     {
