@@ -17,7 +17,7 @@ public class GlobalEvents : MonoBehaviour
 
     void Start()
     {
-        gameStart = false;
+        gameStart = true;
         _cS = GetComponent<ChipSynth>();
         audioSource = GetComponent<AudioSource>();
         _music = GameObject.Find("Music").GetComponent<Music>();

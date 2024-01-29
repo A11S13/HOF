@@ -5,20 +5,26 @@ public class Enemy : MonoBehaviour
     public bool isTargeted;
     public bool isDestroyed;
     public float health = 100f;
-    public float enemySpeed = 5f;
-    public GameObject explosionPrefab; 
-    public GameObject explosionSoundHolderPrefab;
+    public static float enemySpeed = 5f;
+    public static GameObject explosionPrefab;
+    public static GameObject explosionSoundHolderPrefab;
 
-    private GameObject player;
+    private static GameObject player;
+    private Swarm swarm;
 
     void Update()
     {
-        MoveTowardsPlayer();
+        swarm.Move(enemySpeed);
     }
 
     void Start()
     {
-        player = GameObject.FindGameObjectWithTag("Player"); 
+        player = GameObject.FindGameObjectWithTag("Player");
+
+        swarm = gameObject.AddComponent<Swarm>();
+
+        explosionPrefab = Resources.Load<GameObject>("Explode");
+        explosionSoundHolderPrefab = Resources.Load<GameObject>("ExplosionSoundHolder");
     }
 
     void MoveTowardsPlayer()
@@ -59,10 +65,18 @@ public class Enemy : MonoBehaviour
 
     void Explode()
     {
-        GameObject explosion = Instantiate(explosionPrefab, transform.position, Quaternion.identity);
-       
+        GameObject explosion = Instantiate(
+            explosionPrefab,
+            transform.position,
+            Quaternion.identity
+        );
+
         // Instantiate soundHolder at the player's position
-        GameObject soundHolder = Instantiate(explosionSoundHolderPrefab, player.transform.position, Quaternion.identity);
+        GameObject soundHolder = Instantiate(
+            explosionSoundHolderPrefab,
+            player.transform.position,
+            Quaternion.identity
+        );
 
         AudioSource soundHolderAudioSource = soundHolder.GetComponent<AudioSource>();
 
