@@ -47,6 +47,7 @@ public class WorldGenerator : MonoBehaviour
 
     void Start()
     {
+        spawnAsteroid = false;
         RDD = true;
         randomizeMethod = RandomizeMethod.Crypto;
         _csc = GameObject.Find("RandomDataDraw").GetComponent<ComputeShaderController>();

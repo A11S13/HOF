@@ -37,7 +37,7 @@ public class GWS : MonoBehaviour
     {
         Canvas canvas = FindObjectOfType<Canvas>();
         _mapLoader = canvas.GetComponentInChildren<MapLoader>();
-        ReadAndPlaceGOs();
+        //ReadAndPlaceGOs();
     }
 
     float CalculateScaleFactor()
