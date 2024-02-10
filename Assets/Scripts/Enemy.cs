@@ -18,7 +18,7 @@ public class Enemy : MonoBehaviour
     public static int minRotationFrequency = 1;
     public int rotationFrequency = 0;
     Quaternion targetRotation;
-    List<GameObject> friends = new List<GameObject>();
+    private GameObject[] friends;
 
     private static GameObject player;
 
@@ -57,11 +57,12 @@ public class Enemy : MonoBehaviour
         explosionSoundHolderPrefab = Resources.Load<GameObject>("ExplosionSoundHolder");
         transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
         rotationFrequency = Random.Range(minRotationFrequency, rotationFrequency);
+        friends = new GameObject[5];
     }
 
     void AlignWithFriends()
     {
-        if (friends.Count == 0)
+        if (friends.Length == 0)
             return;
 
         // Calculate the weighted average rotation of closest friends
@@ -69,16 +70,19 @@ public class Enemy : MonoBehaviour
 
         foreach (var friend in friends)
         {
-            // Calculate the rotation from the agent to the friend
-            Quaternion rotationToFriend =
-                Quaternion.Inverse(transform.rotation) * friend.transform.rotation;
+            if (friend != null)
+            {
+                // Calculate the rotation from the agent to the friend
+                Quaternion rotationToFriend =
+                    Quaternion.Inverse(transform.rotation) * friend.transform.rotation;
 
-            // Slerp to blend the rotations
-            averageRotation = Quaternion.Slerp(
-                averageRotation,
-                rotationToFriend,
-                1.0f / friends.Count
-            );
+                // Slerp to blend the rotations
+                averageRotation = Quaternion.Slerp(
+                    averageRotation,
+                    rotationToFriend,
+                    1.0f / friends.Length
+                );
+            }
         }
 
         // Smoothly rotate the agent towards the average rotation
@@ -91,53 +95,70 @@ public class Enemy : MonoBehaviour
 
     void CohesionWithBouncing()
     {
-        if (friends.Count == 0)
+        if (friends.Length == 0)
             return;
 
         // Calculate the average position of closest friends
-        Vector3 averagePosition =
-            friends.Aggregate(Vector3.zero, (acc, friend) => acc + friend.transform.position)
-            / friends.Count;
+        Vector3 averagePosition = Vector3.zero;
 
-        // Calculate the direction to the average position
-        Vector3 directionToAverage = averagePosition - transform.position;
+        int validFriendsCount = 0;
 
-        // Calculate the rotation needed to face the average position
-        Quaternion targetRotation = Quaternion.LookRotation(directionToAverage, Vector3.up);
+        foreach (var friend in friends)
+        {
+            if (friend != null)
+            {
+                averagePosition += friend.transform.position;
+                validFriendsCount++;
+            }
+        }
 
-        // Smoothly rotate the agent towards the average position
-        transform.rotation = Quaternion.Slerp(
-            transform.rotation,
-            targetRotation,
-            _eS.wCohesion * Time.deltaTime
-        );
+        if (validFriendsCount > 0)
+        {
+            averagePosition /= validFriendsCount;
+
+            // Calculate the direction to the average position
+            Vector3 directionToAverage = averagePosition - transform.position;
+
+            // Calculate the rotation needed to face the average position
+            Quaternion targetRotation = Quaternion.LookRotation(directionToAverage, Vector3.up);
+
+            // Smoothly rotate the agent towards the average position
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation,
+                targetRotation,
+                _eS.wCohesion * Time.deltaTime
+            );
+        }
     }
 
     void CrowdingAvoidance()
     {
-        if (friends.Count == 0)
+        if (friends.Length == 0)
             return;
 
         Vector3 adjustedForward = transform.forward;
 
         foreach (var friend in friends)
         {
-            // Check the distance to each friend
-            float distanceToFriend = Vector3.Distance(
-                transform.position,
-                friend.transform.position
-            );
-
-            if (distanceToFriend < _eS.cRadius)
+            if (friend != null)
             {
-                // Calculate the avoidance direction
-                Vector3 avoidanceDirection = transform.position - friend.transform.position;
+                // Check the distance to each friend
+                float distanceToFriend = Vector3.Distance(
+                    transform.position,
+                    friend.transform.position
+                );
 
-                // Normalize the avoidance direction
-                avoidanceDirection.Normalize();
+                if (distanceToFriend < _eS.cRadius)
+                {
+                    // Calculate the avoidance direction
+                    Vector3 avoidanceDirection = transform.position - friend.transform.position;
 
-                // Adjust the forward vector to avoid the crowded friend
-                adjustedForward += avoidanceDirection * _eS.wCrowd;
+                    // Normalize the avoidance direction
+                    avoidanceDirection.Normalize();
+
+                    // Adjust the forward vector to avoid the crowded friend
+                    adjustedForward += avoidanceDirection * _eS.wCrowd;
+                }
             }
         }
 
@@ -183,7 +204,8 @@ public class Enemy : MonoBehaviour
 
     void GetFriends()
     {
-        friends.Clear(); // Clear the list before updating
+        // Clear the array before updating
+        System.Array.Clear(friends, 0, friends.Length);
 
         // Angle between each ray
         float angleStep = _eS.arcAngle / (_eS.rayCount - 1);
@@ -203,7 +225,30 @@ public class Enemy : MonoBehaviour
                 // Check if the hit object has the "Enemy" tag
                 if (hit.collider.CompareTag("Enemy"))
                 {
-                    friends.Add(hit.collider.gameObject);
+                    // Fill the first available slot in the array
+                    for (int j = 0; j < friends.Length; j++)
+                    {
+                        if (friends[j] == null)
+                        {
+                            friends[j] = hit.collider.gameObject;
+                            break;
+                        }
+                    }
+
+                    // Sort the array based on distance
+                    System.Array.Sort(
+                        friends,
+                        (a, b) =>
+                            (
+                                a == null
+                                    ? float.MaxValue
+                                    : Vector3.Distance(transform.position, a.transform.position)
+                            ).CompareTo(
+                                b == null
+                                    ? float.MaxValue
+                                    : Vector3.Distance(transform.position, b.transform.position)
+                            )
+                    );
                 }
             }
         }
