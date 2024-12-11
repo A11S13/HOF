@@ -45,6 +45,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rayCount: 3
   arcAngle: 90
+  swarmDelay: 0
   fRadius: 0
   wPlayer: 0
   cRadius: 0
@@ -52,6 +53,7 @@ MonoBehaviour:
   wAlign: 0
   wCohesion: 0
   wNoise: 0
+  swarm: 0
   tPlayer: 0
   align: 0
   cohesion: 0
@@ -63,5 +65,5 @@ MonoBehaviour:
   initialSpawnInterval: 0.1
   minSpawnInterval: 0.001
   decayRate: 0.02
-  maxEnemyCount: 10000
+  maxEnemyCount: 100
   currentEnemyCount: 0

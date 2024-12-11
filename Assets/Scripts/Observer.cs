@@ -25,7 +25,7 @@ public class Observer : MonoBehaviour
         if (_gE.gameStart)
         {
             _gE.gameStart = false;
-            StartCoroutine(WaitRandomAndPerformEvent1(1f, 1f));
+            StartCoroutine(WaitRandomAndPerformEvent1(5f, 5f));
         }
         if (kill == null)
         {

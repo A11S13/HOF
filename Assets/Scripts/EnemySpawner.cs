@@ -35,7 +35,7 @@ public class EnemySpawner : MonoBehaviour
     public bool crowd;
     public GameObject enemyPrefab;
     public float initialSpawnRadius = 15f;
-    public float minSpawnRadius = 5f;
+    public float minSpawnRadius = 115f;
     public float initialSpawnInterval = 3f;
     public float minSpawnInterval = 0.001f; // Adjusted minimum spawn interval
     public float decayRate = 0.02f; // Rate of exponential decay
@@ -54,7 +54,7 @@ public class EnemySpawner : MonoBehaviour
         crowd = true;
 
         fRadius = 40;
-        wPlayer = 0.01f;
+        wPlayer = 0.2f;
         cRadius = 8f;
         wCrowd = 0.1f;
         wAlign = 1f;
@@ -83,7 +83,7 @@ public class EnemySpawner : MonoBehaviour
             // Instantiate the enemy at the calculated position
             GameObject newEnemy = Instantiate(enemyPrefab, spawnPosition, Quaternion.identity);
 
-            // Optionally, you can set the new enemy as a child of the spawner for organizational purposes
+            // You can set the new enemy as a child of the spawner for organizational purposes
             newEnemy.transform.parent = transform;
 
             // Increase the current enemy count
