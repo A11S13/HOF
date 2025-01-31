@@ -96,7 +96,7 @@ public class Weapon : MonoBehaviour
                 else
                 {
                     //Debug.Log("+ FRAG!");
-                    _sC.ActualizeTargets();
+                    _sC.FormClosestEnemiesArray();
                     if (_sC.targetDataArray.Length > 0)
                         PickTarget();
                 }
@@ -120,7 +120,7 @@ public class Weapon : MonoBehaviour
             //Debug.Log("Target is too far away");
             target.GetComponent<Enemy>().isTargeted = false;
             target.transform.Find("IndicatorRed").gameObject.SetActive(false);
-            _sC.ActualizeTargets();
+            _sC.FormClosestEnemiesArray();
             PickTarget();
         }
     }
