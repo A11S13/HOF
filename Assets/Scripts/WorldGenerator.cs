@@ -50,7 +50,6 @@ public class WorldGenerator : MonoBehaviour
         spawnAsteroid = false;
         RDD = true;
         randomizeMethod = RandomizeMethod.Crypto;
-        _csc = GameObject.Find("RandomDataDraw").GetComponent<ComputeShaderController>();
         _gws = GetComponent<GWS>();
         _worldTexture = _gws.worldTexture;
         defaultBoolArray = new bool[_worldTexture.width, _worldTexture.height];
@@ -58,11 +57,6 @@ public class WorldGenerator : MonoBehaviour
 
     void Update()
     {
-        if (RDD)
-        {
-            _csc.RandomDataDraw();
-            //RDD = false;
-        }
         if (spawnAsteroid)
         {
             //SpawnRandomAsteroids();

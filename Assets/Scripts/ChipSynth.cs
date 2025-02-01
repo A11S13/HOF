@@ -3,8 +3,6 @@ using UnityEngine;
 
 public class ChipSynth : MonoBehaviour
 {
-    ChaosGenerator _cG;
-
     public bool PlayProjected1;
     public bool PlayProjected2;
 
@@ -33,21 +31,13 @@ public class ChipSynth : MonoBehaviour
         PlayProjected1 = false;
         PlayProjected2 = false;
         PureSin = false;
-        _cG = GameObject.Find("ChaosGenerator").GetComponent<ChaosGenerator>();
         audioSource = gameObject.GetComponent<AudioSource>();
         audioSource.spatialBlend = 0; //force 2D sound
     }
 
     void Update()
     {
-        if (PlayProjected1)
-        {
-            frequency1 = PlayProjected(_cG.reducedNumbers[0]);
-        }
-        if (PlayProjected2)
-        {
-            frequency2 = PlayProjected(_cG.reducedNumbers[1]);
-        }
+        
     }
 
     private float PlayProjected(int frequency)
