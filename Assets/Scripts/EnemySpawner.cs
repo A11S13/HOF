@@ -37,12 +37,15 @@ public class EnemySpawner : MonoBehaviour
     public float initialSpawnRadius = 15f;
     public float minSpawnRadius = 115f;
     public float initialSpawnInterval = 3f;
+    public float spawnInterval;
     public float minSpawnInterval = 0.001f; // Adjusted minimum spawn interval
     public float decayRate = 0.02f; // Rate of exponential decay
     public int maxEnemyCount = 1000; // Maximum allowed enemy count
+    public int currentEnemyCount = 0;
 
     private Transform playerTransform;
-    public int currentEnemyCount = 0;
+
+
 
     void Start()
     {
@@ -65,6 +68,7 @@ public class EnemySpawner : MonoBehaviour
         playerTransform = GameObject.FindGameObjectWithTag("Player").transform;
 
         // Start spawning enemies
+        spawnInterval = initialSpawnInterval;
         SpawnEnemy();
     }
 
@@ -90,16 +94,15 @@ public class EnemySpawner : MonoBehaviour
             currentEnemyCount++;
 
             // Calculate the decayed spawn interval using a logarithmic function
-            initialSpawnInterval = Mathf.Max(
-                minSpawnInterval,
-                initialSpawnInterval * Mathf.Exp(-decayRate * initialSpawnInterval)
-            );
+            spawnInterval = Mathf.Max(
+            minSpawnInterval,
+            spawnInterval * Mathf.Exp(-decayRate * initialSpawnInterval));
 
             // Ensure we don't exceed the maximum enemy count
             if (currentEnemyCount < maxEnemyCount)
             {
                 // Schedule the next spawn
-                Invoke("SpawnEnemy", initialSpawnInterval);
+                Invoke("SpawnEnemy", spawnInterval);
             }
         }
     }

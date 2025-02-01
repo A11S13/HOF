@@ -388,7 +388,7 @@ public class Weapon : MonoBehaviour
         // Set a time delay for destroying the projectile and sound holder
         float projectileLifetime = 3.0f; // Adjust as needed
         Destroy(newProjectile, projectileLifetime);
-        Destroy(soundHolder, projectileLifetime);
+        Destroy(soundHolder, 1.0f);
     }
 
     private void ManualControl()

@@ -276,11 +276,12 @@ public class Enemy : MonoBehaviour
         transform.Translate(Vector3.forward * enemySpeed * Time.deltaTime);
     }
 
-    void OnCollisionEnter(Collision collision)
+    void OnTriggerEnter(Collider collision)
     {
         if (collision.gameObject.CompareTag("Player"))
         {
-            Explode();
+            Debug.Log("Player collided with an enemy!");    
+            TakeDamage(100);
         }
         else if (collision.gameObject.CompareTag("Projectile"))
         {

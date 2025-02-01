@@ -47,7 +47,7 @@ MonoBehaviour:
   arcAngle: 90
   swarmDelay: 0
   fRadius: 0
-  wPlayer: 0
+  wPlayer: 1
   cRadius: 0
   wCrowd: 0
   wAlign: 0
@@ -63,6 +63,7 @@ MonoBehaviour:
   initialSpawnRadius: 150
   minSpawnRadius: 55
   initialSpawnInterval: 2
+  spawnInterval: 0
   minSpawnInterval: 0.001
   decayRate: 0.02
   maxEnemyCount: 100
