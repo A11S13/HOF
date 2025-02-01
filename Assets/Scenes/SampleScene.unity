@@ -11562,6 +11562,67 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1918420525}
   m_CullTransparentMesh: 1
+--- !u!1 &1940769372
+GameObject:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  serializedVersion: 6
+  m_Component:
+  - component: {fileID: 1940769374}
+  - component: {fileID: 1940769373}
+  m_Layer: 0
+  m_Name: EnemyManager
+  m_TagString: Untagged
+  m_Icon: {fileID: 0}
+  m_NavMeshLayer: 0
+  m_StaticEditorFlags: 0
+  m_IsActive: 1
+--- !u!114 &1940769373
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1940769372}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9b052b0d9ba08a84a8a135cd09efd274, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  GlobalSettings:
+    rayCount: 0
+    arcAngle: 0
+    fRadius: 0
+    cRadius: 0
+    wPlayer: 0
+    wCrowd: 0
+    wAlign: 0
+    wCohesion: 0
+    wNoise: 0
+    swarm: 0
+    tPlayer: 0
+    align: 0
+    cohesion: 0
+    crowd: 0
+    noise: 0
+    enemySpeed: 0
+    playerPosition: {x: 0, y: 0, z: 0}
+--- !u!4 &1940769374
+Transform:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1940769372}
+  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
+  m_LocalPosition: {x: 63.25631, y: -1, z: 9992.726}
+  m_LocalScale: {x: 1, y: 1, z: 1}
+  m_Children: []
+  m_Father: {fileID: 0}
+  m_RootOrder: 12
+  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
 --- !u!1 &1953000218
 GameObject:
   m_ObjectHideFlags: 0

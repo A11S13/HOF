@@ -33,17 +33,12 @@ public class ShipCore : MonoBehaviour
     {
         _sonar = GameObject.Find("Sonar").GetComponent<Sonar>();
     }
-
-    void EarlyUpdate() { }
-
     void Update()
     {
         // Cleaning ATA
-        AllTargetsArrays = new TargetData[][] { };
+        //AllTargetsArrays = new TargetData[][] { };
+
     }
-
-    void LateUpdate() { }
-
     void FixedUpdate()
     {
         ActualizeTargets();
