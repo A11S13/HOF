@@ -11,7 +11,7 @@ public class ApplicationSettings : MonoBehaviour
         FPS = -1;
         TimeScale = 1f;
         // Lock the screen orientation to Landscape
-        Screen.orientation = ScreenOrientation.Landscape;
+        Screen.orientation = ScreenOrientation.LandscapeLeft;
 
         // Set the target frame rate
         Application.targetFrameRate = FPS;
