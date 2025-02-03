@@ -3,7 +3,7 @@ using Unity.Jobs;
 using Unity.Mathematics;
 using UnityEngine;
 
-namespace Tutorials.Jobs.Step4
+namespace HOF
 {
     public class FindNearest : MonoBehaviour
     {
