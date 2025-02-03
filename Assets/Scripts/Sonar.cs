@@ -1,19 +1,23 @@
 using System.Collections.Generic;
 using System.Linq;
+using Unity.Collections;
+using Unity.Jobs;
+using Unity.Mathematics;
 using UnityEngine;
 
 public class Sonar : MonoBehaviour
 {
     ShipCore _sC;
     public Collider[] enemyColliders;
-    public List<Collider> trackedColliders;
     public int maxTrackedCap;
-    public float sonarCurrentRadius = 0f;
+    public float sonarCurrentRadius = 100f;
     public float sonarPrevMaxRadius;
     public Material sonarMaterial;
 
     private LineRenderer sonarVisual;
     private int maxTracked;
+
+    public List<Collider> trackedColliders = new List<Collider>();
 
     void FixedUpdate() { }
 
@@ -23,11 +27,12 @@ public class Sonar : MonoBehaviour
         sonarPrevMaxRadius = _sC.sonarDetectionRadius;
         trackedColliders = new List<Collider>();
         CreateSonarVisual();
+        sonarCurrentRadius = 100f;
     }
 
     void Start()
     {
-        SonarCalculation();
+        //SonarCalculation();
     }
 
     private void CreateSonarVisual()
@@ -130,11 +135,72 @@ public class Sonar : MonoBehaviour
         }
     }
 
-    public void DriveSonar()
+    public void DriveSonar(string[] tags, int maxCount)
     {
-        //trackedColliders = new List<Collider>();
-        SonarPhysics();
-        SonarCalculation();
-        MakeupTracked();
+        // 1. Get all colliders in sphere
+        Collider[] allColliders = Physics.OverlapSphere(transform.position, sonarCurrentRadius);
+
+        // 2. Filter by tags
+        List<Collider> filteredColliders = new List<Collider>();
+        foreach (var col in allColliders)
+        {
+            foreach (string tag in tags)
+            {
+                if (col.CompareTag(tag))
+                {
+                    filteredColliders.Add(col);
+                    break;
+                }
+            }
+        }
+
+        int targetCount = filteredColliders.Count;
+        if (targetCount == 0)
+        {
+            trackedColliders.Clear();
+            return;
+        }
+
+        // 3. Prepare data for jobs
+        NativeArray<float3> positions = new NativeArray<float3>(targetCount, Allocator.TempJob);
+        NativeArray<int> indices = new NativeArray<int>(targetCount, Allocator.TempJob);
+        NativeArray<float> distances = new NativeArray<float>(targetCount, Allocator.TempJob);
+
+        for (int i = 0; i < targetCount; i++)
+        {
+            positions[i] = filteredColliders[i].transform.position;
+            indices[i] = i;
+        }
+
+        // 4. Schedule jobs
+        var distanceJob = new SonarDistanceJob
+        {
+            SeekerPos = (float3)transform.position,
+            TargetPositions = positions,
+            Distances = distances
+        };
+
+        var sortJob = new SonarSortJob
+        {
+            Distances = distances,
+            Indices = indices
+        };
+
+        JobHandle distanceHandle = distanceJob.Schedule(targetCount, 64);
+        JobHandle sortHandle = sortJob.Schedule(distanceHandle);
+        sortHandle.Complete();
+
+        // 5. Update tracked colliders
+        trackedColliders.Clear();
+        int resultCount = Mathf.Min(maxCount, targetCount);
+        for (int i = 0; i < resultCount; i++)
+        {
+            trackedColliders.Add(filteredColliders[indices[i]]);
+        }
+
+        // 6. Cleanup
+        positions.Dispose();
+        indices.Dispose();
+        distances.Dispose();
     }
 }

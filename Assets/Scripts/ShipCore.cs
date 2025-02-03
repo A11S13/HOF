@@ -25,6 +25,7 @@ public class ShipCore : MonoBehaviour
     private MovementControl movementControl;
     private TargetData[][] AllTargetsArrays;
     public TargetData[] targetDataArray;
+    public string[] tags = new string[] { "Enemy" };
 
     void Awake()
     {
@@ -92,7 +93,7 @@ public class ShipCore : MonoBehaviour
 
     public void ActualizeTargets()
     {
-        _sonar.DriveSonar();
+        _sonar.DriveSonar(tags, 50);
         FormClosestEnemiesArray();
     }
 
