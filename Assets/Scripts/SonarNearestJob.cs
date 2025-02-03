@@ -1,69 +1,43 @@
-using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
 
 [BurstCompile]
-public struct FindNearestJob : IJob
+public struct SonarDistanceJob : IJobParallelFor
 {
     [ReadOnly] public float3 SeekerPos;
     [ReadOnly] public NativeArray<float3> TargetPositions;
+    public NativeArray<float> Distances;
 
-    public NativeArray<float> TargetDistances; 
-    public NativeArray<float> NearestTargetDistances;
-    public NativeArray<float3> NearestTargetPositions;
-
-    public void Execute()
+    public void Execute(int index)
     {
-        if (TargetPositions.Length == 0) return;
-
-        // Step 1: Binary Search for closest X coordinate
-        int startIdx = TargetPositions.BinarySearch(SeekerPos, new AxisXComparer { });
-
-        if (startIdx < 0) startIdx = ~startIdx;
-        if (startIdx >= TargetPositions.Length) startIdx = TargetPositions.Length - 1;
-
-        // Step 2: Search for `maxTargetCount` closest targets (both directions)
-        FindClosestTargets(startIdx, NearestTargetPositions.Length);
-    }
-
-    void FindClosestTargets(int startIdx, int maxCount)
-    {
-        int left = startIdx - 1;
-        int right = startIdx;
-        int count = 0;
-
-        while (count < maxCount && (left >= 0 || right < TargetPositions.Length))
-        {
-            float3 leftPos = left >= 0 ? TargetPositions[left] : new float3(float.MaxValue);
-            float3 rightPos = right < TargetPositions.Length ? TargetPositions[right] : new float3(float.MaxValue);
-
-            float leftDistSq = math.distancesq(SeekerPos, leftPos);
-            float rightDistSq = math.distancesq(SeekerPos, rightPos);
-
-            if (left >= 0 && (right >= TargetPositions.Length || leftDistSq < rightDistSq))
-            {
-                NearestTargetPositions[count] = leftPos;
-                NearestTargetDistances[count] = math.sqrt(leftDistSq);
-                left--;
-            }
-            else
-            {
-                NearestTargetPositions[count] = rightPos;
-                NearestTargetDistances[count] = math.sqrt(rightDistSq);
-                right++;
-            }
-
-            count++;
-        }
+        Distances[index] = math.distance(SeekerPos, TargetPositions[index]);
     }
 }
 
-public struct AxisXComparer : IComparer<float3>
+[BurstCompile]
+public struct SonarSortJob : IJob
 {
-    public int Compare(float3 a, float3 b)
+    public NativeArray<float> Distances;
+    public NativeArray<int> Indices;
+
+    public void Execute()
     {
-        return a.x.CompareTo(b.x);
+        // Sort indices based on distances
+        for (int i = 0; i < Indices.Length - 1; i++)
+        {
+            int minIndex = i;
+            for (int j = i + 1; j < Indices.Length; j++)
+            {
+                if (Distances[Indices[j]] < Distances[Indices[minIndex]])
+                {
+                    minIndex = j;
+                }
+            }
+
+            // Swap indices
+            (Indices[i], Indices[minIndex]) = (Indices[minIndex], Indices[i]);
+        }
     }
 }
