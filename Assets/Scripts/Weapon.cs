@@ -62,7 +62,7 @@ public class Weapon : MonoBehaviour
             .GetComponent<FixedJoystick>();
     }
 
-    void FixedUpdate()
+    void Update()
     {
         if (isAI)
         {
@@ -113,7 +113,7 @@ public class Weapon : MonoBehaviour
         if (
             target != null
             && Vector3.Distance(transform.position, target.transform.position)
-                > _sC.sonarDetectionRadius
+                > _sC.sonarRadius
             && !target.GetComponent<Enemy>().isDestroyed
         )
         {
@@ -144,8 +144,6 @@ public class Weapon : MonoBehaviour
         RePrioritizeTarget();
         if (target == prevTarget && target != null)
         {
-            //target = CombinedTargets[0].TargetObject;
-            //Debug.Log("am i first? " + CombinedTargets[0].UnifiedDistance);
             indicatorRed.SetActive(false);
             indicatorGreen.SetActive(true);
             indicatorBlue.SetActive(false);
@@ -153,28 +151,10 @@ public class Weapon : MonoBehaviour
 
         if (target != prevTarget && target != null && !target.GetComponent<Enemy>().isDestroyed)
         {
-            //target = CombinedTargets[0].TargetObject;
-            //Debug.Log("now my target is fokin unique! " + CombinedTargets[0].UnifiedDistance);
             indicatorRed.SetActive(false);
             indicatorGreen.SetActive(false);
             indicatorBlue.SetActive(true);
         }
-    }
-
-    private ShipCore.TargetData[] RePrioritizeTarget()
-    {
-        if (CombinedTargets.Length > 0)
-        {
-            CombinedTargets = _sC.ArrangeTargets(CombinedTargets);
-            if (CombinedTargets.Length > 0)
-            {
-                target = CombinedTargets[0].TargetObject;
-                //Debug.Log("SC reduced to: " + CombinedTargets.Length);
-                //Debug.Log("target ACCEPTED! " + CombinedTargets[0].UnifiedDistance);
-                return CombinedTargets;
-            }
-        }
-        return null;
     }
 
     private ShipCore.TargetData[] PrioritizeTargets()
@@ -227,6 +207,20 @@ public class Weapon : MonoBehaviour
         return CombinedTargets;
     }
 
+    private ShipCore.TargetData[] RePrioritizeTarget()
+    {
+        if (CombinedTargets.Length > 0)
+        {
+            CombinedTargets = _sC.ArrangeTargets(CombinedTargets);
+            if (CombinedTargets.Length > 0)
+            {
+                target = CombinedTargets[0].TargetObject;
+                return CombinedTargets;
+            }
+        }
+        return null;
+    }
+
     private ShipCore.TargetData[] FindClosest()
     {
         int length = Mathf.Min(_sC.Weapons.Length, _sC.targetDataArray.Length);
@@ -236,13 +230,17 @@ public class Weapon : MonoBehaviour
         {
             for (int i = 0; i < length; i++)
             {
-                GameObject enemy = _sC.targetDataArray[i].GameObject; // Use index i to get the current enemy
-                float distance = Vector3.Distance(transform.position, enemy.transform.position);
+                if (_sC.targetDataArray[i].GameObject != null)
+                {
+                    GameObject enemy = _sC.targetDataArray[i].GameObject; // Use index i to get the current enemy
+                    float distance = Vector3.Distance(transform.position, enemy.transform.position);
 
-                closestTargetsArray[i] = new ShipCore.TargetData(
-                    enemy,
-                    distance * _sC.distanceThreshold
-                );
+                    closestTargetsArray[i] = new ShipCore.TargetData(
+                        enemy,
+                        distance * _sC.distanceThreshold
+                    );
+                }
+
             }
         }
         return closestTargetsArray;
@@ -257,29 +255,21 @@ public class Weapon : MonoBehaviour
         {
             for (int i = 0; i < length; i++)
             {
-                GameObject enemy = _sC.targetDataArray[i].GameObject;
-                Vector3 directionToEnemy = enemy.transform.position - transform.position;
-                directionToEnemy.y = 0f;
-                Vector3 turretForward = transform.forward;
-                float angularDistance = Vector3.Angle(turretForward, directionToEnemy);
+                if (_sC.targetDataArray[i].GameObject != null)
+                {
+                    GameObject enemy = _sC.targetDataArray[i].GameObject;
+                    Vector3 directionToEnemy = enemy.transform.position - transform.position;
+                    directionToEnemy.y = 0f;
+                    Vector3 turretForward = transform.forward;
+                    float angularDistance = Vector3.Angle(turretForward, directionToEnemy);
 
-                closestTargetsArray[i] = new ShipCore.TargetData(
-                    enemy,
-                    angularDistance * _sC.angularThreshold + _sC.angularMarging
-                );
-                //Debug.Log($"ATA {i}: {closestTargetsArray[i].UnifiedDistance}");
+                    closestTargetsArray[i] = new ShipCore.TargetData(
+                        enemy,
+                        angularDistance * _sC.angularThreshold + _sC.angularMarging
+                    );
+                }
             }
-            //Debug.Log("Colliders Length 10: " + _sC.targetDataArray.Length);
         }
-        //Debug.Log("LOoooooooooL");
-        //Debug.Log("ATA: " + closestTargetsArray.Length);
-        //Debug.Log($"ATA {0}: {closestTargetsArray[0].UnifiedDistance}");
-        //Debug.Log("Colliders Length 11: " + _sC.targetDataArray.Length);
-        /*for (int i = 0; i < closestTargetsArray.Length; i++)
-        {
-            Debug.Log($"ATA {i}: {closestTargetsArray[i].UnifiedDistance}");
-        }*/
-        //Debug.Log("GOT angular closes targets: " + closestTargetsArray.Length);
         return closestTargetsArray;
     }
 

@@ -93,6 +93,6 @@ public class Enemy : MonoBehaviour
         }
         Destroy(explosion, 3f);
         Destroy(soundHolder, 1f);
-        Destroy(gameObject, 0.2f);
+        Destroy(gameObject, 0.0f);
     }
 }

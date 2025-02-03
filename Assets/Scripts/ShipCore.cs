@@ -6,8 +6,10 @@ public class ShipCore : MonoBehaviour
 {
     // Reference to ShipData Scriptable Object
     public ShipData shipData;
+
     Sonar _sonar;
-    public float sonarDetectionRadius = 100f;
+    public int sonarRadius = 100;
+    public LayerMask[] targetLayers;
 
     public Weapon[] Weapons;
     public float firingThresholdAngle = 5f;
@@ -25,29 +27,30 @@ public class ShipCore : MonoBehaviour
     private MovementControl movementControl;
     private TargetData[][] AllTargetsArrays;
     public TargetData[] targetDataArray;
+    public string[] tags = new string[] { "Enemy" };
 
     void Awake()
     {
+        targetLayers = new LayerMask[] { LayerMask.GetMask("Enemy") };
         _sonar = GameObject.Find("Sonar").GetComponent<Sonar>();
+        Weapons = FindObjectsByType<Weapon>(FindObjectsSortMode.None); // Creates Weapons Array
     }
     void Update()
     {
-        // Cleaning ATA
-        //AllTargetsArrays = new TargetData[][] { };
-
+        AllTargetsArrays = new TargetData[][] { };
+        _sonar.DriveSonar(targetLayers);
+        FormClosestEnemiesArray();
     }
     void FixedUpdate()
     {
-        ActualizeTargets();
-        AllTargetsArrays = new TargetData[][] { };
+
     }
 
     void Start()
     {
-        ActualizeTargets();
+        FormClosestEnemiesArray();
         AllTargetsArrays = new TargetData[][] { }; // Initialize Array of input Targets Arrays
-        Weapons = FindObjectsOfType<Weapon>(); // Creates Weapons Array
-
+        
         // Assuming the MovementControl component is attached to the same GameObject as ShipCore
         movementControl = GetComponent<MovementControl>();
 
@@ -90,28 +93,20 @@ public class ShipCore : MonoBehaviour
         }
     }
 
-    public void ActualizeTargets()
-    {
-        _sonar.DriveSonar();
-        FormClosestEnemiesArray();
-    }
-
     public void FormClosestEnemiesArray()
     {
-        int length = Mathf.Min(_sonar.trackedColliders.Count, Weapons.Length);
+        int length = Mathf.Min(_sonar.trackedTransforms.Length, Weapons.Length);
 
         targetDataArray = new TargetData[length];
 
         for (int i = 0; i < length; i++)
         {
-            float unifiedDistance = Vector3.Distance(
-                transform.position,
-                _sonar.trackedColliders[i].transform.position
-            );
-            targetDataArray[i] = new TargetData(
-                _sonar.trackedColliders[i].gameObject,
-                unifiedDistance
-            );
+            if (_sonar.trackedTransforms[i] != null)
+            {
+                targetDataArray[i] = new TargetData(_sonar.trackedTransforms[i].gameObject, _sonar.trackedDistances[i]);
+                _sonar.trackedTransforms[i].gameObject.transform.Find("IndicatorBlue").gameObject.SetActive(false);
+            }
+            //System.Array.Sort(targetDataArray, (a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance));
         }
     }
 
