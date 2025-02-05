@@ -47,7 +47,7 @@ public class ShipCore : MonoBehaviour
     {
         ActualizeTargets();
         AllTargetsArrays = new TargetData[][] { }; // Initialize Array of input Targets Arrays
-        Weapons = FindObjectsOfType<Weapon>(); // Creates Weapons Array
+        Weapons = Object.FindObjectsByType<Weapon>(FindObjectsSortMode.None); // Creates Weapons Array
 
         // Assuming the MovementControl component is attached to the same GameObject as ShipCore
         movementControl = GetComponent<MovementControl>();

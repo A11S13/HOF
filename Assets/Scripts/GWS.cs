@@ -35,7 +35,7 @@ public class GWS : MonoBehaviour
 
     void Start()
     {
-        Canvas canvas = FindObjectOfType<Canvas>();
+        Canvas canvas = Object.FindAnyObjectByType<Canvas>();
         _mapLoader = canvas.GetComponentInChildren<MapLoader>();
         //ReadAndPlaceGOs();
     }
