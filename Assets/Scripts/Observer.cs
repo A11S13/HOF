@@ -1,12 +1,10 @@
 using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class Observer : MonoBehaviour
 {
     GlobalEvents _gE;
     EnemyCounter _eC;
-    ChaosGenerator _cG;
     private bool? kill = false; // Nullable boolean variable
 
     void Start()
@@ -17,11 +15,6 @@ public class Observer : MonoBehaviour
 
     void Update()
     {
-        /*if (_gE.gameStart)
-        {
-            WaitRandom();
-            _gE.PerformEvent0();
-        }*/
         if (_gE.gameStart)
         {
             _gE.gameStart = false;

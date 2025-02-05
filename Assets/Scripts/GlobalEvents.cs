@@ -1,4 +1,3 @@
-using System.Collections;
 using UnityEngine;
 
 public class GlobalEvents : MonoBehaviour
@@ -12,8 +11,6 @@ public class GlobalEvents : MonoBehaviour
     public bool gameStart;
     public bool waveAssigned;
     public bool waveDestroyed;
-
-    bool isWaiting = false;
 
     void Start()
     {
