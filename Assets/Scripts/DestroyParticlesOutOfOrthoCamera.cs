@@ -1,41 +1,48 @@
 using UnityEngine;
 
-public class DestroyParticlesOutOfOrthoCamera : MonoBehaviour
+public class DestroyParticlesOutOfRect : MonoBehaviour
 {
-    private Camera orthoCamera;
+    private Transform player; 
+    [SerializeField] private Vector2 areaSize = new Vector2(1000, 1000); // Width & height of active area
 
-    void Start()
+    private ParticleSystem ps;
+    private ParticleSystem.Particle[] particlesBuffer;
+    private Rect activeArea;
+
+    void Awake()
     {
-        // Assuming this script is attached to the particle system GameObject
-        orthoCamera = Camera.main; // Change this if your orthographic camera is different
+        player = GetComponentInParent<Transform>();
+        ps = GetComponent<ParticleSystem>();
+        particlesBuffer = new ParticleSystem.Particle[ps.main.maxParticles];
     }
 
     void Update()
     {
-        ParticleSystem.Particle[] particles = new ParticleSystem.Particle[GetComponent<ParticleSystem>().particleCount];
-        int numParticlesAlive = GetComponent<ParticleSystem>().GetParticles(particles);
+        // Update active area position based on player
+        activeArea = new Rect(
+            player.position.x - areaSize.x / 2,
+            player.position.z - areaSize.y / 2,
+            areaSize.x,
+            areaSize.y
+        );
 
-        for (int i = 0; i < numParticlesAlive; i++)
+        // Get particles and check if they are within the active area
+        int numParticles = ps.GetParticles(particlesBuffer);
+        for (int i = 0; i < numParticles; i++)
         {
-            // Check if the particle is outside the orthographic camera's view
-            if (!IsParticleInOrthoView(particles[i].position))
+            if (!IsParticleInActiveArea(particlesBuffer[i].position))
             {
-                // Destroy the particle
-                particles[i].remainingLifetime = 0f;
+                particlesBuffer[i].remainingLifetime = 0f;
             }
         }
 
-        // Update the particle system with the modified particles
-        GetComponent<ParticleSystem>().SetParticles(particles, numParticlesAlive);
+        // Apply the updated particles back to the system
+        ps.SetParticles(particlesBuffer, numParticles);
     }
 
-    bool IsParticleInOrthoView(Vector3 particlePosition)
+    bool IsParticleInActiveArea(Vector3 position)
     {
-        // Convert the particle's world position to screen space
-        Vector3 screenPos = orthoCamera.WorldToScreenPoint(particlePosition);
-
-        // Check if the screen position is within the camera's viewport
-        return (screenPos.x >= 0 && screenPos.x <= Screen.width &&
-                screenPos.y >= 0 && screenPos.y <= Screen.height);
+        return position.x >= activeArea.xMin && position.x <= activeArea.xMax &&
+               position.z >= activeArea.yMin && position.z <= activeArea.yMax; // Using Z for Y in world space
     }
 }

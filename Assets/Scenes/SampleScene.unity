@@ -1203,7 +1203,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   shipData: {fileID: 11400000, guid: 689ef4322c40e6649b950096d39b37c6, type: 2}
-  sonarDetectionRadius: 100
+  sonarRadius: 100
   Weapons: []
   firingThresholdAngle: 30
   distanceThreshold: 0.01
@@ -1213,6 +1213,8 @@ MonoBehaviour:
   enginesSlider: {fileID: 1146335973}
   weaponsSlider: {fileID: 1036255580}
   commandSlider: {fileID: 203459040}
+  tags:
+  - Enemy
 --- !u!114 &433032883
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -4565,11 +4567,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   enemyColliders: []
-  trackedColliders: []
   maxTrackedCap: 0
   sonarCurrentRadius: 0
   sonarPrevMaxRadius: 0
   sonarMaterial: {fileID: 2100000, guid: 6e1540356d65359419464260f4b3b08e, type: 2}
+  trackedColliders: []
 --- !u!1 &1690557443
 GameObject:
   m_ObjectHideFlags: 0
@@ -9586,6 +9588,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 11288ff7663dd0a4791ed9b8145e3a8b, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  areaSize: {x: 1000, y: 1000}
 --- !u!1 &1753893665
 GameObject:
   m_ObjectHideFlags: 0
