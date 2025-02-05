@@ -32,6 +32,8 @@ public class Weapon : MonoBehaviour
 
     public float initialPitch;
     public float finalPitch;
+    public float currentPitch;
+
     public float angularDistance;
     public float pitchIncrement;
     public float arpeggioRange;
@@ -295,11 +297,16 @@ public class Weapon : MonoBehaviour
                 arpeggioRange = finalPitch - audioSource.pitch;
                 // Calculate the angular distance in degrees
                 angularDistance = Quaternion.Angle(transform.rotation, targetRotation);
+                if (angularDistance < 0.01f)
+                {
+                    angularDistance = 0.01f;
+                }
 
                 // Calculate the pitch increment
                 pitchIncrement = (arpeggioRange / angularDistance) * rotationSpeed;
 
-                audioSource.pitch = audioSource.pitch + pitchIncrement;
+                currentPitch = audioSource.pitch + pitchIncrement;
+                audioSource.pitch = currentPitch;
             }
         }
         if (angularDistance < _sC.firingThresholdAngle)
