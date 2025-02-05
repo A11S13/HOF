@@ -24,7 +24,7 @@ public class Sonar : MonoBehaviour
     void Awake()
     {
         _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
-        sonarPrevMaxRadius = _sC.sonarDetectionRadius;
+        sonarPrevMaxRadius = _sC.sonarRadius;
         trackedColliders = new List<Collider>();
         CreateSonarVisual();
         sonarCurrentRadius = 100f;
@@ -65,7 +65,7 @@ public class Sonar : MonoBehaviour
     {
         sonarCurrentRadius += 100f * Time.fixedDeltaTime;
 
-        if (sonarCurrentRadius >= _sC.sonarDetectionRadius)
+        if (sonarCurrentRadius >= _sC.sonarRadius)
         {
             sonarCurrentRadius = 0f;
         }

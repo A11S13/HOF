@@ -7,7 +7,7 @@ public class ShipCore : MonoBehaviour
     // Reference to ShipData Scriptable Object
     public ShipData shipData;
     Sonar _sonar;
-    public float sonarDetectionRadius = 100f;
+    public float sonarRadius = 100f;
 
     public Weapon[] Weapons;
     public float firingThresholdAngle = 5f;
