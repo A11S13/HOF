@@ -8,11 +8,18 @@ public class WeaponManager : MonoBehaviour
 
     ShipCore _sC;
 
-    void Start()
+    private void Awake()
     {
         _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
+        Debug.Log("WeaponManager: " + _sC);
+        Debug.Log("Weapons: " + _sC.Weapons.Length);
+    }
+
+    void Start()
+    {
         foreach (var weapon in _sC.Weapons)
         {
+            Debug.Log("Creating shit");
             // Instantiate the weaponTogglePrefab for each weapon
             GameObject newToggle = Instantiate(
                 weaponTogglePrefab,

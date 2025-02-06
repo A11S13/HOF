@@ -10,8 +10,6 @@ using UnityEngine.UI;
 public class WorldGenerator : MonoBehaviour
 {
     GWS _gws;
-    ComputeShaderController _csc;
-
     public float delay = 1f;
     public bool isWaiting;
     public bool RDD;

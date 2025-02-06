@@ -30,6 +30,7 @@ public class ShipCore : MonoBehaviour
     void Awake()
     {
         _sonar = GameObject.Find("Sonar").GetComponent<Sonar>();
+        Weapons = Object.FindObjectsByType<Weapon>(FindObjectsSortMode.None); // Creates Weapons Array
     }
     void Update()
     {
@@ -47,10 +48,8 @@ public class ShipCore : MonoBehaviour
     {
         ActualizeTargets();
         AllTargetsArrays = new TargetData[][] { }; // Initialize Array of input Targets Arrays
-        Weapons = Object.FindObjectsByType<Weapon>(FindObjectsSortMode.None); // Creates Weapons Array
-
         // Assuming the MovementControl component is attached to the same GameObject as ShipCore
-        movementControl = GetComponent<MovementControl>();
+        movementControl = GetComponentInParent<MovementControl>();
 
         // Calculate initial distributed energy based on the overall energy from ShipData and the initial value of engines slider
         float initialEnginesValue = enginesSlider.value;

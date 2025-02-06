@@ -38,8 +38,6 @@ public class MovementControl : MonoBehaviour
         {
             Debug.LogError("Rigidbody component not found. Make sure to attach a Rigidbody to the same GameObject as the MovementControl script.");
         }
-
-        // Your existing Start method code...
     }
 
     void Update()
@@ -50,10 +48,6 @@ public class MovementControl : MonoBehaviour
         MovePlayer();
         FollowPlayer();
     }
-
-    
-
-    
   
     public void UpdateMaxSpeed(float enginesDistributedEnergy)
     {
@@ -130,7 +124,6 @@ public void ApplyImpulse(Vector3 impulseForce)
         shipVelocity += impulseToApply;
         impulseToApply = Vector3.zero; // Reset the queued impulse
     }
-
 
     void LateUpdate()
     {

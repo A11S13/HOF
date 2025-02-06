@@ -1,4 +1,3 @@
-// ShipData.cs (Scriptable Object)
 using UnityEngine;
 
 [CreateAssetMenu(fileName = "New Ship Data", menuName = "ScriptableObjects/ShipData")]

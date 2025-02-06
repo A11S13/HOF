@@ -1,4 +1,3 @@
-// EnergyManager.cs
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -79,9 +78,6 @@ public class SlidersManager : MonoBehaviour
                     SetSliderValueWithoutNotify(currentSlider, 1f);
                 }
             }          
-
-            // Log the current values for debugging
-            //Debug.Log($"SHIELDS: {shieldsSlider.value} ENGINES: {enginesSlider.value} WEAPONS: {weaponsSlider.value} Slider D: {commandSlider.value}\nResulting Sum: {shieldsSlider.value + enginesSlider.value + weaponsSlider.value + commandSlider.value}");
         }
     }
 

@@ -9,6 +9,9 @@ public class GWS : MonoBehaviour
     public MapLoader _mapLoader;
     public static string dataFolder = "Assets/Data/";
     public static string fullPath;
+
+    public float halfMaxDistance; // Maximum distance from the center of the world
+
     public GameObject centralMindPrefab;
     public GameObject asteroidPrefab;
 
@@ -31,6 +34,7 @@ public class GWS : MonoBehaviour
 #endif
         // Calculate the scale factor based on the world texture dimensions
         scaleFactor = CalculateScaleFactor();
+        halfMaxDistance = 100000f; // Half the size of the cluster
     }
 
     void Start()
@@ -41,15 +45,12 @@ public class GWS : MonoBehaviour
     }
 
     float CalculateScaleFactor()
-    {
-        // Choose a maximum distance from the origin
-        float maxDistance = 100000f;
-
+    {          
         // Calculate the maximum possible extent of the texture
         float maxTextureExtent = Mathf.Max(worldTexture.width, worldTexture.height);
 
         // Calculate the scale factor based on the maximum distance and texture extent
-        return 2 * maxDistance / maxTextureExtent; // Multiply by 2 to cover both positive and negative directions
+        return 2 * halfMaxDistance / maxTextureExtent; // Multiply by 2 to cover both positive and negative directions
     }
 
     void ReadAndPlaceGOs()
