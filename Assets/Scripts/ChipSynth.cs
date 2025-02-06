@@ -35,11 +35,6 @@ public class ChipSynth : MonoBehaviour
         audioSource.spatialBlend = 0; //force 2D sound
     }
 
-    void Update()
-    {
-        
-    }
-
     private float PlayProjected(int frequency)
     {
         float floatFrequency = (float)frequency + 100;

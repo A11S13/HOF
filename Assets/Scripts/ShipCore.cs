@@ -32,12 +32,7 @@ public class ShipCore : MonoBehaviour
         _sonar = GameObject.Find("Sonar").GetComponent<Sonar>();
         Weapons = Object.FindObjectsByType<Weapon>(FindObjectsSortMode.None); // Creates Weapons Array
     }
-    void Update()
-    {
-        // Cleaning ATA
-        //AllTargetsArrays = new TargetData[][] { };
 
-    }
     void FixedUpdate()
     {
         ActualizeTargets();

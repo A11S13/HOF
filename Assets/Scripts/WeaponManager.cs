@@ -1,5 +1,3 @@
-using System.Collections;
-using System.Collections.Generic;
 using UnityEngine;
 
 public class WeaponManager : MonoBehaviour
@@ -11,15 +9,12 @@ public class WeaponManager : MonoBehaviour
     private void Awake()
     {
         _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
-        Debug.Log("WeaponManager: " + _sC);
-        Debug.Log("Weapons: " + _sC.Weapons.Length);
     }
 
     void Start()
     {
         foreach (var weapon in _sC.Weapons)
         {
-            Debug.Log("Creating shit");
             // Instantiate the weaponTogglePrefab for each weapon
             GameObject newToggle = Instantiate(
                 weaponTogglePrefab,
@@ -35,6 +30,4 @@ public class WeaponManager : MonoBehaviour
             weaponToggle.SetWeaponInfo(weapon); // Customize the toggle based on the weapon info
         }
     }
-
-    void Update() { }
 }
