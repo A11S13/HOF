@@ -854,7 +854,6 @@ GameObject:
   - component: {fileID: 433032879}
   - component: {fileID: 433032877}
   - component: {fileID: 433032883}
-  - component: {fileID: 433032884}
   m_Layer: 0
   m_Name: PLAYER
   m_TagString: Player
@@ -948,7 +947,7 @@ Transform:
   m_GameObject: {fileID: 433032876}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 100072, y: -1, z: 0}
+  m_LocalPosition: {x: -100000, y: -1, z: -100000}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -971,23 +970,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   weaponTogglePrefab: {fileID: 7877916510193046891, guid: 0bcc025a3e666c9479c2a400955ed253, type: 3}
---- !u!114 &433032884
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 433032876}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: a7f1b67f60b5c6a4b9302414742c6d18, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  _GWS: {fileID: 0}
-  enterClusterEvent: {fileID: 11400000, guid: 34437ce5fb461064592fcf98114867ea, type: 2}
-  leaveClusterEvent: {fileID: 11400000, guid: 196dc1a59dac0be44925cb764ac860c7, type: 2}
-  halfSize: 100000
-  isInCluster: 0
 --- !u!1 &456706038
 GameObject:
   m_ObjectHideFlags: 0
@@ -1526,6 +1508,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 741419627}
+  - component: {fileID: 741419628}
   m_Layer: 0
   m_Name: OBSERVER
   m_TagString: Untagged
@@ -1548,6 +1531,21 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &741419628
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 741419625}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 143f97b5ebe829644b9aaeaf7cf5968c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  _quadrantSize: 200
+  _clusterBounds: {x: 200000, y: 200000}
+  _player: {fileID: 433032881}
 --- !u!1 &848781342
 GameObject:
   m_ObjectHideFlags: 0
@@ -8874,6 +8872,27 @@ MonoBehaviour:
   commandSlider: {fileID: 203459040}
   tags:
   - Enemy
+--- !u!65 &2239112340433964453
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1466269553703180057}
+  m_Material: {fileID: 0}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 1
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 13.41, y: 6.7, z: 11.53}
+  m_Center: {x: 0, y: 1.93, z: 0}
 --- !u!1001 &2678637358168556879
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -8930,6 +8949,9 @@ PrefabInstance:
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2239112340433964453}
     - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2239112340433964452}

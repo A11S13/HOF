@@ -8,17 +8,23 @@ public class AudioManager : MonoBehaviour
     public AudioClip enterClip;
     public AudioClip leaveClip;
 
-    public void PlayEnterSound()
+    private void OnEnable()
+    {
+        EventBus.Instance.Subscribe<ClusterEnterEvent>(PlayEnterSound);
+        EventBus.Instance.Subscribe<ClusterExitEvent>(PlayLeaveSound);
+    }
+
+    public void PlayEnterSound(ClusterEnterEvent @event)
     {
         audioSource.clip = enterClip;
-        audioSource.Play();
+        audioSource.PlayOneShot(enterClip);
         Debug.Log("Enter sound played");
     }
 
-    public void PlayLeaveSound()
+    public void PlayLeaveSound(ClusterExitEvent @event)
     {
         audioSource.clip = leaveClip;
-        audioSource.Play();
+        audioSource.PlayOneShot(leaveClip);
         Debug.Log("Leave sound played");
     }
 }
