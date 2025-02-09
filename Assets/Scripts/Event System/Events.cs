@@ -12,10 +12,16 @@ public struct GameTimeEvent : IGlobalEvent { }
 public struct GameOverEvent : IGlobalEvent { }
 
 // LOCAL EVENTS
-public struct PlayerMoveEvent : IQuadrantEvent
+public struct QuadrantTransitionEvent : IQuadrantEvent
 {
-    public Vector2Int? Location { get; }
-    public PlayerMoveEvent(Vector2Int? location) => Location = location;
+    public Vector2Int? OldLocation { get; }
+    public Vector2Int NewLocation { get; }
+
+    public QuadrantTransitionEvent(Vector2Int? oldLoc, Vector2Int newLoc)
+    {
+        OldLocation = oldLoc;
+        NewLocation = newLoc;
+    }
 }
 public struct AlienDetectedEvent : ILocalEvent
 {

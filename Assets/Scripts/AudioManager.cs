@@ -18,13 +18,11 @@ public class AudioManager : MonoBehaviour
     {
         audioSource.clip = enterClip;
         audioSource.PlayOneShot(enterClip);
-        Debug.Log("Enter sound played");
     }
 
     public void PlayLeaveSound(ClusterExitEvent @event)
     {
         audioSource.clip = leaveClip;
         audioSource.PlayOneShot(leaveClip);
-        Debug.Log("Leave sound played");
     }
 }

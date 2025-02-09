@@ -6,8 +6,8 @@ public interface IGameEvent { }
 public interface IGlobalEvent : IGameEvent { }
 public interface IQuadrantEvent : IGameEvent 
 {
-    Vector2Int? PreviousLocation { get; }
-    Vector2Int? CurrentLocation { get; }
+    Vector2Int? OldLocation { get; }
+    Vector2Int NewLocation { get; }
 }
 public interface ILocalEvent : IGameEvent
 {

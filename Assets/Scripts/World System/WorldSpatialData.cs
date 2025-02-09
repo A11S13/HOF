@@ -4,7 +4,7 @@ using UnityEngine;
 [System.Serializable]
 public class WorldSpatialData
 {
-    //public bool IsExplored; // If spatial data exists, then it's explored.
+    public bool IsExplored; 
     public List<GameObjectData> Objects = new List<GameObjectData>();
 }
 

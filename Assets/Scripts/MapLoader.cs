@@ -32,7 +32,7 @@ public class MapLoader : MonoBehaviour
         }
 
         string filePath = Path.Combine(GWS.fullPath, "Exploration_data.png");
-        Debug.Log(filePath);
+        //Debug.Log(filePath);
 
         try
         {

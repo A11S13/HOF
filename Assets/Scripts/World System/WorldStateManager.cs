@@ -4,24 +4,20 @@ using UnityEngine;
 public class WorldStateManager : MonoBehaviour
 {
     [Header("Settings")]
-    [SerializeField] private float _quadrantSize = 200f;
-    [SerializeField] private Vector2 _clusterBounds = new Vector2(200000f, 200000f);
+    public Vector2 clusterBounds = new Vector2(200000f, 200000f);
 
+    public float quadrantSize= 200f;
     public bool IsInMappedWorld { get; private set; }
     public Vector2Int? CurrentQuadrant { get; private set; }
-    public WorldSpatialData[,] SpatialData { get; private set; }
 
-    [SerializeField] private Transform _player;
+    public Transform _player;
 
     void Start()
     {
-        InitializeSpatialData();
         IsInMappedWorld = IsPlayerInClusterBounds();
         if (IsInMappedWorld)
         {
-            LoadCluster();
             CurrentQuadrant = CalculateCurrentQuadrant();
-            SpawnQuadrantContent();
         }
     }
 
@@ -31,18 +27,11 @@ public class WorldStateManager : MonoBehaviour
         CheckQuadrantTransition();
     }
 
-    private void InitializeSpatialData()
-    {
-        int quadrantsX = Mathf.CeilToInt(_clusterBounds.x / _quadrantSize);
-        int quadrantsY = Mathf.CeilToInt(_clusterBounds.y / _quadrantSize);
-        SpatialData = new WorldSpatialData[quadrantsX, quadrantsY];
-    }
-
     private bool IsPlayerInClusterBounds()
     {
         // AABB check
-        return Mathf.Abs(_player.position.x) < _clusterBounds.x / 2 &&
-               Mathf.Abs(_player.position.z) < _clusterBounds.y / 2;
+        return Mathf.Abs(_player.position.x) < clusterBounds.x / 2 &&
+               Mathf.Abs(_player.position.z) < clusterBounds.y / 2;
     }
 
     private void CheckWorldTransition()
@@ -54,15 +43,11 @@ public class WorldStateManager : MonoBehaviour
         {
             if (IsInMappedWorld)
             {
-                LoadCluster();
                 EventBus.Instance.Publish(new ClusterEnterEvent());
                 Debug.Log("ENTERING HINESSA CLUSTER");
             }
             else if (wasInMappedWorld)
             {
-                SaveCluster();
-                Debug.Log($"Leaving quadrant: {CurrentQuadrant}");
-                DespawnQuadrantContent();
                 CurrentQuadrant = null; // Reset quadrant when leaving cluster
                 EventBus.Instance.Publish(new ClusterExitEvent());
                 Debug.Log("EXITING HINESSA CLUSTER");
@@ -75,69 +60,33 @@ public class WorldStateManager : MonoBehaviour
         if (!IsInMappedWorld) return;
 
         Vector2Int newQuadrant = CalculateCurrentQuadrant();
+        if (newQuadrant == CurrentQuadrant) return;
 
-        if (newQuadrant != CurrentQuadrant)
-        {
-            Debug.Log($"Quadrant transition: {CurrentQuadrant} -> {newQuadrant}");
+        var oldQuadrant = CurrentQuadrant;
+        CurrentQuadrant = newQuadrant;
 
-            if (CurrentQuadrant != null) DespawnQuadrantContent();
-
-            if (CurrentQuadrant.HasValue) //Check if CurrentQuadrant has a value before publishing event, because of niggers
-            {
-                EventBus.Instance.Publish(new ClusterExitEvent());
-            }
-
-            CurrentQuadrant = newQuadrant;
-
-            EventBus.Instance.Publish(new ClusterEnterEvent());
-
-            HandleQuadrantChange();
-        }
+        EventBus.Instance.Publish(new QuadrantTransitionEvent(oldQuadrant, newQuadrant));
+        Debug.Log($"Quadrant transition: {oldQuadrant} -> {newQuadrant}");
     }
 
     private Vector2Int CalculateCurrentQuadrant()
     {
-        return new Vector2Int(
-            Mathf.FloorToInt((_player.position.x + _clusterBounds.x / 2) / _quadrantSize),
-            Mathf.FloorToInt((_player.position.z + _clusterBounds.y / 2) / _quadrantSize)
+        // Add bounds clamping
+        int maxX = Mathf.FloorToInt(clusterBounds.x / quadrantSize);
+        int maxY = Mathf.FloorToInt(clusterBounds.y / quadrantSize);
+
+        int x = Mathf.Clamp(
+            Mathf.FloorToInt((_player.position.x + clusterBounds.x / 2) / quadrantSize),
+            0,
+            maxX - 1
         );
-    }
 
-    private void LoadCluster()
-    {
-        // TODO: Implement World Texture loading
-        Debug.Log($"Loading Cluster Texture");
-    }
+        int y = Mathf.Clamp(
+            Mathf.FloorToInt((_player.position.z + clusterBounds.y / 2) / quadrantSize),
+            0,
+            maxY - 1
+        );
 
-    private void SaveCluster()
-    {
-        // TODO: Implement World Texture saving
-        Debug.Log("Saving spatial data to Cluster Texture");
-    }
-
-    private void HandleQuadrantChange()
-    {
-        if (CurrentQuadrant.HasValue) // Check if CurrentQuadrant has a value
-        {
-            if (SpatialData[CurrentQuadrant.Value.x, CurrentQuadrant.Value.y] == null) // Use .Value to access x and y
-            {
-                SpatialData[CurrentQuadrant.Value.x, CurrentQuadrant.Value.y] = new WorldSpatialData();
-                Debug.Log($"New quadrant discovered: {CurrentQuadrant.Value}");
-            }
-
-            SpawnQuadrantContent();
-        }
-    }
-
-    private void SpawnQuadrantContent()
-    {
-        // TODO: Implement object spawning
-        Debug.Log($"Spawning content for quadrant {CurrentQuadrant}");
-    }
-
-    private void DespawnQuadrantContent()
-    {
-        // TODO: Implement object despawning
-        Debug.Log($"Removing shit from quadrant {CurrentQuadrant}");
+        return new Vector2Int(x, y);
     }
 }
