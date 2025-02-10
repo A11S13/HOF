@@ -7,12 +7,12 @@ public class WorldDataManager : MonoBehaviour
     private WorldStateManager _stateManager;
     private WorldSpatialData[,] SpatialData;
     private HashSet<Vector2Int> _activeQuadrants = new HashSet<Vector2Int>();
+    public static bool TexturesLoaded;
 
     [Header("World Data")]
     public Texture2D worldTexture;
     public GameObject quadrantMarkerPrefab;
     private Color32[,] _texturePixels;
-    private bool _textureLoaded;
     private int _textureSize;
     private float _pixelToQuadrantRatio;
 
@@ -27,8 +27,6 @@ public class WorldDataManager : MonoBehaviour
     }
     void Start()
     {
-        EventBus.Instance.Subscribe<ClusterEnterEvent>(LoadClusterData);
-        EventBus.Instance.Subscribe<ClusterExitEvent>(SaveClusterData);
         LoadWorldTexture();
         InitializeSpatialData();
     }
@@ -44,8 +42,9 @@ public class WorldDataManager : MonoBehaviour
             for (int y = 0; y < _textureSize; y++)
                 _texturePixels[x, y] = worldTexture.GetPixel(x, y);
 
-        _textureLoaded = true;
         _pixelToQuadrantRatio = _stateManager.clusterBounds.x / _textureSize;
+        TexturesLoaded = true;
+        //Debug.Log($"WORLD TEXTURE: {_textureSize}: px {_pixelToQuadrantRatio}: r");
     }
 
     private void InitializeSpatialData()
@@ -59,10 +58,13 @@ public class WorldDataManager : MonoBehaviour
         for (int x = 0; x < quadrantsX; x++)
             for (int y = 0; y < quadrantsY; y++)
                 SpatialData[x, y] = new WorldSpatialData();
+
+        //Debug.Log($"SPATIAL DATA INITIALIZED: {quadrantsX} x {quadrantsY}");
     }
 
     public void ProcessQuadrants(List<QuadrantProcessInfo> quadrantsToProcess)
     {
+        Debug.Log($"PROCESSING {quadrantsToProcess.Count} QUADRANTS...");
         foreach (var info in quadrantsToProcess)
         {
             if (info.ShouldLoad)
@@ -74,6 +76,7 @@ public class WorldDataManager : MonoBehaviour
 
     private void SpawnAllContent(Vector2Int quadrantPos)
     {
+        //Debug.Log("Spawning ALL the SHIT!");
         if (_persistentSpatialData.ContainsKey(quadrantPos))
         {
             // Use existing data for explored quadrants
@@ -86,6 +89,7 @@ public class WorldDataManager : MonoBehaviour
         }
 
         _activeQuadrants.Add(quadrantPos);
+        //Debug.Log("SPAWNED!");
     }
 
     private Dictionary<Vector2Int, WorldSpatialData> _persistentSpatialData = new();
@@ -127,10 +131,11 @@ public class WorldDataManager : MonoBehaviour
 
     private void GenerateNewQuadrantContent(Vector2Int quadrantPos)
     {
+        //Debug.Log("GENERATING SHIT...");
         Vector3 quadrantCenter = GetQuadrantCenter(quadrantPos);
         var texturePos = WorldToTexturePosition(quadrantCenter);
 
-        if (!_textureLoaded)
+        if (!TexturesLoaded)
         {
             Debug.LogError("Texture not loaded!");
             return;
@@ -154,8 +159,10 @@ public class WorldDataManager : MonoBehaviour
         };
 
         // Spawn the objects
+        //Debug.Log("generated");
         SpawnExistingQuadrantContent(quadrantPos);
-        DebugLogQuadrantInfo(quadrantPos, quadrantCenter, texturePos);
+        //DebugLogQuadrantInfo(quadrantPos, quadrantCenter, texturePos);
+        //Debug.Log("Spawned");
     }
 
     private void SpawnFromChannel(byte channelValue, GameObject[] prefabs, Vector3 quadrantCenter, List<GameObjectData> data)
@@ -196,6 +203,7 @@ public class WorldDataManager : MonoBehaviour
         {
             SpawnGameObject(objData, quadrantPos);
         }
+        //Debug.Log($"Spawned: {quadrantPos}");
     }
 
     private Dictionary<Vector2Int, List<GameObject>> _activeObjects = new();
@@ -244,20 +252,26 @@ public class WorldDataManager : MonoBehaviour
         return null;
     }
 
-    public void LoadClusterData(ClusterEnterEvent clusterEnterEvent)
+    public void SaveClusterData(ClusterTransitionEvent clusterExitEvent)
     {
-        Debug.Log("Loading cluster texture data");
-        // TODO: Actual texture loading implementation
-    }
+        if (!_stateManager.IsInMappedWorld && _stateManager.WasInMappedWorld)
+        {
 
-    public void SaveClusterData(ClusterExitEvent clusterExitEvent)
-    {
-        // Only cleanup objects, spatial data remains in _persistentSpatialData
-        var cleanupQuadrants = _activeQuadrants
+            // Only cleanup objects, spatial data remains in _persistentSpatialData
+            var cleanupQuadrants = _activeQuadrants
             .Select(q => new QuadrantProcessInfo(q, false))
             .ToList();
 
-        ProcessQuadrants(cleanupQuadrants);
+            ProcessQuadrants(cleanupQuadrants);
+        }
+    }
+    public void LoadClusterData(ClusterTransitionEvent clusterEnterEvent)
+    {
+        if (_stateManager.IsInMappedWorld && !_stateManager.WasInMappedWorld)
+        {
+            Debug.Log("doing shit");
+            // TODO: Actual spatial data implementation
+        }
     }
 
     private void DebugLogQuadrantInfo(Vector2Int quadrantPos, Vector3 worldPos, Vector2Int texturePos)

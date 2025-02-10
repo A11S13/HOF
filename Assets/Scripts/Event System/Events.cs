@@ -2,8 +2,7 @@ using UnityEngine;
 
 // GLOBAL EVENTS
 public struct GameStartEvent : IGlobalEvent { }
-public struct ClusterEnterEvent : IGlobalEvent { }
-public struct ClusterExitEvent : IGlobalEvent { }
+public struct ClusterTransitionEvent : IGlobalEvent { }
 public struct ResearchedEvent : IGlobalEvent { }
 public struct LevelUpEvent : IGlobalEvent { }
 public struct WarningEvent : IGlobalEvent { }

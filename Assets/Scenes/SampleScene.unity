@@ -1547,7 +1547,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   clusterBounds: {x: 200000, y: 200000}
-  quadrantSize: 400
+  quadrantSize: 100
+  IsInMappedWorld: 0
+  WasInMappedWorld: 0
+  Awakened: 0
   _player: {fileID: 433032881}
 --- !u!114 &741419629
 MonoBehaviour:
@@ -1561,7 +1564,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: ef2258b192723264a80ac198f65b0e25, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  areaOfInterestRadius: 800
+  areaOfInterestRadius: 400
   quadrantMarkerPrefab: {fileID: 8739588326451989159, guid: 4842c39479e47884ab66ac98328282fb, type: 3}
 --- !u!114 &741419630
 MonoBehaviour:
@@ -8679,6 +8682,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0770ed42ab8a3b042bd8452c3144b4d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _stateManager: {fileID: 0}
   musicAudioSource: {fileID: 496776449}
   audioSource: {fileID: 2094032405}
   enterClip: {fileID: 8300000, guid: 68be9c3757c178d4ebad5b6268b67175, type: 3}

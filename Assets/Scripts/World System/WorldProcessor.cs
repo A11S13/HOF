@@ -1,4 +1,5 @@
 using System.Buffers;
+using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
@@ -17,28 +18,34 @@ public class WorldProcessor : MonoBehaviour
         _stateManager = GetComponent<WorldStateManager>();
         _dataManager = GetComponent<WorldDataManager>();
         areaOfInterestRadius = _stateManager.quadrantSize * 3;
-        Debug.Log($"Area of Interest Radius is: {areaOfInterestRadius}");
+        //Debug.Log($"Area of Interest Radius is: {areaOfInterestRadius}");
     }
 
     void Start()
     {
         EventBus.Instance.Subscribe<QuadrantTransitionEvent>(HandleQuadrantChange);
-        EventBus.Instance.Subscribe<ClusterExitEvent>(HandleClusterExit);
+        EventBus.Instance.Subscribe<ClusterTransitionEvent>(HandleClusterExit);
+        //Debug.Log("PROCESSING AREA...");
+        if (_stateManager.IsInMappedWorld) StartCoroutine(AreaProcessor(_stateManager.CurrentQuadrant.Value));
     }
 
     private void HandleQuadrantChange(QuadrantTransitionEvent evt)
     {
-        AreaProcessor(evt.NewLocation, evt.OldLocation);
+        Debug.Log($"Processing Area of Quadrant: {evt.NewLocation}");
+        StartCoroutine(AreaProcessor(evt.NewLocation));
     }
 
-    private void AreaProcessor(Vector2Int newQuadrant, Vector2Int? oldQuadrant)
+    private IEnumerator AreaProcessor(Vector2Int newQuadrant)
     {
-        var quadrantsToProcess = ValidatingQuadrants(newQuadrant, oldQuadrant);
+        //Debug.Log($"WAITING FOR TEXTURE LOAD!");
+        yield return new WaitUntil(() => WorldDataManager.TexturesLoaded);
+        var quadrantsToProcess = ValidatingQuadrants(newQuadrant);
         _dataManager.ProcessQuadrants(quadrantsToProcess);
     }
 
-    private List<QuadrantProcessInfo> ValidatingQuadrants(Vector2Int newQ, Vector2Int? oldQ)
+    private List<QuadrantProcessInfo> ValidatingQuadrants(Vector2Int newQ)
     {
+        //Debug.Log($"Validating Quadrants for {newQ}");
         // Add cluster bounds check
         int maxQuadrantX = Mathf.FloorToInt(_stateManager.clusterBounds.x / _stateManager.quadrantSize);
         int maxQuadrantY = Mathf.FloorToInt(_stateManager.clusterBounds.y / _stateManager.quadrantSize);
@@ -67,6 +74,7 @@ public class WorldProcessor : MonoBehaviour
                        quadrantPos.y >= 0 && quadrantPos.y < maxQuadrantY)
                     {
                         newActiveQuadrants.Add(quadrantPos);
+                        //Debug.Log($"New Active Quadrant: {quadrantPos}");
                     }
                 }
             }
@@ -81,47 +89,41 @@ public class WorldProcessor : MonoBehaviour
             if (!_currentActiveQuadrants.Contains(quadrant))
             {
                 quadrantsToProcess.Add(new QuadrantProcessInfo(quadrant, true));
+                //Debug.Log($"Quadrant to be loaded: {quadrant}");
             }
         }
 
         // Add quadrants that need to be unloaded (in current but not in new)
-        foreach (var quadrant in _currentActiveQuadrants)
+        if (!_stateManager.Awakened) // INITIAL LOADING
         {
-            if (!newActiveQuadrants.Contains(quadrant))
+            foreach (var quadrant in _currentActiveQuadrants)
             {
-                quadrantsToProcess.Add(new QuadrantProcessInfo(quadrant, false));
+                if (!newActiveQuadrants.Contains(quadrant))
+                {
+                    quadrantsToProcess.Add(new QuadrantProcessInfo(quadrant, false));
+                    //Debug.Log($"Quadrant to be unloaded: {quadrant}");
+                }
             }
         }
-
         // Update current active quadrants
         _currentActiveQuadrants = newActiveQuadrants;
-
-        /*foreach (var q in quadrantsToProcess)
-        {
-            Vector3 center = new Vector3(q.Position.x * _stateManager.quadrantSize, 0, q.Position.y * _stateManager.quadrantSize);
-
-            // Adjust center position to account for the cluster offset
-            center.x += -_stateManager.clusterBounds.x / 2;
-            center.z += -_stateManager.clusterBounds.y / 2;
-            Instantiate(quadrantMarkerPrefab, center, Quaternion.identity);
-            Debug.Log($"Active Quadrant: {q}");
-        }*/
+        //Debug.Log($"Quadrants to process: {quadrantsToProcess.Count} Active Quadrants: {_currentActiveQuadrants.Count}");
 
         return quadrantsToProcess;
     }
 
-    private void HandleClusterExit(ClusterExitEvent evt)
+    private void HandleClusterExit(ClusterTransitionEvent evt)
     {
-        // Create unload instructions for all active quadrants
-        List<QuadrantProcessInfo> cleanupQuadrants = _currentActiveQuadrants
-            .Select(q => new QuadrantProcessInfo(q, false))
-            .ToList();
+        if (!_stateManager.Awakened && !_stateManager.IsInMappedWorld)
+        {
+            List<QuadrantProcessInfo> cleanupQuadrants = _currentActiveQuadrants
+                .Select(q => new QuadrantProcessInfo(q, false))
+                .ToList();
 
-        // Process the cleanup
-        _dataManager.ProcessQuadrants(cleanupQuadrants);
-
-        // Clear the active quadrants set
-        _currentActiveQuadrants.Clear();
+            _dataManager.ProcessQuadrants(cleanupQuadrants);
+            _currentActiveQuadrants.Clear();
+            //Debug.Log("REMOVING ALL THE SHIT!");
+        }
     }
 
     void OnDrawGizmos()

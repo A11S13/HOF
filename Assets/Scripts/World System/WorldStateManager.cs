@@ -6,18 +6,27 @@ public class WorldStateManager : MonoBehaviour
     [Header("Settings")]
     public Vector2 clusterBounds = new Vector2(200000f, 200000f);
 
-    public float quadrantSize= 200f;
-    public bool IsInMappedWorld { get; private set; }
+    public float quadrantSize = 200f;
+    public bool IsInMappedWorld;
+    public bool WasInMappedWorld;
+    public bool Awakened;
     public Vector2Int? CurrentQuadrant { get; private set; }
 
     public Transform _player;
 
+    private void Awake()
+    {
+        clusterBounds = new Vector2(200000f, 200000f);
+        Awakened = true;
+        CheckWorldTransition();
+        if (IsInMappedWorld) CalculateCurrentQuadrant();
+    }
+
     void Start()
     {
-        IsInMappedWorld = IsPlayerInClusterBounds();
         if (IsInMappedWorld)
         {
-            CurrentQuadrant = CalculateCurrentQuadrant();
+            CheckQuadrantTransition();
         }
     }
 
@@ -36,27 +45,48 @@ public class WorldStateManager : MonoBehaviour
 
     private void CheckWorldTransition()
     {
-        bool wasInMappedWorld = IsInMappedWorld;
-        IsInMappedWorld = IsPlayerInClusterBounds();
+        IsInMappedWorld = IsPlayerInClusterBounds(); // Update the current state
 
-        if (IsInMappedWorld != wasInMappedWorld) // If someone or both lied
+        if (Awakened) // Handle the initial state transition (only once)
+        {
+            Awakened = false;
+
+            if (IsInMappedWorld)
+            {
+                EventBus.Instance.Publish(new ClusterTransitionEvent());
+                Debug.Log("WAKING AT CLUSTER");
+                WasInMappedWorld = true;
+            }
+            else
+            {
+                EventBus.Instance.Publish(new ClusterTransitionEvent());
+                Debug.Log("WAKING AT VOID...");
+            }
+            return; // Important: Exit after handling the initial state
+        }
+
+        if (IsInMappedWorld != WasInMappedWorld) // Check for changes in the mapped world state
         {
             if (IsInMappedWorld)
             {
-                EventBus.Instance.Publish(new ClusterEnterEvent());
+                EventBus.Instance.Publish(new ClusterTransitionEvent());
+                WasInMappedWorld = true;
                 Debug.Log("ENTERING HINESSA CLUSTER");
             }
-            else if (wasInMappedWorld)
+            else
             {
-                CurrentQuadrant = null; // Reset quadrant when leaving cluster
-                EventBus.Instance.Publish(new ClusterExitEvent());
-                Debug.Log("EXITING HINESSA CLUSTER");
+                EventBus.Instance.Publish(new ClusterTransitionEvent());
+                WasInMappedWorld = false;
+                IsInMappedWorld = false;
+                CurrentQuadrant = null;
+                Debug.Log("LEAVING HINESSA CLUSTER");
             }
         }
     }
-
     private void CheckQuadrantTransition()
     {
+        //Debug.Log("WTF?");
+        IsInMappedWorld = IsPlayerInClusterBounds();
         if (!IsInMappedWorld) return;
 
         Vector2Int newQuadrant = CalculateCurrentQuadrant();
@@ -64,13 +94,14 @@ public class WorldStateManager : MonoBehaviour
 
         var oldQuadrant = CurrentQuadrant;
         CurrentQuadrant = newQuadrant;
-
+        Debug.Log("Dispatching QTE...");
         EventBus.Instance.Publish(new QuadrantTransitionEvent(oldQuadrant, newQuadrant));
-        Debug.Log($"Quadrant transition: {oldQuadrant} -> {newQuadrant}");
+        //Debug.Log($"Quadrant transition: {oldQuadrant} -> {newQuadrant}");
     }
 
-    private Vector2Int CalculateCurrentQuadrant()
+    public Vector2Int CalculateCurrentQuadrant()
     {
+
         // Add bounds clamping
         int maxX = Mathf.FloorToInt(clusterBounds.x / quadrantSize);
         int maxY = Mathf.FloorToInt(clusterBounds.y / quadrantSize);
@@ -86,7 +117,7 @@ public class WorldStateManager : MonoBehaviour
             0,
             maxY - 1
         );
-
+        //Debug.Log($"Current Quadrant: {x}, {y}");
         return new Vector2Int(x, y);
     }
 }
