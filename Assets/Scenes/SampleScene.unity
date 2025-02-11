@@ -849,6 +849,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 433032881}
+  - component: {fileID: 433032884}
   - component: {fileID: 433032880}
   - component: {fileID: 433032878}
   - component: {fileID: 433032879}
@@ -970,6 +971,18 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   weaponTogglePrefab: {fileID: 7877916510193046891, guid: 0bcc025a3e666c9479c2a400955ed253, type: 3}
+--- !u!114 &433032884
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 433032876}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13e4c25a2b30cd9488e4fc9acdb370e6, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &456706038
 GameObject:
   m_ObjectHideFlags: 0
@@ -1552,7 +1565,7 @@ MonoBehaviour:
   IsInMappedWorld: 0
   WasInMappedWorld: 0
   Awakened: 0
-  Player: {fileID: 0}
+  Player: {fileID: 433032881}
 --- !u!114 &741419629
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1612,9 +1625,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18b8e60c268a67f448d427761c8cb2c7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  Player: {fileID: 0}
-  StartedInVoid: 0
-  StartedInCluster: 0
+  _WSM: {fileID: 0}
 --- !u!1 &848781342
 GameObject:
   m_ObjectHideFlags: 0
@@ -8929,6 +8940,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 73e873c844510cd4bb5b212eaa7d506a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  technology: Technocracy
   shipData: {fileID: 11400000, guid: 689ef4322c40e6649b950096d39b37c6, type: 2}
   sonarRadius: 100
   Weapons: []
@@ -8963,6 +8975,92 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 13.41, y: 6.7, z: 11.53}
   m_Center: {x: 0, y: 1.93, z: 0}
+--- !u!114 &2239112340433964454
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1466269553703180057}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 40db09903053bd1428138811d2f148d5, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  race: Humans
+  number: 200000
+  governance: Technocracy
+  techLevel: 1
+  enlightenmentLevel: 1
+--- !u!114 &2239112340433964455
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1466269553703180057}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2d9af697a493e914385e14e49cd74fa8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  simulationDelay: 1
+  unitInfo: 
+  attachedWeapons: []
+  shipCoreTechnology: 
+  populationData: 
+  automataArray: []
+  automataData: 
+  initialized: 0
+  online: 0
+  engaging: 0
+  retreating: 0
+  strafing: 0
+  orbiting: 0
+  charging: 0
+  firing: 0
+  gathering: 0
+--- !u!114 &2239112340433964456
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1466269553703180057}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 13eb79e5d13953f4298c2e58a1787042, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  automatas:
+  - name: Militronica
+    type: Automatica
+  - name: Bender
+    type: NPC
+  - name: RADA
+    type: AI
+  - name: VOLIA
+    type: AGI
+  - name: Neirocore
+    type: MI
+  - name: SENTINEL
+    type: LMI
+--- !u!114 &2239112340433964457
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1466269553703180057}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b0c0551124292042b6b1d48144c66b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  unitType: Mothership
+  unitClass: Sciense Vessel
+  unitRole: Colonizator
+  unitName: Kosmichniy
 --- !u!1001 &2678637358168556879
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -9021,10 +9119,22 @@ PrefabInstance:
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 2239112340433964453}
+      addedObject: {fileID: 2239112340433964457}
+    - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2239112340433964455}
     - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2239112340433964452}
+    - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2239112340433964454}
+    - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2239112340433964456}
+    - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2239112340433964453}
   m_SourcePrefab: {fileID: 100100000, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

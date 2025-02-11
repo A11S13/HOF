@@ -16,7 +16,7 @@ public class WorldStateManager : MonoBehaviour
 
     private void Awake()
     {
-        Player = GameObject.FindGameObjectWithTag("Player").transform;
+        Player = FindFirstObjectByType<Player>()?.transform;
         clusterBounds = new Vector2(200000f, 200000f);
         Awakened = true;
         CheckWorldTransition();
@@ -37,7 +37,7 @@ public class WorldStateManager : MonoBehaviour
         CheckQuadrantTransition();
     }
 
-    private bool IsPlayerInClusterBounds()
+    public bool IsPlayerInClusterBounds()
     {
         // AABB check
         return Mathf.Abs(Player.position.x) < clusterBounds.x / 2 &&

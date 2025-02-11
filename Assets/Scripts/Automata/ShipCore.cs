@@ -4,6 +4,7 @@ using UnityEngine.UI;
 
 public class ShipCore : MonoBehaviour
 {
+    public string technology;
     // Reference to ShipData Scriptable Object
     public ShipData shipData;
     Sonar _sonar;

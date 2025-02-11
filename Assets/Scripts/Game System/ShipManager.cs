@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class ShipManager : MonoBehaviour
 {
-    GameStateManager stateManager;
+    private GameStateManager _stateManager;
     public bool Captain;
     public bool Adjutant;
 
@@ -13,29 +13,40 @@ public class ShipManager : MonoBehaviour
 
     private void Awake()
     {
+        _stateManager = FindFirstObjectByType<GameStateManager>();
         _player = GameObject.FindGameObjectWithTag("Player").transform;
 
-        if (_player == null) // Important: Check if the GameObject was found!
+        if (_player == null)
         {
             Debug.LogError("GameObject with tag 'Player' not found!");
+        }
+        else
+        {
+            if (_stateManager.StartedInVoid)
+            {
+                Debug.Log("Fucking void...");
+            }
+            else if (_stateManager.StartedInCluster) 
+            {
+                Debug.Log("HINESSA!");
+            }
         }
     }
     public void Start()
     {
         InitializeTeam();
     }
-    public void InitializeTeam()
+    private void InitializeTeam()
     {
-        if (!_player)
+        if (_player == null) // Check for null _player
         {
             PlayerAsCaptain = false;
             Debug.Log("Player not assigned!");
+            return; // Early exit
         }
-        else
-        {
-            PlayerAsCaptain = true;
-            Debug.Log("INITIALIZING CAPTAIN PROTOCOL...");
-        }
+
+        PlayerAsCaptain = true;
+        Debug.Log("Initializing captain protocol...");
         CaptainProtocol();
     }
 
@@ -49,11 +60,11 @@ public class ShipManager : MonoBehaviour
     {
         if (PlayerAsCaptain)
         {
-            Debug.Log("Promoted Player to Captain!");
+            Debug.Log("Promoted player to captain!"); // More concise
         }
         else
         {
-            Debug.Log("Assigning NPC as Captain...");
+            Debug.Log("Assigning NPC as captain..."); // More concise
         }
     }
     public void AdjutantProtocol()
@@ -61,6 +72,7 @@ public class ShipManager : MonoBehaviour
         Debug.Log("Adjutant assigning...");
         AssignAdjutant();
         Adjutant = true;
+
         if (PlayerAsCaptain)
         {
             AdjutantAsCaptain = false;
@@ -79,10 +91,11 @@ public class ShipManager : MonoBehaviour
     }
     private void Obey()
     {
-        // do instructions
+        // Implement instructions here
     }
+
     private void Command()
     {
-        // rule the ship
+        // Implement ship control here
     }
 }
