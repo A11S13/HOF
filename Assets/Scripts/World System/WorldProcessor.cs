@@ -132,7 +132,7 @@ public class WorldProcessor : MonoBehaviour
 
         // Draw Area of Interest circle
         Gizmos.color = new Color(1, 1, 0, 0.2f); // Semi-transparent yellow
-        Vector3 playerPos = _stateManager._player.transform.position;
+        Vector3 playerPos = _stateManager.Player.transform.position;
         Gizmos.DrawWireSphere(new Vector3(playerPos.x, 0, playerPos.z), areaOfInterestRadius);
 
         // Draw active quadrants

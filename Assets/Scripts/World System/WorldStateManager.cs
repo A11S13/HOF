@@ -12,10 +12,11 @@ public class WorldStateManager : MonoBehaviour
     public bool Awakened;
     public Vector2Int? CurrentQuadrant { get; private set; }
 
-    public Transform _player;
+    public Transform Player;
 
     private void Awake()
     {
+        Player = GameObject.FindGameObjectWithTag("Player").transform;
         clusterBounds = new Vector2(200000f, 200000f);
         Awakened = true;
         CheckWorldTransition();
@@ -39,8 +40,8 @@ public class WorldStateManager : MonoBehaviour
     private bool IsPlayerInClusterBounds()
     {
         // AABB check
-        return Mathf.Abs(_player.position.x) < clusterBounds.x / 2 &&
-               Mathf.Abs(_player.position.z) < clusterBounds.y / 2;
+        return Mathf.Abs(Player.position.x) < clusterBounds.x / 2 &&
+               Mathf.Abs(Player.position.z) < clusterBounds.y / 2;
     }
 
     private void CheckWorldTransition()
@@ -107,13 +108,13 @@ public class WorldStateManager : MonoBehaviour
         int maxY = Mathf.FloorToInt(clusterBounds.y / quadrantSize);
 
         int x = Mathf.Clamp(
-            Mathf.FloorToInt((_player.position.x + clusterBounds.x / 2) / quadrantSize),
+            Mathf.FloorToInt((Player.position.x + clusterBounds.x / 2) / quadrantSize),
             0,
             maxX - 1
         );
 
         int y = Mathf.Clamp(
-            Mathf.FloorToInt((_player.position.z + clusterBounds.y / 2) / quadrantSize),
+            Mathf.FloorToInt((Player.position.z + clusterBounds.y / 2) / quadrantSize),
             0,
             maxY - 1
         );

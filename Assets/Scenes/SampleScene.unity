@@ -1512,6 +1512,7 @@ GameObject:
   - component: {fileID: 741419629}
   - component: {fileID: 741419630}
   - component: {fileID: 741419631}
+  - component: {fileID: 741419632}
   m_Layer: 0
   m_Name: OBSERVER
   m_TagString: Untagged
@@ -1551,7 +1552,7 @@ MonoBehaviour:
   IsInMappedWorld: 0
   WasInMappedWorld: 0
   Awakened: 0
-  _player: {fileID: 433032881}
+  Player: {fileID: 0}
 --- !u!114 &741419629
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1599,6 +1600,21 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   exclusionRadius: 0
+--- !u!114 &741419632
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 741419625}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 18b8e60c268a67f448d427761c8cb2c7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  Player: {fileID: 0}
+  StartedInVoid: 0
+  StartedInCluster: 0
 --- !u!1 &848781342
 GameObject:
   m_ObjectHideFlags: 0
