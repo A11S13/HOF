@@ -5,8 +5,11 @@ using UnityEngine;
 public class WorldDataManager : MonoBehaviour
 {
     private WorldStateManager _stateManager;
-    private WorldSpatialData[,] SpatialData;
-    private HashSet<Vector2Int> _activeQuadrants = new HashSet<Vector2Int>();
+    private WorldSpatialData[,] SpatialData; // Array of lists of structures
+    private Dictionary<Vector2Int, WorldSpatialData> _persistentSpatialData = new(); // Spatial Data
+    private HashSet<Vector2Int> _activeQuadrants = new HashSet<Vector2Int>(); // Quadrants Online
+    private Dictionary<Vector2Int, List<GameObject>> _activeObjects = new();
+
     public static bool TexturesLoaded;
 
     [Header("World Data")]
@@ -92,43 +95,6 @@ public class WorldDataManager : MonoBehaviour
         //Debug.Log("SPAWNED!");
     }
 
-    private Dictionary<Vector2Int, WorldSpatialData> _persistentSpatialData = new();
-
-    private Vector2Int WorldToTexturePosition(Vector3 worldPosition)
-    {
-        // Convert world coordinates to normalized cluster space [0,1]
-        float normalizedX = Mathf.InverseLerp(
-            -_stateManager.clusterBounds.x / 2,
-            _stateManager.clusterBounds.x / 2,
-            worldPosition.x
-        );
-
-        float normalizedY = Mathf.InverseLerp(
-            -_stateManager.clusterBounds.y / 2,
-            _stateManager.clusterBounds.y / 2,
-            worldPosition.z
-        );
-
-        // Convert to texture coordinates
-        int texX = Mathf.FloorToInt(normalizedX * (_textureSize - 1));
-        int texY = Mathf.FloorToInt(normalizedY * (_textureSize - 1));
-
-        return new Vector2Int(
-            Mathf.Clamp(texX, 0, _textureSize - 1),
-            Mathf.Clamp(texY, 0, _textureSize - 1)
-        );
-    }
-
-    private Vector3 GetQuadrantCenter(Vector2Int quadrantPos)
-    {
-        // Convert quadrant grid position to world space with cluster offset
-        return new Vector3(
-            (quadrantPos.x * _stateManager.quadrantSize) - (_stateManager.clusterBounds.x / 2) + (_stateManager.quadrantSize / 2f),
-            0,
-            (quadrantPos.y * _stateManager.quadrantSize) - (_stateManager.clusterBounds.y / 2) + (_stateManager.quadrantSize / 2f)
-        );
-    }
-
     private void GenerateNewQuadrantContent(Vector2Int quadrantPos)
     {
         //Debug.Log("GENERATING SHIT...");
@@ -165,6 +131,31 @@ public class WorldDataManager : MonoBehaviour
         //Debug.Log("Spawned");
     }
 
+    private void SpawnExistingQuadrantContent(Vector2Int quadrantPos)
+    {
+        if (!_persistentSpatialData.ContainsKey(quadrantPos)) return;
+
+        var objectsData = _persistentSpatialData[quadrantPos].Objects;
+        foreach (var objData in objectsData)
+        {
+            SpawnGameObject(objData, quadrantPos);
+        }
+        //Debug.Log($"Spawned: {quadrantPos}");
+    }
+
+    private void SpawnGameObject(GameObjectData objData, Vector2Int quadrantPos)
+    {
+        GameObject prefab = GetPrefabById(objData.PrefabID);
+        if (prefab == null) return;
+
+        var instance = Instantiate(prefab, objData.Position, objData.Rotation);
+
+        if (!_activeObjects.ContainsKey(quadrantPos))
+            _activeObjects[quadrantPos] = new List<GameObject>();
+
+        _activeObjects[quadrantPos].Add(instance);
+    }
+
     private void SpawnFromChannel(byte channelValue, GameObject[] prefabs, Vector3 quadrantCenter, List<GameObjectData> data)
     {
         if (channelValue == 0 || prefabs.Length == 0) return;
@@ -194,33 +185,6 @@ public class WorldDataManager : MonoBehaviour
         }
     }
 
-    private void SpawnExistingQuadrantContent(Vector2Int quadrantPos)
-    {
-        if (!_persistentSpatialData.ContainsKey(quadrantPos)) return;
-
-        var objectsData = _persistentSpatialData[quadrantPos].Objects;
-        foreach (var objData in objectsData)
-        {
-            SpawnGameObject(objData, quadrantPos);
-        }
-        //Debug.Log($"Spawned: {quadrantPos}");
-    }
-
-    private Dictionary<Vector2Int, List<GameObject>> _activeObjects = new();
-
-    private void SpawnGameObject(GameObjectData objData, Vector2Int quadrantPos)
-    {
-        GameObject prefab = GetPrefabById(objData.PrefabID);
-        if (prefab == null) return;
-
-        var instance = Instantiate(prefab, objData.Position, objData.Rotation);
-
-        if (!_activeObjects.ContainsKey(quadrantPos))
-            _activeObjects[quadrantPos] = new List<GameObject>();
-
-        _activeObjects[quadrantPos].Add(instance);
-    }
-
     private void DespawnContent(Vector2Int quadrantPos)
     {
         if (_activeObjects.TryGetValue(quadrantPos, out var objects))
@@ -232,6 +196,41 @@ public class WorldDataManager : MonoBehaviour
         }
 
         _activeQuadrants.Remove(quadrantPos);
+    }
+
+    private Vector2Int WorldToTexturePosition(Vector3 worldPosition)
+    {
+        // Convert world coordinates to normalized cluster space [0,1]
+        float normalizedX = Mathf.InverseLerp(
+            -_stateManager.clusterBounds.x / 2,
+            _stateManager.clusterBounds.x / 2,
+            worldPosition.x
+        );
+
+        float normalizedY = Mathf.InverseLerp(
+            -_stateManager.clusterBounds.y / 2,
+            _stateManager.clusterBounds.y / 2,
+            worldPosition.z
+        );
+
+        // Convert to texture coordinates
+        int texX = Mathf.FloorToInt(normalizedX * (_textureSize - 1));
+        int texY = Mathf.FloorToInt(normalizedY * (_textureSize - 1));
+
+        return new Vector2Int(
+            Mathf.Clamp(texX, 0, _textureSize - 1),
+            Mathf.Clamp(texY, 0, _textureSize - 1)
+        );
+    }
+
+    private Vector3 GetQuadrantCenter(Vector2Int quadrantPos)
+    {
+        // Convert quadrant grid position to world space with cluster offset
+        return new Vector3(
+            (quadrantPos.x * _stateManager.quadrantSize) - (_stateManager.clusterBounds.x / 2) + (_stateManager.quadrantSize / 2f),
+            0,
+            (quadrantPos.y * _stateManager.quadrantSize) - (_stateManager.clusterBounds.y / 2) + (_stateManager.quadrantSize / 2f)
+        );
     }
 
     // Returns a prefab by matching its name with the given prefabId.
