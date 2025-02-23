@@ -140,9 +140,9 @@ public class WorldProcessor : MonoBehaviour
         foreach (var q in _currentActiveQuadrants)
         {
             Vector3 center = new Vector3(
-                q.x * _stateManager.quadrantSize,
+                q.x * _stateManager.quadrantSize + _stateManager.quadrantSize / 2f,
                 0,
-                q.y * _stateManager.quadrantSize
+                q.y * _stateManager.quadrantSize + _stateManager.quadrantSize / 2f
             );
 
             // Adjust center position to account for the cluster offset

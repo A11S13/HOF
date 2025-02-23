@@ -14,4 +14,5 @@ public struct GameObjectData
     public Vector3 Position;
     public Quaternion Rotation;
     public string PrefabID;
+    public int Experience;
 }

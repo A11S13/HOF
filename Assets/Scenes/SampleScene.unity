@@ -1760,12 +1760,11 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   worldTexture: {fileID: 2800000, guid: 29e867d2505246047a3ea2e9b770cec1, type: 3}
-  quadrantMarkerPrefab: {fileID: 8739588326451989159, guid: 4842c39479e47884ab66ac98328282fb, type: 3}
-  enemyPrefabs:
-  - {fileID: 5747785977735381125, guid: 019e24b6c38a79f489b38c73cd16a08f, type: 3}
-  artifactPrefabs:
+  azothPrefab:
   - {fileID: 1818697677462650816, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-  remnantPrefabs:
+  animaPrefab:
+  - {fileID: 5556492154842436138, guid: cce0050489f9c524b95f26256c033070, type: 3}
+  artificaPrefab:
   - {fileID: 8000410653846524232, guid: be7a9e3d5f2af6e48a5b0a5fd11c992f, type: 3}
 --- !u!114 &741419631
 MonoBehaviour:
@@ -9367,18 +9366,6 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 08ae63b137d3e4b4b8a1c2bc80057733, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
---- !u!114 &2239112340433964459
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1466269553703180057}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 9f8b05ac233e9464a84d26fa1f3d6687, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &2239112340433964460
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9513,9 +9500,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2239112340433964460}
-    - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 2239112340433964459}
     - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2239112340433964458}

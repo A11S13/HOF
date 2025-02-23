@@ -14,15 +14,14 @@ public class WorldDataManager : MonoBehaviour
 
     [Header("World Data")]
     public Texture2D worldTexture;
-    public GameObject quadrantMarkerPrefab;
     private Color32[,] _texturePixels;
     private int _textureSize;
     private float _pixelToQuadrantRatio;
 
     [Header("Prefab References")]
-    [SerializeField] private GameObject[] enemyPrefabs;      // Red channel spawns
-    [SerializeField] private GameObject[] artifactPrefabs;   // Green channel spawns
-    [SerializeField] private GameObject[] remnantPrefabs;    // Blue channel spawns
+    [SerializeField] private GameObject[] azothPrefab;    // Blue channel spawns
+    [SerializeField] private GameObject[] animaPrefab;      // Red channel spawns
+    [SerializeField] private GameObject[] artificaPrefab;   // Green channel spawns
 
     void Awake()
     {
@@ -89,6 +88,7 @@ public class WorldDataManager : MonoBehaviour
         {
             // Generate new content for unexplored quadrants
             GenerateNewQuadrantContent(quadrantPos);
+            SpawnExistingQuadrantContent(quadrantPos);
         }
 
         _activeQuadrants.Add(quadrantPos);
@@ -112,9 +112,9 @@ public class WorldDataManager : MonoBehaviour
 
         if (pixel.a > 127)
         {
-            SpawnFromChannel(pixel.r, enemyPrefabs, quadrantCenter, objectsData);
-            SpawnFromChannel(pixel.g, artifactPrefabs, quadrantCenter, objectsData);
-            SpawnFromChannel(pixel.b, remnantPrefabs, quadrantCenter, objectsData);
+            SpawnFromChannel(pixel.r, animaPrefab, quadrantCenter, objectsData);
+            SpawnFromChannel(pixel.g, artificaPrefab, quadrantCenter, objectsData);
+            SpawnFromChannel(pixel.b, azothPrefab, quadrantCenter, objectsData);
         }
 
         // Store in persistent storage
@@ -123,24 +123,64 @@ public class WorldDataManager : MonoBehaviour
             Objects = objectsData,
             IsExplored = true
         };
-
-        // Spawn the objects
-        //Debug.Log("generated");
-        SpawnExistingQuadrantContent(quadrantPos);
-        //DebugLogQuadrantInfo(quadrantPos, quadrantCenter, texturePos);
-        //Debug.Log("Spawned");
     }
 
     private void SpawnExistingQuadrantContent(Vector2Int quadrantPos)
     {
         if (!_persistentSpatialData.ContainsKey(quadrantPos)) return;
-
         var objectsData = _persistentSpatialData[quadrantPos].Objects;
         foreach (var objData in objectsData)
         {
             SpawnGameObject(objData, quadrantPos);
         }
         //Debug.Log($"Spawned: {quadrantPos}");
+    }
+
+    private void WriteQuadrant(Vector2Int quadrantPos)
+    {
+        List<GameObjectData> objectsData = new List<GameObjectData>();
+        Vector3 quadrantCenter = GetQuadrantCenter(quadrantPos);
+        float halfQuadrantSize = _stateManager.quadrantSize / 2f;
+
+        // Calculate quadrant boundaries
+        float minX = quadrantCenter.x - halfQuadrantSize;
+        float maxX = quadrantCenter.x + halfQuadrantSize;
+        float minZ = quadrantCenter.z - halfQuadrantSize;
+        float maxZ = quadrantCenter.z + halfQuadrantSize;
+
+        Debug.Log($"Writing {quadrantPos} quadrant: bounds ({minX},{minZ}) to ({maxX},{maxZ})");
+
+        // Check all active objects across all quadrants
+        foreach (var kvp in _activeObjects)
+        {
+            foreach (var obj in kvp.Value)
+            {
+                if (obj != null)
+                {
+                    Vector3 pos = obj.transform.position;
+
+                    // Check if object position falls within this quadrant's boundaries
+                    if (pos.x >= minX && pos.x < maxX &&
+                        pos.z >= minZ && pos.z < maxZ)
+                    {
+                        objectsData.Add(new GameObjectData
+                        {
+                            Position = pos,
+                            Rotation = obj.transform.rotation,
+                            PrefabID = obj.name.Replace("(Clone)", "").Trim()
+                        });
+                        //Debug.Log($"Added {obj.name.Replace("(Clone)", "").Trim()} at {pos} to quadrant {quadrantPos}");
+                    }
+                }
+            }
+        }
+
+        // Update persistent storage with current state
+        _persistentSpatialData[quadrantPos] = new WorldSpatialData
+        {
+            Objects = objectsData,
+            IsExplored = true
+        };
     }
 
     private void SpawnGameObject(GameObjectData objData, Vector2Int quadrantPos)
@@ -185,8 +225,13 @@ public class WorldDataManager : MonoBehaviour
         }
     }
 
+
     private void DespawnContent(Vector2Int quadrantPos)
     {
+        WriteQuadrant(quadrantPos);
+
+        List<GameObjectData> objectsData = new List<GameObjectData>();
+
         if (_activeObjects.TryGetValue(quadrantPos, out var objects))
         {
             foreach (var obj in objects)
@@ -236,15 +281,15 @@ public class WorldDataManager : MonoBehaviour
     // Returns a prefab by matching its name with the given prefabId.
     private GameObject GetPrefabById(string prefabId)
     {
-        foreach (var prefab in enemyPrefabs)
+        foreach (var prefab in animaPrefab)
             if (prefab.name == prefabId)
                 return prefab;
 
-        foreach (var prefab in artifactPrefabs)
+        foreach (var prefab in artificaPrefab)
             if (prefab.name == prefabId)
                 return prefab;
 
-        foreach (var prefab in remnantPrefabs)
+        foreach (var prefab in azothPrefab)
             if (prefab.name == prefabId)
                 return prefab;
 
