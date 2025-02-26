@@ -10,6 +10,14 @@ public class WorldDataManager : MonoBehaviour
     private HashSet<Vector2Int> _activeQuadrants = new HashSet<Vector2Int>(); // Quadrants Online
     private Dictionary<Vector2Int, List<GameObject>> _activeObjects = new();
 
+    // Object pooling dictionaries
+    private Dictionary<string, Queue<GameObject>> _objectPools = new();
+    private Dictionary<string, GameObject> _prefabLookup = new();
+
+    [Header("Object Pooling")]
+    [SerializeField] private int initialPoolSize = 20; // Initial number of objects to instantiate per prefab
+    [SerializeField] private bool expandPoolWhenNeeded = true;
+
     public static bool TexturesLoaded;
 
     [Header("World Data")]
@@ -27,10 +35,12 @@ public class WorldDataManager : MonoBehaviour
     {
         _stateManager = GetComponent<WorldStateManager>();
     }
+
     void Start()
     {
         LoadWorldTexture();
         InitializeSpatialData();
+        InitializeObjectPools();
     }
 
     private void LoadWorldTexture()
@@ -62,6 +72,99 @@ public class WorldDataManager : MonoBehaviour
                 SpatialData[x, y] = new WorldSpatialData();
 
         //Debug.Log($"SPATIAL DATA INITIALIZED: {quadrantsX} x {quadrantsY}");
+    }
+
+    private void InitializeObjectPools()
+    {
+        // Add all prefabs to the lookup dictionary
+        foreach (var prefab in animaPrefab)
+            _prefabLookup[prefab.name] = prefab;
+
+        foreach (var prefab in artificaPrefab)
+            _prefabLookup[prefab.name] = prefab;
+
+        foreach (var prefab in azothPrefab)
+            _prefabLookup[prefab.name] = prefab;
+
+        // Create initial pools for each prefab
+        foreach (var kvp in _prefabLookup)
+        {
+            string prefabId = kvp.Key;
+            GameObject prefab = kvp.Value;
+
+            _objectPools[prefabId] = new Queue<GameObject>();
+
+            // Pre-instantiate objects
+            for (int i = 0; i < initialPoolSize; i++)
+            {
+                GameObject obj = InstantiateObject(prefab);
+                obj.SetActive(false);
+                _objectPools[prefabId].Enqueue(obj);
+            }
+        }
+
+        Debug.Log($"Initialized object pools for {_objectPools.Count} prefab types");
+    }
+
+    private GameObject InstantiateObject(GameObject prefab)
+    {
+        GameObject obj = Instantiate(prefab);
+        obj.name = prefab.name; // Remove the "(Clone)" suffix
+        return obj;
+    }
+
+    private GameObject GetPooledObject(string prefabId)
+    {
+        // Create pool if it doesn't exist (shouldn't happen if InitializeObjectPools is called)
+        if (!_objectPools.ContainsKey(prefabId))
+        {
+            Debug.LogWarning($"Creating pool for {prefabId} on demand");
+            GameObject prefab = GetPrefabById(prefabId);
+            if (prefab == null) return null;
+
+            _objectPools[prefabId] = new Queue<GameObject>();
+        }
+
+        GameObject obj = null;
+
+        // Try to get an object from the pool
+        if (_objectPools[prefabId].Count > 0)
+        {
+            obj = _objectPools[prefabId].Dequeue();
+        }
+        // If the pool is empty and we're allowed to expand it, create a new object
+        else if (expandPoolWhenNeeded)
+        {
+            GameObject prefab = GetPrefabById(prefabId);
+            if (prefab != null)
+            {
+                obj = InstantiateObject(prefab);
+                Debug.LogWarning($"Expanding pool for {prefabId}");
+            }
+        }
+
+        if (obj != null)
+        {
+            obj.SetActive(true);
+        }
+
+        return obj;
+    }
+
+    private void ReturnToPool(GameObject obj)
+    {
+        if (obj == null) return;
+
+        string prefabId = obj.name.Replace("(Clone)", "").Trim();
+
+        // Reset the object state
+        obj.SetActive(false);
+
+        // Add back to the pool
+        if (!_objectPools.ContainsKey(prefabId))
+            _objectPools[prefabId] = new Queue<GameObject>();
+
+        _objectPools[prefabId].Enqueue(obj);
     }
 
     public void ProcessQuadrants(List<QuadrantProcessInfo> quadrantsToProcess)
@@ -185,10 +288,13 @@ public class WorldDataManager : MonoBehaviour
 
     private void SpawnGameObject(GameObjectData objData, Vector2Int quadrantPos)
     {
-        GameObject prefab = GetPrefabById(objData.PrefabID);
-        if (prefab == null) return;
+        // Get object from pool instead of instantiating
+        GameObject instance = GetPooledObject(objData.PrefabID);
+        if (instance == null) return;
 
-        var instance = Instantiate(prefab, objData.Position, objData.Rotation);
+        // Set position and rotation
+        instance.transform.position = objData.Position;
+        instance.transform.rotation = objData.Rotation;
 
         if (!_activeObjects.ContainsKey(quadrantPos))
             _activeObjects[quadrantPos] = new List<GameObject>();
@@ -225,17 +331,14 @@ public class WorldDataManager : MonoBehaviour
         }
     }
 
-
     private void DespawnContent(Vector2Int quadrantPos)
     {
         WriteQuadrant(quadrantPos);
 
-        List<GameObjectData> objectsData = new List<GameObjectData>();
-
         if (_activeObjects.TryGetValue(quadrantPos, out var objects))
         {
             foreach (var obj in objects)
-                Destroy(obj);
+                ReturnToPool(obj); // Return to pool instead of destroying
 
             _activeObjects.Remove(quadrantPos);
         }
@@ -281,17 +384,22 @@ public class WorldDataManager : MonoBehaviour
     // Returns a prefab by matching its name with the given prefabId.
     private GameObject GetPrefabById(string prefabId)
     {
-        foreach (var prefab in animaPrefab)
-            if (prefab.name == prefabId)
-                return prefab;
+        // Use prefab lookup dictionary
+        if (_prefabLookup.TryGetValue(prefabId, out GameObject prefab))
+            return prefab;
 
-        foreach (var prefab in artificaPrefab)
-            if (prefab.name == prefabId)
-                return prefab;
+        // Fallback to original method if not found in dictionary
+        foreach (var p in animaPrefab)
+            if (p.name == prefabId)
+                return p;
 
-        foreach (var prefab in azothPrefab)
-            if (prefab.name == prefabId)
-                return prefab;
+        foreach (var p in artificaPrefab)
+            if (p.name == prefabId)
+                return p;
+
+        foreach (var p in azothPrefab)
+            if (p.name == prefabId)
+                return p;
 
         return null;
     }
@@ -300,7 +408,6 @@ public class WorldDataManager : MonoBehaviour
     {
         if (!_stateManager.IsInMappedWorld && _stateManager.WasInMappedWorld)
         {
-
             // Only cleanup objects, spatial data remains in _persistentSpatialData
             var cleanupQuadrants = _activeQuadrants
             .Select(q => new QuadrantProcessInfo(q, false))
@@ -309,6 +416,7 @@ public class WorldDataManager : MonoBehaviour
             ProcessQuadrants(cleanupQuadrants);
         }
     }
+
     public void LoadClusterData(ClusterTransitionEvent clusterEnterEvent)
     {
         if (_stateManager.IsInMappedWorld && !_stateManager.WasInMappedWorld)
@@ -324,5 +432,20 @@ public class WorldDataManager : MonoBehaviour
                   $"World Pos: {worldPos.ToString("F2")}, " +
                   $"Texture Pos: {texturePos}, " +
                   $"Pixel Color: {_texturePixels[texturePos.x, texturePos.y]}");
+    }
+
+    // Optional: Clear all pools on destroy
+    private void OnDestroy()
+    {
+        foreach (var pool in _objectPools.Values)
+        {
+            while (pool.Count > 0)
+            {
+                GameObject obj = pool.Dequeue();
+                if (obj != null)
+                    Destroy(obj);
+            }
+        }
+        _objectPools.Clear();
     }
 }

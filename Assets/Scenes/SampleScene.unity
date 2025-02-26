@@ -1759,6 +1759,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 98ec7b6a0c13e4b4bb1885bd17a09012, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  initialPoolSize: 2000
+  expandPoolWhenNeeded: 1
   worldTexture: {fileID: 2800000, guid: 29e867d2505246047a3ea2e9b770cec1, type: 3}
   azothPrefab:
   - {fileID: 1818697677462650816, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
