@@ -215,9 +215,9 @@ public class WorldDataManager : MonoBehaviour
 
         if (pixel.a > 127)
         {
-            SpawnFromChannel(pixel.r, animaPrefab, quadrantCenter, objectsData);
-            SpawnFromChannel(pixel.g, artificaPrefab, quadrantCenter, objectsData);
-            SpawnFromChannel(pixel.b, azothPrefab, quadrantCenter, objectsData);
+            SpawnFromChannel(pixel.r, azothPrefab, quadrantCenter, objectsData);
+            SpawnFromChannel(pixel.g, animaPrefab, quadrantCenter, objectsData);
+            SpawnFromChannel(pixel.b, artificaPrefab, quadrantCenter, objectsData);
         }
 
         // Store in persistent storage
@@ -306,7 +306,7 @@ public class WorldDataManager : MonoBehaviour
     {
         if (channelValue == 0 || prefabs.Length == 0) return;
 
-        int count = Mathf.CeilToInt(channelValue / 255f * 30); // Max 10 per channel
+        int count = Mathf.CeilToInt(channelValue / 255f * 30); // Max count per channel
         float halfQuadrant = _stateManager.quadrantSize / 2f;
 
         for (int i = 0; i < count; i++)

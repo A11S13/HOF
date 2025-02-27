@@ -1,7 +1,8 @@
 using UnityEngine;
 
-public class Unit : MonoBehaviour
+public class Artifica : MonoBehaviour
 {
+    public string unitTech;
     public string unitType;
     public string unitClass;
     public string unitRole;

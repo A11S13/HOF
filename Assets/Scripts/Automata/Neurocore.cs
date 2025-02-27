@@ -65,13 +65,14 @@ public class Neurocore : MonoBehaviour
         {
             yield return null;
         }
-        Unit unit = GetComponentInParent<Unit>();
-        if (unit != null)
+        Artifica artifica = GetComponentInParent<Artifica>();
+        if (artifica != null)
         {
-            unitInfo = $"Type: {unit.unitType}\n" +
-                $"Class: {unit.unitClass}\n" +
-                $"Role: {unit.unitRole}\n" +
-                $"Name: {unit.unitName}";
+            unitInfo = $"Tech: {artifica.unitTech}\n" +
+                $"Type: {artifica.unitType}\n" +
+                $"Class: {artifica.unitClass}\n" +
+                $"Role: {artifica.unitRole}\n" +
+                $"Name: {artifica.unitName}";
 
         }
         else
@@ -79,7 +80,7 @@ public class Neurocore : MonoBehaviour
             Debug.Log("No info available");
             unitInfo = "Unknown";
         }
-        Debug.Log($"unit Information: {unitInfo}");
+        Debug.Log($"Unit Information:\n{unitInfo}");
 
         Debug.Log($"Searching for subunits...");
         int subunitsSkip = 15 * simulationDelay;
@@ -101,7 +102,7 @@ public class Neurocore : MonoBehaviour
         ShipCore shipCore = GetComponentInParent<ShipCore>(); // Search up the hierarchy
         if (shipCore != null)
         {
-            shipCoreTechnology = shipCore.technology; // Assign the public string
+            shipCoreTechnology = shipCore.unitTech; // Assign the public string
         }
         else
         {
@@ -161,7 +162,7 @@ public class Neurocore : MonoBehaviour
             Debug.LogError("Automata array unaccessible!");
             automataData = "Unknown";
         }
-        Debug.Log($"Automata Array: {automataData}");
+        Debug.Log($"Automata Array:\n{automataData}");
 
         initialized = true;
         isActivationFailed = false;

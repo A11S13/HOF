@@ -1728,7 +1728,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   clusterBounds: {x: 200000, y: 200000}
-  quadrantSize: 100
+  quadrantSize: 150
   IsInMappedWorld: 0
   WasInMappedWorld: 0
   Awakened: 0
@@ -1763,7 +1763,7 @@ MonoBehaviour:
   expandPoolWhenNeeded: 1
   worldTexture: {fileID: 2800000, guid: 29e867d2505246047a3ea2e9b770cec1, type: 3}
   azothPrefab:
-  - {fileID: 1818697677462650816, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
+  - {fileID: 8634147425768112750, guid: 433a9cc5fc4cdb34f80f2eb9d9c7ede4, type: 3}
   animaPrefab:
   - {fileID: 5556492154842436138, guid: cce0050489f9c524b95f26256c033070, type: 3}
   artificaPrefab:
@@ -2234,7 +2234,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   minZoom: 1
   maxZoom: 100
-  zoomSpeed: 5
+  zoomSpeed: 0.5
   zoomDelay: 0.1
 --- !u!114 &963194230
 MonoBehaviour:
@@ -8819,7 +8819,7 @@ GameObject:
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 1
+  m_IsActive: 0
 --- !u!114 &1940769373
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -8827,7 +8827,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1940769372}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9b052b0d9ba08a84a8a135cd09efd274, type: 3}
   m_Name: 
@@ -9235,7 +9235,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 73e873c844510cd4bb5b212eaa7d506a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  technology: Technocracy
+  unitTech: Terran Technocracy
   shipData: {fileID: 11400000, guid: 689ef4322c40e6649b950096d39b37c6, type: 2}
   sonarRadius: 100
   Weapons: []
@@ -9299,7 +9299,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 2d9af697a493e914385e14e49cd74fa8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  simulationDelay: 1
+  simulationDelay: 0
   unitInfo: 
   attachedWeapons: []
   shipCoreTechnology: 
@@ -9336,7 +9336,7 @@ MonoBehaviour:
     type: AI
   - name: VOLIA
     type: AGI
-  - name: Neirocore
+  - name: Neurocore
     type: MI
   - name: SENTINEL
     type: LMI
@@ -9352,6 +9352,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 6b0c0551124292042b6b1d48144c66b7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  unitTech: Terran Technocracy
   unitType: Mothership
   unitClass: Sciense Vessel
   unitRole: Colonizator
@@ -9416,6 +9417,18 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 822f39053333b024d85e9a8a6a9b4c7a, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+--- !u!114 &2239112340433964464
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1466269553703180057}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 131f64f85ea206848868300f381881b8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1001 &2678637358168556879
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -9475,6 +9488,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2239112340433964453}
+    - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 2239112340433964464}
     - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2239112340433964457}

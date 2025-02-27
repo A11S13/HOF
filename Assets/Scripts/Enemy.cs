@@ -19,7 +19,7 @@ public class Enemy : MonoBehaviour
     }
     public EnemyData data;
 
-    void Awake()
+    void OnEnable()
     {
         // Load explosion assets (ensure you have these in your Resources folder)
         if (explosionPrefab == null)

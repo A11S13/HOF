@@ -1,6 +1,6 @@
 using UnityEngine;
 
-public class Organizm : MonoBehaviour
+public class Anima : MonoBehaviour
 {
     void Start()
     {
