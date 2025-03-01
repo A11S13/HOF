@@ -155,16 +155,30 @@ public class WorldDataManager : MonoBehaviour
     {
         if (obj == null) return;
 
-        string prefabId = obj.name.Replace("(Clone)", "").Trim();
+        string prefabId = obj.name;
+        int underscoreIndex = obj.name.IndexOf('_');
 
-        // Reset the object state
-        obj.SetActive(false);
+        if (underscoreIndex > 0)
+        {
+            // If there's an underscore, take everything before it
+            prefabId = obj.name.Substring(0, underscoreIndex);
+        }
+        else
+        {
+            // Fallback to old method if no underscore
+            prefabId = obj.name.Replace("(Clone)", "").Trim();
+        }
+
+        obj.name = prefabId;
 
         // Add back to the pool
         if (!_objectPools.ContainsKey(prefabId))
             _objectPools[prefabId] = new Queue<GameObject>();
 
         _objectPools[prefabId].Enqueue(obj);
+
+        // Reset the object state
+        obj.SetActive(false);
     }
 
     public void ProcessQuadrants(List<QuadrantProcessInfo> quadrantsToProcess)
@@ -262,6 +276,20 @@ public class WorldDataManager : MonoBehaviour
                 {
                     Vector3 pos = obj.transform.position;
 
+                    string prefabId;
+                    int underscoreIndex = obj.name.IndexOf('_');
+
+                    if (underscoreIndex > 0)
+                    {
+                        // If there's an underscore, take everything before it
+                        prefabId = obj.name.Substring(0, underscoreIndex);
+                    }
+                    else
+                    {
+                        // Fallback to old method if no underscore
+                        prefabId = obj.name.Replace("(Clone)", "").Trim();
+                    }
+
                     // Check if object position falls within this quadrant's boundaries
                     if (pos.x >= minX && pos.x < maxX &&
                         pos.z >= minZ && pos.z < maxZ)
@@ -270,7 +298,8 @@ public class WorldDataManager : MonoBehaviour
                         {
                             Position = pos,
                             Rotation = obj.transform.rotation,
-                            PrefabID = obj.name.Replace("(Clone)", "").Trim()
+                            PrefabID = prefabId,
+                            ObjectID = obj.name
                         });
                         //Debug.Log($"Added {obj.name.Replace("(Clone)", "").Trim()} at {pos} to quadrant {quadrantPos}");
                     }
@@ -295,11 +324,22 @@ public class WorldDataManager : MonoBehaviour
         // Set position and rotation
         instance.transform.position = objData.Position;
         instance.transform.rotation = objData.Rotation;
+        instance.name = objData.ObjectID;
 
         if (!_activeObjects.ContainsKey(quadrantPos))
             _activeObjects[quadrantPos] = new List<GameObject>();
 
         _activeObjects[quadrantPos].Add(instance);
+    }
+
+    private string GenerateUniqueName(string baseName, Vector3 position)
+    {
+        // Generate deterministic hex suffix based on position
+        int hashCode = position.GetHashCode();
+        string hexSuffix = hashCode.ToString("X8");
+
+        // Ensure name format like "Azoth_U203kLM3"
+        return $"{baseName}_{hexSuffix}";
     }
 
     private void SpawnFromChannel(byte channelValue, GameObject[] prefabs, Vector3 quadrantCenter, List<GameObjectData> data)
@@ -322,11 +362,26 @@ public class WorldDataManager : MonoBehaviour
             Vector3 worldPosition = quadrantCenter + localOffset;
 
             var prefab = prefabs[Random.Range(0, prefabs.Length)];
+            string prefabId;
+            int underscoreIndex = prefab.name.IndexOf('_');
+
+            if (underscoreIndex > 0)
+            {
+                // If there's an underscore, take everything before it
+                prefabId = prefab.name.Substring(0, underscoreIndex);
+            }
+            else
+            {
+                // Fallback to old method if no underscore
+                prefabId = prefab.name.Replace("(Clone)", "").Trim();
+            }
+
             data.Add(new GameObjectData
             {
                 Position = worldPosition,
                 Rotation = Quaternion.Euler(0, Random.Range(0, 360), 0),
-                PrefabID = prefab.name
+                PrefabID = prefabId,
+                ObjectID = GenerateUniqueName(prefabId, worldPosition)
             });
         }
     }

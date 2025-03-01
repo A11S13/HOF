@@ -16,6 +16,7 @@ public struct GameObjectData
     public Vector3 Position;
     public Quaternion Rotation;
     public string PrefabID;
+    public string ObjectID;
 
     public bool Orbit;
     public float Impulse;
