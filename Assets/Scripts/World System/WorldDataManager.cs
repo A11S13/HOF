@@ -18,6 +18,10 @@ public class WorldDataManager : MonoBehaviour
     [SerializeField] private int initialPoolSize = 20; // Initial number of objects to instantiate per prefab
     [SerializeField] private bool expandPoolWhenNeeded = true;
 
+    [SerializeField] private int _activeAzothCount = 0;
+    [SerializeField] private int _activeAnimaCount = 0;
+    [SerializeField] private int _activeArtificaCount = 0;
+
     public static bool TexturesLoaded;
 
     [Header("World Data")]
@@ -27,9 +31,9 @@ public class WorldDataManager : MonoBehaviour
     private float _pixelToQuadrantRatio;
 
     [Header("Prefab References")]
-    [SerializeField] private GameObject[] azothPrefab;    // Blue channel spawns
-    [SerializeField] private GameObject[] animaPrefab;      // Red channel spawns
-    [SerializeField] private GameObject[] artificaPrefab;   // Green channel spawns
+    [SerializeField] private GameObject azothPrefab;    // Blue channel spawns
+    [SerializeField] private GameObject animaPrefab;      // Red channel spawns
+    [SerializeField] private GameObject artificaPrefab;   // Green channel spawns
 
     void Awake()
     {
@@ -56,7 +60,7 @@ public class WorldDataManager : MonoBehaviour
 
         _pixelToQuadrantRatio = _stateManager.clusterBounds.x / _textureSize;
         TexturesLoaded = true;
-        //Debug.Log($"WORLD TEXTURE: {_textureSize}: px {_pixelToQuadrantRatio}: r");
+        Debug.Log($"WORLD TEXTURE: {_textureSize}: px {_pixelToQuadrantRatio}: r");
     }
 
     private void InitializeSpatialData()
@@ -71,20 +75,25 @@ public class WorldDataManager : MonoBehaviour
             for (int y = 0; y < quadrantsY; y++)
                 SpatialData[x, y] = new WorldSpatialData();
 
-        //Debug.Log($"SPATIAL DATA INITIALIZED: {quadrantsX} x {quadrantsY}");
+        Debug.Log($"SPATIAL DATA INITIALIZED: {quadrantsX} x {quadrantsY}");
     }
 
     private void InitializeObjectPools()
     {
-        // Add all prefabs to the lookup dictionary
-        foreach (var prefab in animaPrefab)
-            _prefabLookup[prefab.name] = prefab;
+        _prefabLookup[animaPrefab.name] = animaPrefab;
+        _prefabLookup[artificaPrefab.name] = artificaPrefab;
+        _prefabLookup[azothPrefab.name] = azothPrefab;
 
-        foreach (var prefab in artificaPrefab)
-            _prefabLookup[prefab.name] = prefab;
+        // Create a parent objects for all pools
+        GameObject poolsParent = new GameObject("POOLS");
+        GameObject azothPool = new GameObject("AZOTH");
+        GameObject animaPool = new GameObject("ANIMA");
+        GameObject artificaPool = new GameObject("ARTIFICA");
 
-        foreach (var prefab in azothPrefab)
-            _prefabLookup[prefab.name] = prefab;
+        // Set parent relationships
+        azothPool.transform.SetParent(poolsParent.transform);
+        animaPool.transform.SetParent(poolsParent.transform);
+        artificaPool.transform.SetParent(poolsParent.transform);
 
         // Create initial pools for each prefab
         foreach (var kvp in _prefabLookup)
@@ -94,60 +103,22 @@ public class WorldDataManager : MonoBehaviour
 
             _objectPools[prefabId] = new Queue<GameObject>();
 
+            // Determine the parent pool
+            Transform parentPoolTransform = GetParentPoolTransform(prefab, azothPool.transform, animaPool.transform, artificaPool.transform);
+
             // Pre-instantiate objects
             for (int i = 0; i < initialPoolSize; i++)
             {
-                GameObject obj = InstantiateObject(prefab);
+                GameObject obj = InstantiateObject(prefab, parentPoolTransform); // Pass parent transform
                 obj.SetActive(false);
                 _objectPools[prefabId].Enqueue(obj);
             }
         }
-
-        Debug.Log($"Initialized object pools for {_objectPools.Count} prefab types");
     }
 
-    private GameObject InstantiateObject(GameObject prefab)
+    private GameObject InstantiateObject(GameObject prefab, Transform parent)
     {
-        GameObject obj = Instantiate(prefab);
-        obj.name = prefab.name; // Remove the "(Clone)" suffix
-        return obj;
-    }
-
-    private GameObject GetPooledObject(string prefabId)
-    {
-        // Create pool if it doesn't exist (shouldn't happen if InitializeObjectPools is called)
-        if (!_objectPools.ContainsKey(prefabId))
-        {
-            Debug.LogWarning($"Creating pool for {prefabId} on demand");
-            GameObject prefab = GetPrefabById(prefabId);
-            if (prefab == null) return null;
-
-            _objectPools[prefabId] = new Queue<GameObject>();
-        }
-
-        GameObject obj = null;
-
-        // Try to get an object from the pool
-        if (_objectPools[prefabId].Count > 0)
-        {
-            obj = _objectPools[prefabId].Dequeue();
-        }
-        // If the pool is empty and we're allowed to expand it, create a new object
-        else if (expandPoolWhenNeeded)
-        {
-            GameObject prefab = GetPrefabById(prefabId);
-            if (prefab != null)
-            {
-                obj = InstantiateObject(prefab);
-                Debug.LogWarning($"Expanding pool for {prefabId}");
-            }
-        }
-
-        if (obj != null)
-        {
-            obj.SetActive(true);
-        }
-
+        GameObject obj = Instantiate(prefab, parent);
         return obj;
     }
 
@@ -157,28 +128,25 @@ public class WorldDataManager : MonoBehaviour
 
         string prefabId = obj.name;
         int underscoreIndex = obj.name.IndexOf('_');
-
-        if (underscoreIndex > 0)
-        {
-            // If there's an underscore, take everything before it
-            prefabId = obj.name.Substring(0, underscoreIndex);
-        }
-        else
-        {
-            // Fallback to old method if no underscore
-            prefabId = obj.name.Replace("(Clone)", "").Trim();
-        }
-
+        prefabId = obj.name.Substring(0, underscoreIndex);
         obj.name = prefabId;
-
-        // Add back to the pool
-        if (!_objectPools.ContainsKey(prefabId))
-            _objectPools[prefabId] = new Queue<GameObject>();
-
         _objectPools[prefabId].Enqueue(obj);
 
         // Reset the object state
         obj.SetActive(false);
+
+        switch (prefabId)
+        {
+            case "Azoth":
+                _activeAzothCount--;
+                break;
+            case "Anima":
+                _activeAnimaCount--;
+                break;
+            case "Artifica":
+                _activeArtificaCount--;
+                break;
+        }
     }
 
     public void ProcessQuadrants(List<QuadrantProcessInfo> quadrantsToProcess)
@@ -195,7 +163,6 @@ public class WorldDataManager : MonoBehaviour
 
     private void SpawnAllContent(Vector2Int quadrantPos)
     {
-        //Debug.Log("Spawning ALL the SHIT!");
         if (_persistentSpatialData.ContainsKey(quadrantPos))
         {
             // Use existing data for explored quadrants
@@ -209,12 +176,10 @@ public class WorldDataManager : MonoBehaviour
         }
 
         _activeQuadrants.Add(quadrantPos);
-        //Debug.Log("SPAWNED!");
     }
 
     private void GenerateNewQuadrantContent(Vector2Int quadrantPos)
     {
-        //Debug.Log("GENERATING SHIT...");
         Vector3 quadrantCenter = GetQuadrantCenter(quadrantPos);
         var texturePos = WorldToTexturePosition(quadrantCenter);
 
@@ -242,77 +207,76 @@ public class WorldDataManager : MonoBehaviour
         };
     }
 
+    private void SpawnFromChannel(byte channelValue, GameObject prefab, Vector3 quadrantCenter, List<GameObjectData> data)
+    {
+        if (channelValue == 0) return;
+
+        int count = Mathf.CeilToInt(channelValue / 255f * 30); // Max count per channel
+        float halfQuadrant = _stateManager.quadrantSize / 2f;
+
+        for (int i = 0; i < count; i++)
+        {
+            // Calculate local offset within quadrant
+            Vector3 localOffset = new Vector3(
+                Random.Range(-halfQuadrant, halfQuadrant),
+                0,
+                Random.Range(-halfQuadrant, halfQuadrant)
+            );
+
+            // Since quadrantCenter is already in correct world space, just add offset
+            Vector3 worldPosition = quadrantCenter + localOffset;
+
+            string prefabId = prefab.name;
+
+            data.Add(new GameObjectData
+            {
+                Position = worldPosition,
+                Rotation = Quaternion.Euler(0, Random.Range(0, 360), 0),
+                PrefabID = prefabId,
+                ObjectID = GenerateUniqueName(prefabId, worldPosition)
+            });
+        }
+    }
+
     private void SpawnExistingQuadrantContent(Vector2Int quadrantPos)
     {
         if (!_persistentSpatialData.ContainsKey(quadrantPos)) return;
         var objectsData = _persistentSpatialData[quadrantPos].Objects;
+        _persistentSpatialData[quadrantPos] = new(); // Clearing Quadrant's Spatial  Data
         foreach (var objData in objectsData)
         {
             SpawnGameObject(objData, quadrantPos);
         }
-        //Debug.Log($"Spawned: {quadrantPos}");
     }
 
-    private void WriteQuadrant(Vector2Int quadrantPos)
+    private GameObject GetPooledObject(string prefabId)
     {
-        List<GameObjectData> objectsData = new List<GameObjectData>();
-        Vector3 quadrantCenter = GetQuadrantCenter(quadrantPos);
-        float halfQuadrantSize = _stateManager.quadrantSize / 2f;
+        GameObject obj = null;
 
-        // Calculate quadrant boundaries
-        float minX = quadrantCenter.x - halfQuadrantSize;
-        float maxX = quadrantCenter.x + halfQuadrantSize;
-        float minZ = quadrantCenter.z - halfQuadrantSize;
-        float maxZ = quadrantCenter.z + halfQuadrantSize;
-
-        Debug.Log($"Writing {quadrantPos} quadrant: bounds ({minX},{minZ}) to ({maxX},{maxZ})");
-
-        // Check all active objects across all quadrants
-        foreach (var kvp in _activeObjects)
+        // Try to get an object from the pool
+        if (_objectPools[prefabId].Count > 0)
         {
-            foreach (var obj in kvp.Value)
+            obj = _objectPools[prefabId].Dequeue();
+        }
+        // If the pool is empty and we're allowed to expand it, create a new object
+        else if (expandPoolWhenNeeded)
+        {
+            if (obj != null)
             {
-                if (obj != null)
-                {
-                    Vector3 pos = obj.transform.position;
+                // Get the parent pool transform
+                Transform parentPoolTransform = GetParentPoolTransform(obj,
+                    GameObject.Find("AZOTH").transform,
+                    GameObject.Find("ANIMA").transform,
+                    GameObject.Find("ARTIFICA").transform);
 
-                    string prefabId;
-                    int underscoreIndex = obj.name.IndexOf('_');
-
-                    if (underscoreIndex > 0)
-                    {
-                        // If there's an underscore, take everything before it
-                        prefabId = obj.name.Substring(0, underscoreIndex);
-                    }
-                    else
-                    {
-                        // Fallback to old method if no underscore
-                        prefabId = obj.name.Replace("(Clone)", "").Trim();
-                    }
-
-                    // Check if object position falls within this quadrant's boundaries
-                    if (pos.x >= minX && pos.x < maxX &&
-                        pos.z >= minZ && pos.z < maxZ)
-                    {
-                        objectsData.Add(new GameObjectData
-                        {
-                            Position = pos,
-                            Rotation = obj.transform.rotation,
-                            PrefabID = prefabId,
-                            ObjectID = obj.name
-                        });
-                        //Debug.Log($"Added {obj.name.Replace("(Clone)", "").Trim()} at {pos} to quadrant {quadrantPos}");
-                    }
-                }
+                obj = InstantiateObject(obj, parentPoolTransform); // Pass the parent
+                Debug.LogWarning($"Expanding pool for {prefabId}");
             }
         }
 
-        // Update persistent storage with current state
-        _persistentSpatialData[quadrantPos] = new WorldSpatialData
-        {
-            Objects = objectsData,
-            IsExplored = true
-        };
+        obj.SetActive(true);
+
+        return obj;
     }
 
     private void SpawnGameObject(GameObjectData objData, Vector2Int quadrantPos)
@@ -330,60 +294,69 @@ public class WorldDataManager : MonoBehaviour
             _activeObjects[quadrantPos] = new List<GameObject>();
 
         _activeObjects[quadrantPos].Add(instance);
-    }
 
-    private string GenerateUniqueName(string baseName, Vector3 position)
-    {
-        // Generate deterministic hex suffix based on position
-        int hashCode = position.GetHashCode();
-        string hexSuffix = hashCode.ToString("X8");
+        string prefabId = objData.PrefabID;
 
-        // Ensure name format like "Azoth_U203kLM3"
-        return $"{baseName}_{hexSuffix}";
-    }
-
-    private void SpawnFromChannel(byte channelValue, GameObject[] prefabs, Vector3 quadrantCenter, List<GameObjectData> data)
-    {
-        if (channelValue == 0 || prefabs.Length == 0) return;
-
-        int count = Mathf.CeilToInt(channelValue / 255f * 30); // Max count per channel
-        float halfQuadrant = _stateManager.quadrantSize / 2f;
-
-        for (int i = 0; i < count; i++)
+        switch (prefabId)
         {
-            // Calculate local offset within quadrant
-            Vector3 localOffset = new Vector3(
-                Random.Range(-halfQuadrant, halfQuadrant),
-                0,
-                Random.Range(-halfQuadrant, halfQuadrant)
-            );
-
-            // Since quadrantCenter is already in correct world space, just add offset
-            Vector3 worldPosition = quadrantCenter + localOffset;
-
-            var prefab = prefabs[Random.Range(0, prefabs.Length)];
-            string prefabId;
-            int underscoreIndex = prefab.name.IndexOf('_');
-
-            if (underscoreIndex > 0)
-            {
-                // If there's an underscore, take everything before it
-                prefabId = prefab.name.Substring(0, underscoreIndex);
-            }
-            else
-            {
-                // Fallback to old method if no underscore
-                prefabId = prefab.name.Replace("(Clone)", "").Trim();
-            }
-
-            data.Add(new GameObjectData
-            {
-                Position = worldPosition,
-                Rotation = Quaternion.Euler(0, Random.Range(0, 360), 0),
-                PrefabID = prefabId,
-                ObjectID = GenerateUniqueName(prefabId, worldPosition)
-            });
+            case "Azoth":
+                _activeAzothCount++;
+                break;
+            case "Anima":
+                _activeAnimaCount++;
+                break;
+            case "Artifica":
+                _activeArtificaCount++;
+                break;
         }
+    }
+
+    private void WriteQuadrant(Vector2Int quadrantPos)
+    {
+        List<GameObjectData> objectsData = new List<GameObjectData>();
+        Vector3 quadrantCenter = GetQuadrantCenter(quadrantPos);
+        float halfQuadrantSize = _stateManager.quadrantSize / 2f;
+
+        // Calculate quadrant boundaries
+        float minX = quadrantCenter.x - halfQuadrantSize;
+        float maxX = quadrantCenter.x + halfQuadrantSize;
+        float minZ = quadrantCenter.z - halfQuadrantSize;
+        float maxZ = quadrantCenter.z + halfQuadrantSize;
+
+        // Check all active objects across all quadrants
+        foreach (var kvp in _activeObjects)
+        {
+            foreach (var obj in kvp.Value)
+            {
+                if (obj != null)
+                {
+                    Vector3 pos = obj.transform.position;
+
+                    int underscoreIndex = obj.name.IndexOf('_');
+                    string prefabId = obj.name.Substring(0, underscoreIndex);
+
+                    // Check if object position falls within this quadrant's boundaries
+                    if (pos.x >= minX && pos.x < maxX &&
+                        pos.z >= minZ && pos.z < maxZ)
+                    {
+                        objectsData.Add(new GameObjectData
+                        {
+                            Position = pos,
+                            Rotation = obj.transform.rotation,
+                            PrefabID = prefabId,
+                            ObjectID = obj.name
+                        });
+                    }
+                }
+            }
+        }
+
+        // Update persistent storage with current state
+        _persistentSpatialData[quadrantPos] = new WorldSpatialData
+        {
+            Objects = objectsData,
+            IsExplored = true
+        };
     }
 
     private void DespawnContent(Vector2Int quadrantPos)
@@ -436,60 +409,34 @@ public class WorldDataManager : MonoBehaviour
         );
     }
 
-    // Returns a prefab by matching its name with the given prefabId.
-    private GameObject GetPrefabById(string prefabId)
+    private Transform GetParentPoolTransform(GameObject prefab, Transform azothParent, Transform animaParent, Transform artificaParent)
     {
-        // Use prefab lookup dictionary
-        if (_prefabLookup.TryGetValue(prefabId, out GameObject prefab))
-            return prefab;
-
-        // Fallback to original method if not found in dictionary
-        foreach (var p in animaPrefab)
-            if (p.name == prefabId)
-                return p;
-
-        foreach (var p in artificaPrefab)
-            if (p.name == prefabId)
-                return p;
-
-        foreach (var p in azothPrefab)
-            if (p.name == prefabId)
-                return p;
-
+        if (azothPrefab = prefab)
+        {
+            return azothParent;
+        }
+        else if (animaPrefab = prefab)
+        {
+            return animaParent;
+        }
+        else if (artificaPrefab = prefab)
+        {
+            return artificaParent;
+        }
         return null;
     }
 
-    public void SaveClusterData(ClusterTransitionEvent clusterExitEvent)
+    private string GenerateUniqueName(string baseName, Vector3 position)
     {
-        if (!_stateManager.IsInMappedWorld && _stateManager.WasInMappedWorld)
-        {
-            // Only cleanup objects, spatial data remains in _persistentSpatialData
-            var cleanupQuadrants = _activeQuadrants
-            .Select(q => new QuadrantProcessInfo(q, false))
-            .ToList();
+        // Generate deterministic hex suffix based on position
+        int hashCode = position.GetHashCode();
+        string hexSuffix = hashCode.ToString("X8");
 
-            ProcessQuadrants(cleanupQuadrants);
-        }
+        // Ensure name format like "Azoth_U203kLM3"
+        return $"{baseName}_{hexSuffix}";
     }
 
-    public void LoadClusterData(ClusterTransitionEvent clusterEnterEvent)
-    {
-        if (_stateManager.IsInMappedWorld && !_stateManager.WasInMappedWorld)
-        {
-            Debug.Log("doing shit");
-            // TODO: Actual spatial data implementation
-        }
-    }
-
-    private void DebugLogQuadrantInfo(Vector2Int quadrantPos, Vector3 worldPos, Vector2Int texturePos)
-    {
-        Debug.Log($"Quadrant: {quadrantPos}, " +
-                  $"World Pos: {worldPos.ToString("F2")}, " +
-                  $"Texture Pos: {texturePos}, " +
-                  $"Pixel Color: {_texturePixels[texturePos.x, texturePos.y]}");
-    }
-
-    // Optional: Clear all pools on destroy
+    // Clear all pools on destroy
     private void OnDestroy()
     {
         foreach (var pool in _objectPools.Values)

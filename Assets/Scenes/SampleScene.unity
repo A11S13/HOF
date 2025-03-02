@@ -1761,13 +1761,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   initialPoolSize: 2000
   expandPoolWhenNeeded: 1
+  _activeAzothCount: 0
+  _activeAnimaCount: 0
+  _activeArtificaCount: 0
   worldTexture: {fileID: 2800000, guid: 29e867d2505246047a3ea2e9b770cec1, type: 3}
-  azothPrefab:
-  - {fileID: 8634147425768112750, guid: 433a9cc5fc4cdb34f80f2eb9d9c7ede4, type: 3}
-  animaPrefab:
-  - {fileID: 5556492154842436138, guid: cce0050489f9c524b95f26256c033070, type: 3}
-  artificaPrefab:
-  - {fileID: 8000410653846524232, guid: be7a9e3d5f2af6e48a5b0a5fd11c992f, type: 3}
+  azothPrefab: {fileID: 8634147425768112750, guid: 433a9cc5fc4cdb34f80f2eb9d9c7ede4, type: 3}
+  animaPrefab: {fileID: 8634147425768112750, guid: 1e6555f33e751ad49bde8718306c1028, type: 3}
+  artificaPrefab: {fileID: 8634147425768112750, guid: 9d45db77172d4924e865828d1c5786bb, type: 3}
 --- !u!114 &741419631
 MonoBehaviour:
   m_ObjectHideFlags: 0
