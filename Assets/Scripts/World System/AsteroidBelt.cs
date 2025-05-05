@@ -1,106 +1,144 @@
 using UnityEngine;
 using System.Collections.Generic;
+using System.Collections;
 
 public class AsteroidBelt : MonoBehaviour
 {
+    [Header("Spawning Settings")]
     public GameObject asteroidPrefab;
-    public float aoiRadius = 100f;
-    public float aoiBuffer = 5f;
-    public int asteroidCount = 100;
-    public float orbitalSpeed = 10f;
-    public float minAsteroidSpacing = 2f;
+    public float innerRadius = 20f;
+    public float outerRadius = 50f;
+    public float spawnRate = 20f;
+    public float cleanupMargin = 1.2f;
 
-    private List<GameObject> asteroids = new List<GameObject>();
+    [Header("Asteroid Properties")]
+    public float minAsteroidSize = 0.5f;
+    public float maxAsteroidSize = 3f;
+    public float densityThreshold = 0.3f;
+    public float spacing = 2f;
+
+    public LayerMask collisionMask;
+
+    [Header("Orbital Texture")]
+    public GameObject orbitalPlane;
+
+    private Texture2D orbitalTexture;
     private Transform playerTransform;
+    private Material orbitalMaterial;
+    private Vector3 planeSize;
+    private float cleanupRadiusSquared; // Store squared radius for efficiency
 
     void Start()
     {
         playerTransform = GameObject.FindGameObjectWithTag("Player").transform;
-        SpawnInitialAsteroids();
+        InitializeOrbitalTexture();
+        StartCoroutine(SpawnManagement());
+        cleanupRadiusSquared = Mathf.Pow(outerRadius * cleanupMargin, 2);
     }
 
-    void SpawnInitialAsteroids()
+    void InitializeOrbitalTexture()
     {
-        for (int i = 0; i < asteroidCount; i++)
+        if (orbitalPlane != null)
         {
-            RespawnAsteroid(true); // Initial spawn uses different logic.
+            Renderer renderer = orbitalPlane.GetComponent<Renderer>();
+            orbitalMaterial = renderer.material;
+            orbitalTexture = (Texture2D)orbitalMaterial.mainTexture;
+
+            if (!orbitalTexture.isReadable)
+                Debug.LogError("Enable Read/Write in texture import settings!");
+
+            planeSize = renderer.bounds.size;
         }
     }
 
-    void Update()
+    IEnumerator SpawnManagement()
     {
-        for (int i = asteroids.Count - 1; i >= 0; i--)
+        while (true)
         {
-            GameObject asteroid = asteroids[i];
-            Vector3 relativePosition = asteroid.transform.position - playerTransform.position;
-            if (relativePosition.magnitude > aoiRadius + aoiBuffer)
+            if (orbitalTexture != null)
             {
-                asteroids.RemoveAt(i);
-                Destroy(asteroid);
-                RespawnAsteroid(false); // Normal respawn.
+                Vector3 spawnPoint = GetRingSpawnPoint();
+                CheckAndSpawnAsteroid(spawnPoint);
+                yield return new WaitForSeconds(1f / spawnRate);
             }
             else
             {
-                Vector3 orbitalAxis = Vector3.up;
-                Vector3 orbitalVelocity = Vector3.Cross(asteroid.transform.position, orbitalAxis).normalized * orbitalSpeed;
-                asteroid.transform.Translate(orbitalVelocity * Time.deltaTime, Space.World);
+                yield return null;
             }
         }
     }
 
-    void RespawnAsteroid(bool initialSpawn)
+    Vector3 GetRingSpawnPoint()
     {
-        Vector3 finalSpawnPosition = Vector3.zero;
-        bool positionValid = false;
-        int maxAttempts = 100;
+        // Get random direction in XZ plane
+        Vector2 randomDirection = Random.insideUnitCircle.normalized;
 
-        for (int attempts = 0; attempts < maxAttempts; attempts++)
+        // Calculate random radius with uniform distribution
+        float randomRadius = Mathf.Sqrt(
+            Random.Range(innerRadius * innerRadius, outerRadius * outerRadius)
+        );
+
+        return playerTransform.position +
+               new Vector3(randomDirection.x, 0, randomDirection.y) * randomRadius;
+    }
+
+    void CheckAndSpawnAsteroid(Vector3 worldPosition)
+    {
+        Vector2 uv = WorldToTextureUV(worldPosition);
+        if (uv.x < 0 || uv.x > 1 || uv.y < 0 || uv.y > 1) return;
+
+        Color pixel = orbitalTexture.GetPixelBilinear(uv.x, uv.y);
+        float density = pixel.grayscale;
+
+        // Density-based spawn probability
+        float spawnProbability = Mathf.Clamp01((density - densityThreshold) / (1 - densityThreshold));
+        if (Random.value > spawnProbability) return;
+
+        // Calculate size with density weighting
+        float size = Mathf.Lerp(minAsteroidSize, maxAsteroidSize, density);
+
+        // Check collisions with size consideration
+        if (!Physics.CheckSphere(worldPosition, spacing + size / 2, collisionMask))
         {
-            if (initialSpawn)
-            {
-                // Initial spawn within the AOI + Buffer
-                finalSpawnPosition = playerTransform.position + Random.insideUnitSphere * (aoiRadius + aoiBuffer);
-            }
-            else
-            {
-                // Respawn on the border
-                Vector3 randomDirection = Random.onUnitSphere;
-                Vector3 spawnPosition = playerTransform.position + randomDirection * aoiRadius;
-
-                Vector3 orbitalAxis = Vector3.up;
-                Vector3 orbitalVelocity = Vector3.Cross(spawnPosition, orbitalAxis).normalized;
-                Vector3 oppositeDirection = -orbitalVelocity;
-
-                finalSpawnPosition = playerTransform.position + oppositeDirection.normalized * (aoiRadius + aoiBuffer);
-            }
-
-            Collider[] colliders = Physics.OverlapSphere(finalSpawnPosition, minAsteroidSpacing);
-            if (colliders.Length == 0)
-            {
-                positionValid = true;
-                break;
-            }
-            if (!initialSpawn)
-            {
-                Vector3 randomDirection = Random.onUnitSphere;
-                Vector3 spawnPosition = playerTransform.position + randomDirection * aoiRadius;
-
-                Vector3 orbitalAxis = Vector3.up;
-                Vector3 orbitalVelocity = Vector3.Cross(spawnPosition, orbitalAxis).normalized;
-                Vector3 oppositeDirection = -orbitalVelocity;
-
-                oppositeDirection = Quaternion.Euler(0, Random.Range(-60, 60), 0) * oppositeDirection;
-            }
+            SpawnAsteroid(worldPosition, size);
         }
+    }
 
-        if (positionValid)
+    Vector2 WorldToTextureUV(Vector3 worldPosition)
+    {
+        if (orbitalPlane == null) return Vector2.zero;
+
+        Vector3 localPos = orbitalPlane.transform.InverseTransformPoint(worldPosition);
+        return new Vector2(
+            (localPos.x / planeSize.x) + 0.5f,
+            (localPos.z / planeSize.z) + 0.5f
+        );
+    }
+
+    void SpawnAsteroid(Vector3 position, float size)
+    {
+        GameObject asteroidObject = Instantiate(asteroidPrefab, position, Random.rotation);
+        asteroidObject.transform.localScale = Vector3.one * size;
+
+        // Tell the asteroid to start managing its despawn
+        Asteroid asteroidScript = asteroidObject.GetComponent<Asteroid>();
+        if (asteroidScript != null)
         {
-            GameObject asteroid = Instantiate(asteroidPrefab, finalSpawnPosition, Random.rotation);
-            asteroids.Add(asteroid);
+            asteroidScript.InitializeDespawn(playerTransform, cleanupRadiusSquared);
         }
-        else
+    }
+
+    void OnDrawGizmosSelected()
+    {
+        if (playerTransform != null)
         {
-            Debug.LogWarning("Failed to find a valid position for asteroid after " + maxAttempts + " attempts.");
+            // Draw inner radius (safe zone)
+            Gizmos.color = Color.red;
+            Gizmos.DrawWireSphere(playerTransform.position, innerRadius);
+
+            // Draw outer radius
+            Gizmos.color = Color.green;
+            Gizmos.DrawWireSphere(playerTransform.position, outerRadius);
         }
     }
 }
