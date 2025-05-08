@@ -116,12 +116,12 @@ public class WorldProcessor : MonoBehaviour
     {
         if (!_stateManager.Awakened && !_stateManager.IsInMappedWorld)
         {
-            List<QuadrantProcessInfo> cleanupQuadrants = _currentActiveQuadrants
+           /* List<QuadrantProcessInfo> cleanupQuadrants = _currentActiveQuadrants
                 .Select(q => new QuadrantProcessInfo(q, false))
                 .ToList();
 
             _dataManager.ProcessQuadrants(cleanupQuadrants);
-            _currentActiveQuadrants.Clear();
+            _currentActiveQuadrants.Clear();*/
             //Debug.Log("REMOVING ALL THE SHIT!");
         }
     }
@@ -151,10 +151,6 @@ public class WorldProcessor : MonoBehaviour
 
             Gizmos.DrawWireCube(center, new Vector3(_stateManager.quadrantSize, 1, _stateManager.quadrantSize));
         }
-    }
-    void DrawQuadrant(Vector2Int quadrantPos)
-    {
-        Instantiate(quadrantMarkerPrefab, GetQuadrantCenter(quadrantPos), Quaternion.identity);
     }
 
     private Vector3 GetQuadrantCenter(Vector2Int quadrantPos)
