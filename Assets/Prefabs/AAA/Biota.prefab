@@ -9,11 +9,10 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6343514316769302721}
-  - component: {fileID: 1176456444060752729}
   - component: {fileID: 1360257476896561758}
   - component: {fileID: 8965949014548843004}
   m_Layer: 0
-  m_Name: Colony
+  m_Name: Biota
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -34,18 +33,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1176456444060752729
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 4267690454810502169}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 131f64f85ea206848868300f381881b8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!198 &1360257476896561758
 ParticleSystem:
   m_ObjectHideFlags: 0

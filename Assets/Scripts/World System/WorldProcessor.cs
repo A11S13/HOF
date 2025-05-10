@@ -8,7 +8,7 @@ public class WorldProcessor : MonoBehaviour
 {
     private WorldStateManager _stateManager;
     private WorldDataManager _dataManager;
-    private HashSet<Vector2Int> _currentActiveQuadrants = new HashSet<Vector2Int>();
+    public HashSet<Vector2Int> _currentActiveQuadrants = new HashSet<Vector2Int>();
 
     public float areaOfInterestRadius;
     public GameObject quadrantMarkerPrefab;
@@ -120,13 +120,13 @@ public class WorldProcessor : MonoBehaviour
                 .Select(q => new QuadrantProcessInfo(q, false))
                 .ToList();
 
-            _dataManager.ProcessQuadrants(cleanupQuadrants);
-            _currentActiveQuadrants.Clear();*/
+            _dataManager.ProcessQuadrants(cleanupQuadrants);*/
+            _currentActiveQuadrants.Clear();
             //Debug.Log("REMOVING ALL THE SHIT!");
         }
     }
 
-    void OnDrawGizmos()
+    /*void OnDrawGizmos()
     {
         if (!Application.isPlaying || _stateManager == null) return;
 
@@ -151,7 +151,7 @@ public class WorldProcessor : MonoBehaviour
 
             Gizmos.DrawWireCube(center, new Vector3(_stateManager.quadrantSize, 1, _stateManager.quadrantSize));
         }
-    }
+    }*/
 
     private Vector3 GetQuadrantCenter(Vector2Int quadrantPos)
     {

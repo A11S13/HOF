@@ -9,11 +9,10 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 6278224748625809267}
-  - component: {fileID: 8319986416745257731}
   - component: {fileID: 5241730334752899140}
   - component: {fileID: 8420424780688958242}
   m_Layer: 0
-  m_Name: Nebula
+  m_Name: Gas
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
@@ -34,18 +33,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &8319986416745257731
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1966441109843658973}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 131f64f85ea206848868300f381881b8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!198 &5241730334752899140
 ParticleSystem:
   m_ObjectHideFlags: 0

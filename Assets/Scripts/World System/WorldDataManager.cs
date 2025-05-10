@@ -8,6 +8,7 @@ public class WorldDataManager : MonoBehaviour
     private Dictionary<Vector2Int, WorldSpatialData> _persistentSpatialData = new(); // Spatial Data
     private HashSet<Vector2Int> _activeQuadrants = new HashSet<Vector2Int>(); // Quadrants Online
     public Dictionary<Vector2Int, List<GameObject>> _activeObjects = new();
+    private Dictionary<Vector2Int, List<GameObject>> _quadrantObjects = new Dictionary<Vector2Int, List<GameObject>>();
 
     // Object pooling dictionaries
     private Dictionary<string, Queue<GameObject>> _objectPools = new();
@@ -135,22 +136,22 @@ public class WorldDataManager : MonoBehaviour
         {
             if (info.ShouldLoad)
                 SpawnAllContent(info.Position);
-            else
-                DespawnContent(info.Position);
+            //else
+               // DespawnContent(info.Position);
         }
     }
 
     private void SpawnAllContent(Vector2Int quadrantPos)
     {
-        bool isExplored = _persistentSpatialData.ContainsKey(quadrantPos);
+        bool isExplored = _persistentSpatialData.ContainsKey(quadrantPos) && _persistentSpatialData[quadrantPos].IsExplored;
 
-        // Spawn persistent data if it exists
+        // Spawn persistent data if it exists and has objects
         if (isExplored && _persistentSpatialData[quadrantPos].Objects != null)
         {
             SpawnExistingQuadrantContent(quadrantPos);
         }
 
-        // Generate new content if the quadrant hasn't been fully explored yet (or if it's the first time)
+        // Generate new content if the quadrant hasn't been explored yet
         if (!isExplored)
         {
             GenerateNewQuadrantContent(quadrantPos);
@@ -290,6 +291,14 @@ public class WorldDataManager : MonoBehaviour
         instance.transform.rotation = objData.Rotation;
         instance.name = objData.ObjectID;
 
+        // Apply velocity and angular velocity if the object has a Rigidbody
+        Rigidbody rb = instance.GetComponent<Rigidbody>();
+        if (rb != null)
+        {
+            rb.linearVelocity = objData.Velocity;  // Corrected: linearVelocity
+            rb.angularVelocity = objData.AngularVelocity;
+        }
+
         // Initialize the WorldObject script on the spawned object
         var worldObject = instance.GetComponent<WorldObject>();
         if (worldObject == null)
@@ -320,7 +329,7 @@ public class WorldDataManager : MonoBehaviour
         }
     }
 
-    public void WriteQuadrantData(Vector2Int quadrantPos, GameObject obj)
+    public void WriteQuadrantData(Vector2Int quadrantPos, GameObject obj, Vector3 velocity, Vector3 angularVelocity)
     {
         if (!_persistentSpatialData.ContainsKey(quadrantPos))
         {
@@ -333,14 +342,50 @@ public class WorldDataManager : MonoBehaviour
             _persistentSpatialData[quadrantPos].Objects = data;
         }
 
+        string objectId = obj.name; // Unique identifier for the object
+                                    // Remove any existing entries with the same ObjectID to prevent duplicates
+        data.RemoveAll(d => d.ObjectID == objectId);
+
         string prefabId = obj.name.Split('_')[0];
         data.Add(new GameObjectData
         {
             Position = obj.transform.position,
             Rotation = obj.transform.rotation,
             PrefabID = prefabId,
-            ObjectID = obj.name
+            ObjectID = objectId,
+            Velocity = velocity,
+            AngularVelocity = angularVelocity
         });
+    }
+
+    public void RemoveObjectFromPersistentData(Vector2Int quadrant, string objectId)
+    {
+        if (_persistentSpatialData.TryGetValue(quadrant, out var data))
+        {
+            if (data.Objects != null)
+            {
+                data.Objects.RemoveAll(d => d.ObjectID == objectId);
+            }
+        }
+    }
+    public void RemoveObjectFromQuadrant(Vector2Int quadrant, GameObject obj)
+    {
+        if (_activeObjects.ContainsKey(quadrant))
+        {
+            _activeObjects[quadrant].Remove(obj);
+        }
+    }
+
+    // Overload the method for cases where velocity and angular velocity aren't immediately available
+    public void WriteQuadrantData(Vector2Int quadrantPos, GameObject obj)
+    {
+        WriteQuadrantData(quadrantPos, obj, Vector3.zero, Vector3.zero); // Default to zero velocity and angular velocity
+    }
+
+    // Overload for just velocity (in case you call it from older parts of your code)
+    public void WriteQuadrantData(Vector2Int quadrantPos, GameObject obj, Vector3 velocity)
+    {
+        WriteQuadrantData(quadrantPos, obj, velocity, Vector3.zero);
     }
 
     private void DespawnContent(Vector2Int quadrantPos)
@@ -362,7 +407,7 @@ public class WorldDataManager : MonoBehaviour
             }
             _activeObjects.Remove(quadrantPos);
         }
-        //_activeQuadrants.Remove(quadrantPos);
+        _activeQuadrants.Remove(quadrantPos);
     }
 
     private Vector2Int WorldToTexturePosition(Vector3 worldPosition)

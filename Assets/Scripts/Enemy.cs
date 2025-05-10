@@ -1,5 +1,4 @@
 using UnityEngine;
-
 public class Enemy : MonoBehaviour
 {
     public bool isTargeted;
@@ -8,7 +7,6 @@ public class Enemy : MonoBehaviour
     public static float enemySpeed = 5f; // Global enemy speed.
     public static GameObject explosionPrefab;
     public static GameObject explosionSoundHolderPrefab;
-
     // Data updated by the job.
     [System.Serializable]
     public struct EnemyData
@@ -18,7 +16,6 @@ public class Enemy : MonoBehaviour
         public Quaternion targetRotation;
     }
     public EnemyData data;
-
     void OnEnable()
     {
         // Load explosion assets (ensure you have these in your Resources folder)
@@ -26,23 +23,19 @@ public class Enemy : MonoBehaviour
             explosionPrefab = Resources.Load<GameObject>("Explode");
         if (explosionSoundHolderPrefab == null)
             explosionSoundHolderPrefab = Resources.Load<GameObject>("ExplosionSoundHolder");
-
         // Initialize noise rotation frequency randomly between 1 and 300.
         data.rotationFrequency = Random.Range(1, 300);
         data.rotationCounter = 0;
         data.targetRotation = transform.rotation;
-
         // Register with our manager.
         EnemyManager.Instance.RegisterEnemy(this);
     }
-
     void OnDestroy()
     {
         // Unregister if this enemy is destroyed.
         if (EnemyManager.Instance != null)
             EnemyManager.Instance.UnregisterEnemy(this);
     }
-
     void OnTriggerEnter(Collider other)
     {
         if (other.CompareTag("Player"))
@@ -57,7 +50,6 @@ public class Enemy : MonoBehaviour
             TakeDamage(damage);
         }
     }
-
     public void TakeDamage(float damage)
     {
         health -= damage;
@@ -68,7 +60,6 @@ public class Enemy : MonoBehaviour
             Explode();
         }
     }
-
     void Explode()
     {
         GameObject explosion = Instantiate(
@@ -76,16 +67,13 @@ public class Enemy : MonoBehaviour
              transform.position,
              Quaternion.identity
          );
-
         // Instantiate soundHolder at the player's position
         GameObject soundHolder = Instantiate(
             explosionSoundHolderPrefab,
             this.transform.position,
             Quaternion.identity
         );
-
         AudioSource soundHolderAudioSource = soundHolder.GetComponent<AudioSource>();
-
         if (soundHolderAudioSource != null)
         {
             double playTime = AudioSettings.dspTime + 0.1;

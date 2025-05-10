@@ -5,6 +5,7 @@ using Unity.Jobs;
 using Unity.Burst;
 using UnityEngine.Jobs;
 using Unity.Mathematics;
+using Random = UnityEngine.Random;
 
 public class EnemyManager : MonoBehaviour
 {
@@ -31,6 +32,7 @@ public class EnemyManager : MonoBehaviour
         public bool crowd;
         public bool noise;
         public float enemySpeed;
+        public float maxRotationSpeed; // Added max rotation speed
         public Vector3 playerPosition;
     }
     public Settings GlobalSettings;
@@ -42,6 +44,36 @@ public class EnemyManager : MonoBehaviour
     NativeArray<Vector3> enemyPositions;
     NativeArray<quaternion> enemyRotations;
     NativeArray<Enemy.EnemyData> enemyJobData;
+
+    [Header("Spawn Settings")]
+    public GameObject enemyPrefab;
+    public float initialSpawnRadius = 15f;
+    public float minSpawnRadius = 115f;
+    public float initialSpawnInterval = 3f;
+    public float spawnInterval;
+    public float minSpawnInterval = 0.001f;
+    public float decayRate = 0.02f;
+    public int maxEnemyCount = 1000;
+    public int currentEnemyCount = 0;
+
+    [Header("Swarm Settings")]
+    public int rayCount = 3;
+    public float arcAngle = 90f;
+    public float fRadius = 40f;
+    public float cRadius = 8f;
+    public float wPlayer = 0.2f;
+    public float wCrowd = 12f;
+    public float wAlign = 1f;
+    public float wCohesion = 1f;
+    public float wNoise = 0.15f;
+    public bool swarm = true;
+    public bool tPlayer = true;
+    public bool align = true;
+    public bool cohesion = true;
+    public bool noise = true;
+    public bool crowd = true;
+    public float enemySpeed = 5f; // Example default speed
+    public float maxRotationSpeed = 180f; // Degrees per second
 
     void Awake()
     {
@@ -56,6 +88,37 @@ public class EnemyManager : MonoBehaviour
         GameObject player = GameObject.FindGameObjectWithTag("Player");
         if (player != null)
             playerTransform = player.transform;
+    }
+
+    void Start()
+    {
+        spawnInterval = initialSpawnInterval;
+        // Pass global settings to EnemyManager
+        GlobalSettings = new Settings
+        {
+            rayCount = rayCount,
+            arcAngle = arcAngle,
+            fRadius = fRadius,
+            cRadius = cRadius,
+            wPlayer = wPlayer,
+            wCrowd = wCrowd,
+            wAlign = wAlign,
+            wCohesion = wCohesion,
+            wNoise = wNoise,
+            swarm = swarm,
+            tPlayer = tPlayer,
+            align = align,
+            cohesion = cohesion,
+            crowd = crowd,
+            noise = noise,
+            enemySpeed = enemySpeed,
+            maxRotationSpeed = maxRotationSpeed, // Set the max rotation speed
+            playerPosition = playerTransform != null ? playerTransform.position : Vector3.zero
+        };
+
+        Enemy.enemySpeed = enemySpeed; // Ensure the static variable is also updated.
+
+        SpawnEnemy();
     }
 
     public void RegisterEnemy(Enemy enemy)
@@ -101,6 +164,7 @@ public class EnemyManager : MonoBehaviour
             enemyJobData = enemyJobData,
             deltaTime = Time.deltaTime,
             enemySpeed = GlobalSettings.enemySpeed,
+            maxRotationSpeed = GlobalSettings.maxRotationSpeed, // Pass max rotation speed to the job
             playerPosition = GlobalSettings.playerPosition,
             swarm = GlobalSettings.swarm,
             tPlayer = GlobalSettings.tPlayer,
@@ -116,7 +180,7 @@ public class EnemyManager : MonoBehaviour
             wAlign = GlobalSettings.wAlign,
             wCohesion = GlobalSettings.wCohesion,
             wNoise = GlobalSettings.wNoise,
-            seed = 12345u  // Consider using a more dynamic seed if needed.
+            seed = 12345u // Consider using a more dynamic seed if needed.
         };
 
         JobHandle handle = job.Schedule(taArray);
@@ -133,6 +197,33 @@ public class EnemyManager : MonoBehaviour
         enemyJobData.Dispose();
     }
 
+    void SpawnEnemy()
+    {
+        if (playerTransform == null) return;
+
+        // Choose a random direction around the player.
+        Vector2 randomDir = Random.insideUnitCircle.normalized;
+        float radius = Random.Range(minSpawnRadius, initialSpawnRadius);
+        Vector3 spawnPos = new Vector3(randomDir.x, 0f, randomDir.y) * radius + playerTransform.position;
+
+        // Instantiate and parent under spawner for organization.
+        GameObject newEnemy = Instantiate(enemyPrefab, spawnPos, Quaternion.identity);
+        newEnemy.transform.parent = transform;
+        Enemy enemyComponent = newEnemy.GetComponent<Enemy>();
+        if (enemyComponent != null)
+        {
+            RegisterEnemy(enemyComponent);
+        }
+
+        currentEnemyCount++;
+
+        // Exponentially decrease spawn interval.
+        spawnInterval = Mathf.Max(minSpawnInterval, spawnInterval * Mathf.Exp(-decayRate * initialSpawnInterval));
+
+        if (currentEnemyCount < maxEnemyCount)
+            Invoke(nameof(SpawnEnemy), spawnInterval);
+    }
+
     [BurstCompile]
     struct EnemyAIJob : IJobParallelForTransform
     {
@@ -145,10 +236,12 @@ public class EnemyManager : MonoBehaviour
         // Global parameters.
         public float deltaTime;
         public float enemySpeed;
+        public float maxRotationSpeed; // Added max rotation speed in the job
         public Vector3 playerPosition;
         public bool swarm, tPlayer, align, cohesion, crowd, noise;
         public float fRadius, arcAngle, cRadius;
         public float wPlayer, wCrowd, wAlign, wCohesion, wNoise;
+
         public uint seed;
 
         public void Execute(int index, TransformAccess transform)
@@ -219,7 +312,7 @@ public class EnemyManager : MonoBehaviour
                         float3 noiseDir = math.normalize(new float3(rand.NextFloat(-1f, 1f), 0, rand.NextFloat(-1f, 1f)));
                         ed.targetRotation = quaternion.LookRotationSafe(noiseDir, new float3(0, 1, 0));
                         ed.rotationCounter = 0;
-                        ed.rotationFrequency = (int)math.clamp(rand.NextFloat(1f, 300f), 1, 300);
+                        ed.rotationFrequency = (int)math.clamp(rand.NextFloat(1f, 30f), 1, 30);
                     }
                     // Blend in the noise influence.
                     quaternion noiseRot = math.slerp(quaternion.identity, ed.targetRotation, wNoise * deltaTime);
@@ -232,8 +325,14 @@ public class EnemyManager : MonoBehaviour
                 float3 toPlayer = math.normalize((float3)playerPosition - pos);
                 desiredForward = math.normalize(math.lerp(desiredForward, toPlayer, wPlayer * deltaTime));
             }
-            // Compute the new rotation and update transform.
-            quaternion newRot = quaternion.LookRotationSafe(desiredForward, new float3(0, 1, 0));
+
+            // Compute the target rotation.
+            quaternion targetRotation = quaternion.LookRotationSafe(desiredForward, new float3(0, 1, 0));
+
+            // Smoothly interpolate the rotation with a maximum speed.
+            float maxRadiansDelta = math.radians(maxRotationSpeed) * deltaTime;
+            quaternion newRot = math.slerp(rot, targetRotation, math.min(1f, maxRadiansDelta / math.acos(math.clamp(math.dot(rot.value, targetRotation.value), -1f, 1f))));
+
             transform.rotation = newRot;
             transform.position = pos + math.mul(newRot, new float3(0, 0, 1)) * enemySpeed * deltaTime;
             enemyJobData[index] = ed;

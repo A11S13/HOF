@@ -9,11 +9,10 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 869867768951533908}
-  - component: {fileID: 1837146059765015189}
   - component: {fileID: 8852913518776417876}
   - component: {fileID: 6217131520226331616}
-  - component: {fileID: 3236385341735084485}
   - component: {fileID: 1117594794044661270}
+  - component: {fileID: 3236385341735084485}
   - component: {fileID: -5346712214843802314}
   m_Layer: 9
   m_Name: Asteroid
@@ -37,18 +36,6 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &1837146059765015189
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1818697677462650816}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 131f64f85ea206848868300f381881b8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!33 &8852913518776417876
 MeshFilter:
   m_ObjectHideFlags: 0
@@ -102,6 +89,21 @@ MeshRenderer:
   m_SortingLayer: 0
   m_SortingOrder: 0
   m_AdditionalVertexStreams: {fileID: 0}
+--- !u!114 &1117594794044661270
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1818697677462650816}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 5f76aa42a997b3b4dbfc76f9a68aca69, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  orbitalSpeed: -40
+  speedVariation: 20
+  rotationSpeed: 1
 --- !u!65 &3236385341735084485
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -123,21 +125,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1, y: 1, z: 1}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &1117594794044661270
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1818697677462650816}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 5f76aa42a997b3b4dbfc76f9a68aca69, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  orbitalSpeed: -40
-  speedVariation: 20
-  rotationSpeed: 1
 --- !u!54 &-5346712214843802314
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -146,7 +133,7 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1818697677462650816}
   serializedVersion: 4
-  m_Mass: 1
+  m_Mass: 200
   m_Drag: 0
   m_AngularDrag: 0
   m_CenterOfMass: {x: 0, y: 0, z: 0}

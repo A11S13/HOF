@@ -1,13 +1,15 @@
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic; // Required for List
 
 public class WorldObject : MonoBehaviour
 {
     private Vector2Int _currentQuadrant;
     private WorldDataManager _dataManager;
     private Transform _playerTransform;
-    private float _despawnDistanceSquared;
+    public float disableDistance = 2000f; // Adjust this multiplier to set the disable distance
     private bool _canDespawn = false;
+    private bool _canDisable = false;
 
     public void Initialize(Vector2Int startQuadrant, WorldDataManager dataManager)
     {
@@ -15,12 +17,13 @@ public class WorldObject : MonoBehaviour
         _dataManager = dataManager;
         _playerTransform = dataManager.GetComponent<WorldStateManager>()?.Player.transform;
         float areaOfInterestRadius = dataManager.GetComponent<WorldProcessor>()?.areaOfInterestRadius ?? 0f;
-        _despawnDistanceSquared = areaOfInterestRadius * areaOfInterestRadius * 1.25f * 1.25f; // Similar cleanup margin
 
         if (_playerTransform != null)
         {
             _canDespawn = true;
             StartCoroutine(SelfDespawnCheck());
+            _canDisable = true;
+            StartCoroutine(SelfDisableCheck());
         }
     }
 
@@ -28,43 +31,129 @@ public class WorldObject : MonoBehaviour
     {
         while (_canDespawn)
         {
-            int waitFrames = Random.Range(5, 15); // Adjust range as needed
+            int waitFrames = Random.Range(0, 10);
             for (int i = 0; i < waitFrames; i++)
             {
                 yield return null;
             }
 
-            if (_playerTransform != null && Vector3.SqrMagnitude(transform.position - _playerTransform.position) > _despawnDistanceSquared)
+            if (_playerTransform != null)
             {
-                // Calculate which quadrant the object is now in
-                Vector2Int newQuadrant = GetCurrentQuadrant();
+                Vector2Int currentObjectQuadrant = GetCurrentQuadrant();
+                bool withinActiveQuadrant = IsWithinActiveQuadrants(currentObjectQuadrant);
 
-                // If the object has moved to a new quadrant, write its data to that quadrant
-                if (newQuadrant != _currentQuadrant)
-                {
-                    _dataManager.WriteQuadrantData(newQuadrant, gameObject);
-                }
-                else
-                {
-                    //_dataManager.WriteQuadrantData(newQuadrant, gameObject);
-                    _dataManager._activeObjects.Remove(newQuadrant);
-                }
+                Rigidbody rb = GetComponent<Rigidbody>();
+                Vector3 currentVelocity = Vector3.zero;
+                Vector3 currentAngularVelocity = Vector3.zero;
 
-                    // Despawn the object (return to pool)
+                if (!withinActiveQuadrant)
+                {
+                    if (currentObjectQuadrant != _currentQuadrant)
+                    {
+                        currentVelocity = rb.linearVelocity;
+                        currentAngularVelocity = rb.angularVelocity;
+
+                        // Remove from old quadrant's persistent data
+                        _dataManager.RemoveObjectFromPersistentData(_currentQuadrant, gameObject.name);
+                        // Write to new quadrant
+                        _dataManager.WriteQuadrantData(currentObjectQuadrant, gameObject, currentVelocity, currentAngularVelocity);
+                        // Remove from old quadrant's active objects
+                        _dataManager.RemoveObjectFromQuadrant(_currentQuadrant, gameObject);
+
+                        _currentQuadrant = currentObjectQuadrant;
+                    }
+
+                    // Despawn the object
                     _dataManager.ReturnToPool(gameObject);
-                _canDespawn = false; // Stop the coroutine
+                    _canDespawn = false;
+                }
             }
         }
+    }
+
+    private IEnumerator SelfDisableCheck()
+    {
+        while (_canDisable)
+        {
+            int waitFrames = Random.Range(0, 10);
+            for (int i = 0; i < waitFrames; i++)
+            {
+                yield return null;
+            }
+
+            if (_playerTransform != null)
+            {
+                float distanceSquared = (_playerTransform.position - transform.position).sqrMagnitude;
+                // Objects should be active if the distance is LESS THAN or EQUAL to the disableDistance.
+                bool withinEnableDistance = distanceSquared <= disableDistance * disableDistance; // Use squared distance for comparison
+
+                // Handle Biota object
+                Transform biotaParent = transform.Find("Biota");
+                if (biotaParent != null)
+                {
+                    biotaParent.gameObject.SetActive(withinEnableDistance);
+                }
+
+                // Handle Gas object
+                Transform gasParent = transform.Find("Gas");
+                if (gasParent != null)
+                {
+                    gasParent.gameObject.SetActive(withinEnableDistance);
+                }
+
+                // Handle Inerta children
+                Transform inertaParent = transform.Find("Inerta");
+                if (inertaParent != null)
+                {
+                    foreach (Transform child in inertaParent)
+                    {
+                        if (child != null)
+                        {
+                            child.gameObject.SetActive(withinEnableDistance);
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    private bool IsWithinActiveQuadrants(Vector2Int objectQuadrant)
+    {
+        if (_dataManager != null && _dataManager.GetComponent<WorldProcessor>() != null)
+        {
+            var activeQuadrants = _dataManager.GetComponent<WorldProcessor>()._currentActiveQuadrants;
+            return activeQuadrants.Contains(objectQuadrant);
+        }
+        return false;
     }
 
     public void SelfDespawn()
     {
         if (_dataManager != null)
         {
+            Rigidbody rb = GetComponent<Rigidbody>();
+            Vector3 currentVelocity = Vector3.zero;
+            Vector3 currentAngularVelocity = Vector3.zero;
+
+            if (rb != null)
+            {
+                currentVelocity = rb.linearVelocity;
+                currentAngularVelocity = rb.angularVelocity;
+            }
+
+            // Calculate which quadrant the object is now in
+            Vector2Int currentObjectQuadrant = GetCurrentQuadrant();
+
+            // Write data, including velocity and angular velocity
+            _dataManager.WriteQuadrantData(currentObjectQuadrant, gameObject, currentVelocity, currentAngularVelocity);
+
+            // Remove from the old quadrant in the data manager
+            _dataManager.RemoveObjectFromQuadrant(currentObjectQuadrant, gameObject);
+
             _dataManager.ReturnToPool(gameObject);
-            
         }
         _canDespawn = false; // Ensure the coroutine stops
+        _canDisable = false; // Ensure the disable coroutine stops as well
     }
 
     private Vector2Int GetCurrentQuadrant()

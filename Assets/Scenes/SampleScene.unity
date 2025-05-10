@@ -185,10 +185,9 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   asteroidPrefab: {fileID: 1818697677462650816, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-  innerRadius: 260
-  outerRadius: 600
-  spawnRate: 6000
-  maxAsteroids: 600
+  innerRadius: 1000
+  outerRadius: 1200
+  spawnRate: 60000
   cleanupMargin: 1.2
   minAsteroidSize: 0.5
   maxAsteroidSize: 100
@@ -1015,7 +1014,7 @@ BoxCollider:
     m_Bits: 0
   m_ExcludeLayers:
     serializedVersion: 2
-    m_Bits: 0
+    m_Bits: 1024
   m_LayerOverridePriority: 0
   m_IsTrigger: 0
   m_ProvidesContacts: 0
@@ -1236,6 +1235,7 @@ GameObject:
   - component: {fileID: 463808926}
   - component: {fileID: 463808925}
   - component: {fileID: 463808924}
+  - component: {fileID: 463808927}
   m_Layer: 0
   m_Name: OVERMIND
   m_TagString: Untagged
@@ -1282,6 +1282,18 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &463808927
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 463808923}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 822f39053333b024d85e9a8a6a9b4c7a, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
 --- !u!1 &496776447
 GameObject:
   m_ObjectHideFlags: 0
@@ -1748,7 +1760,6 @@ GameObject:
   - component: {fileID: 741419628}
   - component: {fileID: 741419629}
   - component: {fileID: 741419630}
-  - component: {fileID: 741419631}
   - component: {fileID: 741419632}
   - component: {fileID: 741419633}
   m_Layer: 0
@@ -1822,22 +1833,10 @@ MonoBehaviour:
   _activeAzothCount: 0
   _activeAnimaCount: 0
   _activeArtificaCount: 0
-  worldTexture: {fileID: 2800000, guid: 1eb3cf534ba1ed347baa026a1378e6fa, type: 3}
+  worldTexture: {fileID: 2800000, guid: 3646454d6ca287d4b941cf1a1d4ff1cd, type: 3}
   azothPrefab: {fileID: 8634147425768112750, guid: 433a9cc5fc4cdb34f80f2eb9d9c7ede4, type: 3}
   animaPrefab: {fileID: 8634147425768112750, guid: 1e6555f33e751ad49bde8718306c1028, type: 3}
   artificaPrefab: {fileID: 8634147425768112750, guid: 9d45db77172d4924e865828d1c5786bb, type: 3}
---- !u!114 &741419631
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 741419625}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 97703d4469ca4bf4cb8566720a8667d4, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &741419632
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2289,10 +2288,11 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb33d357b2dc50045831589c4ddbd0cf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  minZoom: 1
-  maxZoom: 100
+  minZoomY: 20
+  maxZoomY: 150
   zoomSpeed: 0.5
-  zoomDelay: 0.1
+  zoomDampening: 10
+  zoomSensitivityMouse: 5
 --- !u!114 &963194230
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2740,7 +2740,8 @@ PrefabInstance:
       propertyPath: m_ProvidesContacts
       value: 1
       objectReference: {fileID: 0}
-    m_RemovedComponents: []
+    m_RemovedComponents:
+    - {fileID: 0}
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
     m_AddedComponents: []
@@ -3688,6 +3689,10 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
+      propertyPath: m_Enabled
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
       value: 
       objectReference: {fileID: 2100000, guid: c1284d84e1d6d9e4d932e8ee01cdb4a6, type: 2}
@@ -3949,6 +3954,10 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -8679921383154817045, guid: 744df627fb86125458180479b9c1d462, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: 744df627fb86125458180479b9c1d462, type: 3}
+      propertyPath: m_Enabled
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: 744df627fb86125458180479b9c1d462, type: 3}
@@ -9086,13 +9095,14 @@ GameObject:
   m_Component:
   - component: {fileID: 1940769374}
   - component: {fileID: 1940769373}
+  - component: {fileID: 1940769375}
   m_Layer: 0
   m_Name: EnemyManager
   m_TagString: Untagged
   m_Icon: {fileID: 0}
   m_NavMeshLayer: 0
   m_StaticEditorFlags: 0
-  m_IsActive: 0
+  m_IsActive: 1
 --- !u!114 &1940769373
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -9100,7 +9110,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1940769372}
-  m_Enabled: 0
+  m_Enabled: 1
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 9b052b0d9ba08a84a8a135cd09efd274, type: 3}
   m_Name: 
@@ -9138,6 +9148,42 @@ Transform:
   m_Children: []
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
+--- !u!114 &1940769375
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1940769372}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: e7982b92f13c76348a6223f7c6c7339c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  enemyPrefab: {fileID: 5747785977735381125, guid: 019e24b6c38a79f489b38c73cd16a08f, type: 3}
+  initialSpawnRadius: 15
+  minSpawnRadius: 115
+  initialSpawnInterval: 3
+  spawnInterval: 0
+  minSpawnInterval: 0.001
+  decayRate: 0.02
+  maxEnemyCount: 1000
+  currentEnemyCount: 0
+  rayCount: 3
+  arcAngle: 90
+  fRadius: 40
+  cRadius: 16
+  wPlayer: 0.2
+  wCrowd: 15
+  wAlign: 1
+  wCohesion: 1
+  wNoise: 0.15
+  swarm: 1
+  tPlayer: 1
+  align: 1
+  cohesion: 1
+  noise: 1
+  crowd: 1
 --- !u!1 &1964733813
 GameObject:
   m_ObjectHideFlags: 0
@@ -9702,6 +9748,14 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 131f64f85ea206848868300f381881b8, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  _ageRange: {x: 1, y: 100}
+  _biotaRange: {x: 0, y: 5}
+  _inertaRange: {x: 20, y: 80}
+  _gasRange: {x: 5, y: 20}
+  Age: 0
+  Biota: 0
+  Inerta: 0
+  Gas: 0
 --- !u!1001 &2678637358168556879
 PrefabInstance:
   m_ObjectHideFlags: 0

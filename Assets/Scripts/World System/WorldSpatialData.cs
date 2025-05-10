@@ -11,14 +11,11 @@ public class WorldSpatialData
 [System.Serializable]
 public struct GameObjectData
 {
-    bool IsOutOfBounds;
-
     public Vector3 Position;
     public Quaternion Rotation;
     public string PrefabID;
     public string ObjectID;
 
-    public bool Orbit;
-    public float Impulse;
-    public float Period;
+    public Vector3 Velocity;
+    public Vector3 AngularVelocity;
 }

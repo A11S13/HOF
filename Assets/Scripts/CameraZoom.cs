@@ -2,11 +2,13 @@ using UnityEngine;
 
 public class CameraZoom : MonoBehaviour
 {
-    public float minZoom = 10f;
-    public float maxZoom = 100f;
+    public float minZoomY = 20f;
+    public float maxZoomY = 150f;
     public float zoomSpeed = 5f;
-    public float zoomDelay = 0.1f;
+    public float zoomDampening = 10f; // Added dampening for smoother zoom
+    public float zoomSensitivityMouse = 5f; // Adjust mouse zoom sensitivity
 
+    private float targetZoomY;
     private float initialPinchDistance;
     private bool isZooming = false;
 
@@ -15,6 +17,15 @@ public class CameraZoom : MonoBehaviour
     void Start()
     {
         FindTurretJoystick();
+        if (Camera.main != null)
+        {
+            targetZoomY = Camera.main.transform.position.y;
+        }
+        else
+        {
+            Debug.LogError("No Main Camera found in the scene!");
+            enabled = false; // Disable the script if no main camera
+        }
     }
 
     void FindTurretJoystick()
@@ -39,6 +50,13 @@ public class CameraZoom : MonoBehaviour
             return;
 
         HandleZoom();
+
+        // Apply smooth zoom
+        if (Camera.main != null && Mathf.Abs(Camera.main.transform.position.y - targetZoomY) > 0.01f)
+        {
+            float newY = Mathf.Lerp(Camera.main.transform.position.y, targetZoomY, Time.deltaTime * zoomDampening);
+            Camera.main.transform.position = new Vector3(Camera.main.transform.position.x, newY, Camera.main.transform.position.z);
+        }
     }
 
     bool IsTurretJoystickActive()
@@ -57,6 +75,9 @@ public class CameraZoom : MonoBehaviour
 
     void HandleZoom()
     {
+        if (Camera.main == null)
+            return;
+
         // Touch Input
         if (Input.touchCount == 2)
         {
@@ -79,8 +100,10 @@ public class CameraZoom : MonoBehaviour
                     float currentPinchDistance = Vector2.Distance(touch0.position, touch1.position);
                     float pinchDelta = currentPinchDistance - initialPinchDistance;
 
-                    float zoom = Camera.main.orthographicSize - pinchDelta * zoomSpeed * Time.deltaTime;
-                    Camera.main.orthographicSize = Mathf.Clamp(zoom, minZoom, maxZoom);
+                    // Adjust zoom based on pinch delta, but control the Y position directly
+                    float zoomFactor = pinchDelta * zoomSpeed * Time.deltaTime * 10f; // Increased multiplier for perspective
+
+                    targetZoomY = Mathf.Clamp(targetZoomY - zoomFactor, minZoomY, maxZoomY);
 
                     initialPinchDistance = currentPinchDistance;
                     break;
@@ -97,7 +120,10 @@ public class CameraZoom : MonoBehaviour
 
         // Mouse Scroll Input
         float scroll = Input.GetAxis("Mouse ScrollWheel");
-        float zoomByMouse = Camera.main.orthographicSize - scroll * zoomSpeed * 5000f * Time.deltaTime;
-        Camera.main.orthographicSize = Mathf.Clamp(zoomByMouse, minZoom, maxZoom);
+        if (Mathf.Abs(scroll) > 0.001f) // Check if there's any scroll input
+        {
+            float zoomChange = -scroll * zoomSpeed * zoomSensitivityMouse;
+            targetZoomY = Mathf.Clamp(targetZoomY + zoomChange, minZoomY, maxZoomY);
+        }
     }
 }
