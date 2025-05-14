@@ -1322,13 +1322,14 @@ MonoBehaviour:
   cohesion: 1
   crowd: 1
   noise: 1
-  animaSpeed: 5
-  maxRotationSpeed: 360
+  minSpeed: 15
+  maxSpeed: 50
+  maxRotationSpeed: 400
   obstacleLayerMask:
     serializedVersion: 2
     m_Bits: 512
-  obstacleScanRadius: 250
-  obstacleAvoidWeight: 350
+  obstacleScanRadius: 5
+  obstacleAvoidWeight: 50
 --- !u!1 &496776447
 GameObject:
   m_ObjectHideFlags: 0
