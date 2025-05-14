@@ -9,7 +9,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8571920748057680525}
-  - component: {fileID: 990778274548824822}
   - component: {fileID: 3820560382891818098}
   - component: {fileID: 8145575784641432744}
   - component: {fileID: 7290032428539278168}
@@ -39,19 +38,6 @@ Transform:
   - {fileID: 7752871779227937642}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &990778274548824822
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8634147425768112750}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 274d4416df3ef6b4fa1aebe8f756774a, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  disableDistance: 300
 --- !u!114 &3820560382891818098
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -67,6 +53,7 @@ MonoBehaviour:
   pushForce: 1
   minInterval: 0.1
   maxInterval: 5
+  disableDistance: 2000
 --- !u!114 &8145575784641432744
 MonoBehaviour:
   m_ObjectHideFlags: 0

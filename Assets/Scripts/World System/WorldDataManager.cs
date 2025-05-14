@@ -1,4 +1,4 @@
-using System.Collections.Generic;
+﻿using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
@@ -198,29 +198,32 @@ public class WorldDataManager : MonoBehaviour
     {
         if (channelValue == 0) return;
 
-        int count = Mathf.CeilToInt(channelValue / 255f * 30); // Max count per channel
-        float halfQuadrant = _stateManager.quadrantSize / 2f;
+        // pick your per‐prefab maximums in one line
+        int maxCount = prefab == azothPrefab ? 30   // red channel
+                     : prefab == animaPrefab ? 120   // green channel
+                     : prefab == artificaPrefab ? 15   // blue channel
+                     : 30;
 
+        // scale from 0–255 into 0–maxCount
+        int count = Mathf.CeilToInt((channelValue / 255f) * maxCount);
+
+        float halfQ = _stateManager.quadrantSize * 0.5f;
         for (int i = 0; i < count; i++)
         {
-            // Calculate local offset within quadrant
-            Vector3 localOffset = new Vector3(
-                Random.Range(-halfQuadrant, halfQuadrant),
+            var localOffset = new Vector3(
+                Random.Range(-halfQ, halfQ),
                 0,
-                Random.Range(-halfQuadrant, halfQuadrant)
+                Random.Range(-halfQ, halfQ)
             );
-
-            // Since quadrantCenter is already in correct world space, just add offset
-            Vector3 worldPosition = quadrantCenter + localOffset;
-
-            string prefabId = prefab.name;
+            var worldPos = quadrantCenter + localOffset;
+            var id = GenerateUniqueName(prefab.name, worldPos);
 
             data.Add(new GameObjectData
             {
-                Position = worldPosition,
+                Position = worldPos,
                 Rotation = Quaternion.Euler(0, Random.Range(0, 360), 0),
-                PrefabID = prefabId,
-                ObjectID = GenerateUniqueName(prefabId, worldPosition)
+                PrefabID = prefab.name,
+                ObjectID = id
             });
         }
     }
@@ -281,53 +284,65 @@ public class WorldDataManager : MonoBehaviour
     }
 
     private void SpawnGameObject(GameObjectData objData, Vector2Int quadrantPos)
+{
+    // Get object from pool instead of instantiating
+    GameObject instance = GetPooledObject(objData.PrefabID);
+    if (instance == null) return;
+
+    // Set position and rotation
+    instance.transform.position = objData.Position;
+    instance.transform.rotation = objData.Rotation;
+    instance.name = objData.ObjectID; // Ensure the GameObject's name is the ObjectID
+
+    // Apply velocity and angular velocity if the object has a Rigidbody
+    Rigidbody rb = instance.GetComponent<Rigidbody>();
+    if (rb != null)
     {
-        // Get object from pool instead of instantiating
-        GameObject instance = GetPooledObject(objData.PrefabID);
-        if (instance == null) return;
+        rb.linearVelocity = objData.Velocity;  // Corrected: linearVelocity
+        rb.angularVelocity = objData.AngularVelocity;
+    }
 
-        // Set position and rotation
-        instance.transform.position = objData.Position;
-        instance.transform.rotation = objData.Rotation;
-        instance.name = objData.ObjectID;
-
-        // Apply velocity and angular velocity if the object has a Rigidbody
-        Rigidbody rb = instance.GetComponent<Rigidbody>();
-        if (rb != null)
+    // Initialize the WorldObject method on the spawned object
+    // Initialize Azoth objects
+    if (objData.PrefabID == "Azoth")
+    {
+        Azoth azothScript = instance.GetComponent<Azoth>();
+        if (azothScript != null)
         {
-            rb.linearVelocity = objData.Velocity;  // Corrected: linearVelocity
-            rb.angularVelocity = objData.AngularVelocity;
-        }
-
-        // Initialize the WorldObject script on the spawned object
-        var worldObject = instance.GetComponent<WorldObject>();
-        if (worldObject == null)
-        {
-            worldObject = instance.AddComponent<WorldObject>();
-        }
-        worldObject.Initialize(quadrantPos, this); // Pass the current quadrant and WorldDataManager
-
-        if (!_activeObjects.ContainsKey(quadrantPos))
-        {
-            _activeObjects[quadrantPos] = new List<GameObject>();
-        }
-        _activeObjects[quadrantPos].Add(instance);
-
-        string prefabId = objData.PrefabID;
-
-        switch (prefabId)
-        {
-            case "Azoth":
-                _activeAzothCount++;
-                break;
-            case "Anima":
-                _activeAnimaCount++;
-                break;
-            case "Artifica":
-                _activeArtificaCount++;
-                break;
+            azothScript.Initialize(quadrantPos, this, objData.ObjectID); // Pass ObjectID
         }
     }
+    // Initialize Anima objects
+    else if (objData.PrefabID == "Anima")
+    {
+        Anima animaScript = instance.GetComponent<Anima>();
+        if (animaScript != null)
+        {
+            animaScript.Initialize(quadrantPos, this, objData.ObjectID); // Pass ObjectID
+        }
+    }
+
+    if (!_activeObjects.ContainsKey(quadrantPos))
+    {
+        _activeObjects[quadrantPos] = new List<GameObject>();
+    }
+    _activeObjects[quadrantPos].Add(instance);
+
+    string prefabId = objData.PrefabID;
+
+    switch (prefabId)
+    {
+        case "Azoth":
+            _activeAzothCount++;
+            break;
+        case "Anima":
+            _activeAnimaCount++;
+            break;
+        case "Artifica":
+            _activeArtificaCount++;
+            break;
+    }
+}
 
     public void WriteQuadrantData(Vector2Int quadrantPos, GameObject obj, Vector3 velocity, Vector3 angularVelocity)
     {
