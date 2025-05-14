@@ -1066,7 +1066,7 @@ Transform:
   m_GameObject: {fileID: 433032876}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 18695, y: -1, z: -84908}
+  m_LocalPosition: {x: 20436, y: -1, z: -26845}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1309,12 +1309,12 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rayCount: 8
   arcAngle: 360
-  fRadius: 10
-  cRadius: 4.6
-  wPlayer: 0.2
-  wCrowd: 0.29
-  wAlign: 1
-  wCohesion: 0.25
+  fRadius: 40
+  cRadius: 8.5
+  wPlayer: 0
+  wCrowd: 105
+  wAlign: 2.2
+  wCohesion: 1.85
   wNoise: 0.15
   swarm: 1
   tPlayer: 1
@@ -1322,14 +1322,16 @@ MonoBehaviour:
   cohesion: 1
   crowd: 1
   noise: 1
-  minSpeed: 15
-  maxSpeed: 50
-  maxRotationSpeed: 400
+  baseMinSpeed: 15
+  baseMaxSpeed: 50
+  maxRotationSpeed: 180
   obstacleLayerMask:
     serializedVersion: 2
     m_Bits: 512
-  obstacleScanRadius: 5
-  obstacleAvoidWeight: 50
+  minObstacleScanRadius: 0.2
+  maxObstacleScanRadius: 12
+  minObstacleAvoidWeight: 1.5
+  maxObstacleAvoidWeight: 100
 --- !u!1 &496776447
 GameObject:
   m_ObjectHideFlags: 0
@@ -2227,9 +2229,9 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 963194228}
+  - component: {fileID: 963194229}
   - component: {fileID: 963194227}
   - component: {fileID: 963194226}
-  - component: {fileID: 963194229}
   - component: {fileID: 963194230}
   m_Layer: 0
   m_Name: Main Camera
@@ -2306,7 +2308,7 @@ Transform:
   m_GameObject: {fileID: 963194225}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: -0, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: 18695, y: 150, z: -84908}
+  m_LocalPosition: {x: 20436, y: 240, z: -26845}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -2325,10 +2327,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   minZoomY: 20
-  maxZoomY: 150
-  zoomSpeed: 0.5
-  zoomDampening: 10
-  zoomSensitivityMouse: 5
+  maxZoomY: 240
+  zoomSpeed: 22
+  zoomDampening: 5
+  zoomSensitivityMouse: 10
 --- !u!114 &963194230
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2775,6 +2777,10 @@ PrefabInstance:
     - target: {fileID: 3236385341735084485, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
       propertyPath: m_ProvidesContacts
       value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 6217131520226331616, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
+      propertyPath: m_Enabled
+      value: 0
       objectReference: {fileID: 0}
     m_RemovedComponents:
     - {fileID: 0}
@@ -3726,7 +3732,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
       propertyPath: m_Enabled
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -3994,7 +4000,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: 744df627fb86125458180479b9c1d462, type: 3}
       propertyPath: m_Enabled
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: 744df627fb86125458180479b9c1d462, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -9598,6 +9604,7 @@ MonoBehaviour:
   commandSlider: {fileID: 203459040}
   tags:
   - Enemy
+  - Anima
 --- !u!65 &2239112340433964453
 BoxCollider:
   m_ObjectHideFlags: 0

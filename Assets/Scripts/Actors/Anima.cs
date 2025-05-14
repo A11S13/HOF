@@ -6,7 +6,9 @@ public class Anima : MonoBehaviour
     public bool isTargeted;
     public bool isDestroyed;
     public float health = 100f;
-    public static float animaSpeed = 5f; // Global anima speed.
+    public float animaSpeedMultiplierMin = 1f; // Minimum speed multiplier
+    public float animaSpeedMultiplierMax = 1.5f; // Maximum speed multiplier
+    [HideInInspector] public float animaSpeedMultiplier; // Individual speed multiplier
     public static GameObject explosionPrefab;
     public static GameObject explosionSoundHolderPrefab;
     private WorldDataManager _dataManager;
@@ -39,7 +41,7 @@ public class Anima : MonoBehaviour
 
         if (_playerTransform != null)
         {
-           SelfDespawnCheck();
+            SelfDespawnCheck();
         }
     }
 
@@ -64,6 +66,11 @@ public class Anima : MonoBehaviour
         Collider collider = GetComponent<Collider>();
         if (collider != null)
             collider.enabled = true;
+
+        // Generate a random speed multiplier with a small variance (1 to 1.5)
+        animaSpeedMultiplier = Random.Range(animaSpeedMultiplierMin, animaSpeedMultiplierMax);
+        // You can optionally log this value for debugging:
+        // Debug.Log($"Anima {gameObject.GetInstanceID()} speed multiplier: {animaSpeedMultiplier}");
 
         // Existing OnEnable code...
         if (explosionPrefab == null)

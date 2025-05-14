@@ -28,7 +28,7 @@ public class Enemy : MonoBehaviour
         data.rotationCounter = 0;
         data.targetRotation = transform.rotation;
         // Register with our manager.
-        EnemyManager.Instance.RegisterEnemy(this);
+        //EnemyManager.Instance.RegisterEnemy(this);
     }
     void OnDestroy()
     {

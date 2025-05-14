@@ -18,11 +18,16 @@ public class AnimaManager : MonoBehaviour
     public float cRadius = 8f;
     public float wPlayer = 0.2f, wCrowd = 12f, wAlign = 1f, wCohesion = 1f, wNoise = 0.15f;
     public bool swarm = true, tPlayer = true, align = true, cohesion = true, crowd = true, noise = true;
-    public float minSpeed = 2f, maxSpeed = 10f, maxRotationSpeed = 180f;
+    public float baseMinSpeed = 2f;
+    public float baseMaxSpeed = 10f;
+    public float maxRotationSpeed = 180f;
 
     [Header("Obstacle Settings")]
     public LayerMask obstacleLayerMask;
-    public float obstacleScanRadius = 10f, obstacleAvoidWeight = 2f;
+    public float minObstacleScanRadius = 8f;
+    public float maxObstacleScanRadius = 12f;
+    public float minObstacleAvoidWeight = 1.5f;
+    public float maxObstacleAvoidWeight = 2.5f;
 
     Transform playerTf;
     readonly List<Anima> animas = new();
@@ -32,9 +37,14 @@ public class AnimaManager : MonoBehaviour
         public float fRadius, cRadius, arcAngle;
         public float wPlayer, wCrowd, wAlign, wCohesion, wNoise;
         public bool swarm, tPlayer, align, cohesion, crowd, noise;
-        public float minSpeed, maxSpeed, maxRotationSpeed;
+        public float baseMinSpeed;
+        public float baseMaxSpeed;
+        public float maxRotationSpeed;
         public Vector3 playerPosition;
-        public float obstacleScanRadius, obstacleAvoidWeight;
+        public float minObstacleScanRadius;
+        public float maxObstacleScanRadius;
+        public float minObstacleAvoidWeight;
+        public float maxObstacleAvoidWeight;
     }
     Settings G;
 
@@ -65,12 +75,14 @@ public class AnimaManager : MonoBehaviour
             cohesion = cohesion,
             crowd = crowd,
             noise = noise,
-            minSpeed = minSpeed,
-            maxSpeed = maxSpeed,
+            baseMinSpeed = baseMinSpeed,
+            baseMaxSpeed = baseMaxSpeed,
             maxRotationSpeed = maxRotationSpeed,
             playerPosition = playerTf ? playerTf.position : Vector3.zero,
-            obstacleScanRadius = obstacleScanRadius,
-            obstacleAvoidWeight = obstacleAvoidWeight
+            minObstacleScanRadius = minObstacleScanRadius,
+            maxObstacleScanRadius = maxObstacleScanRadius,
+            minObstacleAvoidWeight = minObstacleAvoidWeight,
+            maxObstacleAvoidWeight = maxObstacleAvoidWeight
         };
     }
 
@@ -87,12 +99,15 @@ public class AnimaManager : MonoBehaviour
         var posArr = new NativeArray<float3>(n, Allocator.TempJob);
         var rotArr = new NativeArray<quaternion>(n, Allocator.TempJob);
         var dataArr = new NativeArray<Anima.AnimaData>(n, Allocator.TempJob);
+        var speedMultipliers = new NativeArray<float>(n, Allocator.TempJob); // New array for speed multipliers
+
         for (int i = 0; i < n; i++)
         {
             ta.Add(actives[i].transform);
             posArr[i] = actives[i].transform.position;
             rotArr[i] = actives[i].transform.rotation;
             dataArr[i] = actives[i].data;
+            speedMultipliers[i] = actives[i].animaSpeedMultiplier; // Get the individual speed multiplier
         }
 
         var cols = Physics.OverlapSphere(G.playerPosition, 300f, obstacleLayerMask);
@@ -108,10 +123,13 @@ public class AnimaManager : MonoBehaviour
             animaPositions = posArr,
             animaRotations = rotArr,
             animaJobData = dataArr,
+            speedMultipliers = speedMultipliers, // Pass the speed multipliers to the job
             obstaclePositions = obsArr,
             obstacleCount = obsArr.Length,
-            obstacleAvoidRadius = G.obstacleScanRadius,
-            obstacleAvoidWeight = G.obstacleAvoidWeight,
+            minObstacleScanRadius = G.minObstacleScanRadius,
+            maxObstacleScanRadius = G.maxObstacleScanRadius,
+            minObstacleAvoidWeight = G.minObstacleAvoidWeight,
+            maxObstacleAvoidWeight = G.maxObstacleAvoidWeight,
             deltaTime = Time.deltaTime,
             fRadius = G.fRadius,
             cRadius = G.cRadius,
@@ -127,8 +145,8 @@ public class AnimaManager : MonoBehaviour
             cohesion = G.cohesion,
             crowd = G.crowd,
             noise = G.noise,
-            minSpeed = G.minSpeed,
-            maxSpeed = G.maxSpeed,
+            baseMinSpeed = G.baseMinSpeed,
+            baseMaxSpeed = G.baseMaxSpeed,
             maxRotationSpeed = G.maxRotationSpeed,
             playerPosition = G.playerPosition,
             seed = (uint)UnityEngine.Random.Range(1, int.MaxValue)
@@ -136,7 +154,7 @@ public class AnimaManager : MonoBehaviour
 
         for (int i = 0; i < n; i++) actives[i].data = dataArr[i];
 
-        ta.Dispose(); posArr.Dispose(); rotArr.Dispose(); dataArr.Dispose(); obsArr.Dispose();
+        ta.Dispose(); posArr.Dispose(); rotArr.Dispose(); dataArr.Dispose(); obsArr.Dispose(); speedMultipliers.Dispose(); // Dispose the new array
     }
 
     [BurstCompile]
@@ -145,15 +163,21 @@ public class AnimaManager : MonoBehaviour
         [ReadOnly] public NativeArray<float3> animaPositions;
         [ReadOnly] public NativeArray<quaternion> animaRotations;
         public NativeArray<Anima.AnimaData> animaJobData;
+        [ReadOnly] public NativeArray<float> speedMultipliers; // Read-only access to speed multipliers
 
         [ReadOnly] public NativeArray<float4> obstaclePositions;
         public int obstacleCount;
-        public float obstacleAvoidRadius, obstacleAvoidWeight;
+        public float minObstacleScanRadius;
+        public float maxObstacleScanRadius;
+        public float minObstacleAvoidWeight;
+        public float maxObstacleAvoidWeight;
         public float deltaTime;
         public float fRadius, cRadius, arcAngle;
         public float wPlayer, wCrowd, wAlign, wCohesion, wNoise;
         public bool swarm, tPlayer, align, cohesion, crowd, noise;
-        public float minSpeed, maxSpeed, maxRotationSpeed;
+        public float baseMinSpeed;
+        public float baseMaxSpeed;
+        public float maxRotationSpeed;
         public float3 playerPosition;
         public uint seed;
 
@@ -164,20 +188,28 @@ public class AnimaManager : MonoBehaviour
             float3 forward = math.mul(rot, new float3(0, 0, 1));
             float3 desired = forward;
             var ed = animaJobData[i];
+            var rnd = new Unity.Mathematics.Random(seed + (uint)i);
+            float currentObstacleScanRadius = rnd.NextFloat(minObstacleScanRadius, maxObstacleScanRadius);
+            float currentObstacleAvoidWeight = rnd.NextFloat(minObstacleAvoidWeight, maxObstacleAvoidWeight);
+
+            // Get the speed multiplier for this anima
+            float speedMultiplier = speedMultipliers[i];
+            float minSpeed = baseMinSpeed * speedMultiplier;
+            float maxSpeed = baseMaxSpeed * speedMultiplier;
 
             float obsInf = 0; float3 obsSum = 0;
             for (int j = 0; j < obstacleCount; j++)
             {
                 float3 toObs = obstaclePositions[j].xyz - pos;
                 float d = math.length(toObs), rO = obstaclePositions[j].w;
-                if (d < obstacleAvoidRadius + rO)
+                if (d < currentObstacleScanRadius + rO)
                 {
-                    float w = ((obstacleAvoidRadius + rO) - d) / (obstacleAvoidRadius + rO);
+                    float w = ((currentObstacleScanRadius + rO) - d) / (currentObstacleScanRadius + rO);
                     obsSum -= math.normalize(toObs) * w; obsInf += w;
                 }
             }
             if (obsInf > 0)
-                desired = math.normalize(math.lerp(desired, math.normalize(obsSum / obsInf), obstacleAvoidWeight * deltaTime));
+                desired = math.normalize(math.lerp(desired, math.normalize(obsSum / obsInf), currentObstacleAvoidWeight * deltaTime));
 
             float3 alignSum = 0, cohSum = 0, sepSum = 0;
             int alignCount = 0, cohCount = 0;
@@ -203,15 +235,8 @@ public class AnimaManager : MonoBehaviour
             float wanderInf = 0;
             if (noise)
             {
-                ed.rotationCounter++;
-                if (ed.rotationCounter >= ed.rotationFrequency)
-                {
-                    var rnd = new Unity.Mathematics.Random(seed + (uint)i);
-                    ed.targetRotation = quaternion.LookRotationSafe(math.normalize(new float3(rnd.NextFloat(-1f, 1f), 0, rnd.NextFloat(-1f, 1f))), math.up());
-                    ed.rotationCounter = 0;
-                    ed.rotationFrequency = (int)math.clamp(rnd.NextFloat(1f, 30f), 1f, 30f);
-                }
-                desired = math.normalize(math.mul(math.slerp(quaternion.identity, ed.targetRotation, wNoise * deltaTime), desired));
+                float3 wanderOffset = new float3(rnd.NextFloat(-1f, 1f), 0, rnd.NextFloat(-1f, 1f)) * wNoise;
+                desired = math.normalize(desired + wanderOffset);
                 wanderInf = wNoise;
             }
 
@@ -223,10 +248,10 @@ public class AnimaManager : MonoBehaviour
                 playerInf = wPlayer * math.clamp(math.distance(playerPosition, pos) / fRadius, 0, 1);
             }
 
-            float speed = obsInf > 0 ? maxSpeed :
+            float finalSpeed = obsInf > 0 ? maxSpeed :
                 math.lerp(minSpeed, maxSpeed,
                     math.clamp((obsInf + crowdInf + (align ? wAlign : 0) + playerInf + wanderInf) /
-                    (obstacleAvoidWeight + wCrowd + wAlign + wPlayer + wNoise), 0, 1));
+                    (currentObstacleScanRadius + wCrowd + wAlign + wPlayer + wNoise), 0, 1));
 
             float3 horiz = math.normalize(new float3(desired.x, 0, desired.z));
             quaternion tgt = math.lengthsq(horiz) > 0.001f ? quaternion.LookRotationSafe(horiz, math.up()) : rot;
@@ -235,7 +260,7 @@ public class AnimaManager : MonoBehaviour
             quaternion newR = math.slerp(rot, tgt, math.min(1f, maxRad / math.acos(dot)));
 
             tx.rotation = newR;
-            tx.position = pos + math.mul(newR, new float3(0, 0, 1)) * speed * deltaTime;
+            tx.position = pos + math.mul(newR, new float3(0, 0, 1)) * finalSpeed * deltaTime;
             animaJobData[i] = ed;
         }
     }

@@ -81,8 +81,8 @@ public class Weapon : MonoBehaviour
         if (target != null)
         {
             target.GetComponent<Enemy>().isTargeted = true;
-            target.transform.Find("IndicatorRed").gameObject.SetActive(true);
-            target.transform.Find("IndicatorBlue").gameObject.SetActive(false);
+            //target.transform.Find("IndicatorRed").gameObject.SetActive(true);
+            //target.transform.Find("IndicatorBlue").gameObject.SetActive(false);
             // 2. Rotate Towards Target
             RotateTowardsTarget(target.transform.position);
             // 3. Fire if Aimed
@@ -121,7 +121,7 @@ public class Weapon : MonoBehaviour
         {
             //Debug.Log("Target is too far away");
             target.GetComponent<Enemy>().isTargeted = false;
-            target.transform.Find("IndicatorRed").gameObject.SetActive(false);
+            //target.transform.Find("IndicatorRed").gameObject.SetActive(false);
             _sC.FormClosestEnemiesArray();
             PickTarget();
         }
