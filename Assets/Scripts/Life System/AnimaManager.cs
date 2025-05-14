@@ -1,50 +1,15 @@
 using System.Collections.Generic;
-using UnityEngine;
+using System.Linq;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
-using Unity.Burst;
-using UnityEngine.Jobs;
 using Unity.Mathematics;
-using Random = UnityEngine.Random;
-using System.Linq;
+using UnityEngine;
+using UnityEngine.Jobs;
 
 public class AnimaManager : MonoBehaviour
 {
     public static AnimaManager Instance { get; private set; }
-    readonly List<Anima> animas = new List<Anima>();
-
-    // Global settings for anima behavior (set by AnimaSpawner at start)
-    [System.Serializable]
-    public struct Settings
-    {
-        public int rayCount;
-        public float arcAngle;
-        public float fRadius;
-        public float cRadius;
-        public float wPlayer;
-        public float wCrowd;
-        public float wAlign;
-        public float wCohesion;
-        public float wNoise;
-        public bool swarm;
-        public bool tPlayer;
-        public bool align;
-        public bool cohesion;
-        public bool crowd;
-        public bool noise;
-        public float animaSpeed;
-        public float maxRotationSpeed; // Added max rotation speed
-        public Vector3 playerPosition;
-    }
-    public Settings GlobalSettings;
-
-    // Cached player transform for dynamic update.
-    Transform playerTransform;
-
-    TransformAccessArray taArray;
-    NativeArray<Vector3> animaPositions;
-    NativeArray<quaternion> animaRotations;
-    NativeArray<Anima.AnimaData> animaJobData;
 
     [Header("Swarm Settings")]
     public int rayCount = 3;
@@ -60,35 +25,44 @@ public class AnimaManager : MonoBehaviour
     public bool tPlayer = true;
     public bool align = true;
     public bool cohesion = true;
-    public bool noise = true;
     public bool crowd = true;
-    public float animaSpeed = 5f; // Example default speed
-    public float maxRotationSpeed = 180f; // Degrees per second
+    public bool noise = true;
+    public float animaSpeed = 5f;
+    public float maxRotationSpeed = 180f;
+
+    [Header("Obstacle Settings")]
+    public LayerMask obstacleLayerMask;
+    public float obstacleScanRadius = 10f;
+    public float obstacleAvoidWeight = 2f;
+
+    Transform playerTf;
+    readonly List<Anima> animas = new List<Anima>();
+
+    struct Settings
+    {
+        public float fRadius, cRadius, arcAngle;
+        public float wPlayer, wCrowd, wAlign, wCohesion, wNoise;
+        public bool swarm, tPlayer, align, cohesion, crowd, noise;
+        public float animaSpeed, maxRotationSpeed;
+        public Vector3 playerPosition;
+        public float obstacleScanRadius, obstacleAvoidWeight;
+    }
+    Settings G;
 
     void Awake()
     {
-        if (Instance != null)
-        {
-            Destroy(gameObject);
-            return;
-        }
+        if (Instance != null) { Destroy(gameObject); return; }
         Instance = this;
-
-        // Try to cache the player's transform.
-        GameObject player = GameObject.FindGameObjectWithTag("Player");
-        if (player != null)
-            playerTransform = player.transform;
+        playerTf = GameObject.FindGameObjectWithTag("Player")?.transform;
     }
 
     void Start()
     {
-        // Initialize global settings. Player position will be updated in Update.
-        GlobalSettings = new Settings
+        G = new Settings
         {
-            rayCount = rayCount,
-            arcAngle = arcAngle,
             fRadius = fRadius,
             cRadius = cRadius,
+            arcAngle = arcAngle,
             wPlayer = wPlayer,
             wCrowd = wCrowd,
             wAlign = wAlign,
@@ -102,224 +76,209 @@ public class AnimaManager : MonoBehaviour
             noise = noise,
             animaSpeed = animaSpeed,
             maxRotationSpeed = maxRotationSpeed,
-            playerPosition = playerTransform != null ? playerTransform.position : Vector3.zero
+            playerPosition = playerTf ? playerTf.position : Vector3.zero,
+            obstacleScanRadius = obstacleScanRadius,
+            obstacleAvoidWeight = obstacleAvoidWeight
         };
-
-        Anima.animaSpeed = animaSpeed; // Ensure the static variable is also updated.
+        Anima.animaSpeed = animaSpeed;
     }
 
-    public void RegisterAnima(Anima anima)
-    {
-        if (!animas.Contains(anima))
-            animas.Add(anima);
-    }
-
-    public void UnregisterAnima(Anima anima)
-    {
-        animas.Remove(anima);
-    }
+    public void RegisterAnima(Anima a) { if (!animas.Contains(a)) animas.Add(a); }
+    public void UnregisterAnima(Anima a) { animas.Remove(a); }
 
     void Update()
     {
-        // Dynamically update the player position in GlobalSettings every frame.
-        if (playerTransform != null)
+        // propagate inspector tweaks
+        G.fRadius = fRadius;
+        G.cRadius = cRadius;
+        G.arcAngle = arcAngle;
+        G.wPlayer = wPlayer;
+        G.wCrowd = wCrowd;
+        G.wAlign = wAlign;
+        G.wCohesion = wCohesion;
+        G.wNoise = wNoise;
+        G.swarm = swarm;
+        G.tPlayer = tPlayer;
+        G.align = align;
+        G.cohesion = cohesion;
+        G.crowd = crowd;
+        G.noise = noise;
+        G.animaSpeed = animaSpeed;
+        G.maxRotationSpeed = maxRotationSpeed;
+        G.obstacleScanRadius = obstacleScanRadius;
+        G.obstacleAvoidWeight = obstacleAvoidWeight;
+
+        G.playerPosition = playerTf ? playerTf.position : Vector3.zero;
+
+        var act = animas.Where(a => a && a.gameObject.activeSelf).ToList();
+        int n = act.Count;
+        if (n == 0) return;
+
+        var ta = new TransformAccessArray(n);
+        var posArr = new NativeArray<float3>(n, Allocator.TempJob);
+        var rotArr = new NativeArray<quaternion>(n, Allocator.TempJob);
+        var dataArr = new NativeArray<Anima.AnimaData>(n, Allocator.TempJob);
+        for (int i = 0; i < n; i++)
         {
-            GlobalSettings.playerPosition = playerTransform.position;
-        }
-        else
-        {
-            // If the player is not found, you might want to handle this case
-            // (e.g., set playerPosition to a default or zero vector).
-            GameObject player = GameObject.FindGameObjectWithTag("Player");
-            if (player != null)
-                playerTransform = player.transform;
-            else
-                GlobalSettings.playerPosition = Vector3.zero;
+            var t = act[i].transform;
+            ta.Add(t);
+            posArr[i] = t.position;
+            rotArr[i] = t.rotation;
+            dataArr[i] = act[i].data;
         }
 
-        var activeAnimas = animas.Where(e => e != null && e.gameObject.activeSelf).ToList();
-        int count = activeAnimas.Count;
-        if (count == 0)
-            return;
+        var cols = Physics.OverlapSphere(G.playerPosition, G.obstacleScanRadius, obstacleLayerMask);
+        var obsArr = new NativeArray<float3>(cols.Length, Allocator.TempJob);
+        for (int i = 0; i < cols.Length; i++)
+            obsArr[i] = cols[i].transform.position;
 
-        var transforms = new Transform[count];
-        animaPositions = new NativeArray<Vector3>(count, Allocator.TempJob);
-        animaRotations = new NativeArray<quaternion>(count, Allocator.TempJob);
-        animaJobData = new NativeArray<Anima.AnimaData>(count, Allocator.TempJob);
-
-        for (int i = 0; i < count; i++)
-        {
-            transforms[i] = activeAnimas[i].transform;
-            animaPositions[i] = activeAnimas[i].transform.position;
-            animaRotations[i] = activeAnimas[i].transform.rotation;
-            animaJobData[i] = activeAnimas[i].data;
-        }
-        taArray = new TransformAccessArray(transforms);
-
-        // Schedule the job.
         var job = new AnimaAIJob
         {
-            animaPositions = animaPositions,
-            animaRotations = animaRotations,
-            animaJobData = animaJobData,
+            animaPositions = posArr,
+            animaRotations = rotArr,
+            animaJobData = dataArr,
+            obstaclePositions = obsArr,
+            obstacleCount = obsArr.Length,
+            obstacleAvoidRadius = G.obstacleScanRadius,
+            obstacleAvoidWeight = G.obstacleAvoidWeight,
             deltaTime = Time.deltaTime,
-            animaSpeed = GlobalSettings.animaSpeed,
-            maxRotationSpeed = GlobalSettings.maxRotationSpeed, // Pass max rotation speed to the job
-            playerPosition = GlobalSettings.playerPosition,
-            swarm = GlobalSettings.swarm,
-            tPlayer = GlobalSettings.tPlayer,
-            align = GlobalSettings.align,
-            cohesion = GlobalSettings.cohesion,
-            crowd = GlobalSettings.crowd,
-            noise = GlobalSettings.noise,
-            fRadius = GlobalSettings.fRadius,
-            arcAngle = GlobalSettings.arcAngle,
-            cRadius = GlobalSettings.cRadius,
-            wPlayer = GlobalSettings.wPlayer,
-            wCrowd = GlobalSettings.wCrowd,
-            wAlign = GlobalSettings.wAlign,
-            wCohesion = GlobalSettings.wCohesion,
-            wNoise = GlobalSettings.wNoise,
-            seed = 12345u // Consider using a more dynamic seed if needed.
+            animaSpeed = G.animaSpeed,
+            maxRotationSpeed = G.maxRotationSpeed,
+            playerPosition = G.playerPosition,
+            fRadius = G.fRadius,
+            cRadius = G.cRadius,
+            arcAngle = G.arcAngle,
+            wPlayer = G.wPlayer,
+            wCrowd = G.wCrowd,
+            wAlign = G.wAlign,
+            wCohesion = G.wCohesion,
+            wNoise = G.wNoise,
+            swarm = G.swarm,
+            tPlayer = G.tPlayer,
+            align = G.align,
+            cohesion = G.cohesion,
+            crowd = G.crowd,
+            noise = G.noise,
+            seed = (uint)UnityEngine.Random.Range(1, int.MaxValue)
         };
+        job.Schedule(ta).Complete();
 
-        JobHandle handle = job.Schedule(taArray);
-        handle.Complete();
-
-        // Write back updated anima data.
-        for (int i = 0; i < count; i++)
-            animas[i].data = animaJobData[i];
-
-        // Dispose temporary arrays.
-        taArray.Dispose();
-        animaPositions.Dispose();
-        animaRotations.Dispose();
-        animaJobData.Dispose();
+        for (int i = 0; i < n; i++) act[i].data = dataArr[i];
+        ta.Dispose(); posArr.Dispose(); rotArr.Dispose(); dataArr.Dispose(); obsArr.Dispose();
     }
 
     [BurstCompile]
     struct AnimaAIJob : IJobParallelForTransform
     {
-        // Read-only arrays for neighbor search.
-        [ReadOnly] public NativeArray<Vector3> animaPositions;
+        [ReadOnly] public NativeArray<float3> animaPositions;
         [ReadOnly] public NativeArray<quaternion> animaRotations;
-        // Per-anima data updated by the job.
         public NativeArray<Anima.AnimaData> animaJobData;
 
-        // Global parameters.
-        public float deltaTime;
-        public float animaSpeed;
-        public float maxRotationSpeed; // Added max rotation speed in the job
-        public Vector3 playerPosition;
-        public bool swarm, tPlayer, align, cohesion, crowd, noise;
-        public float fRadius, arcAngle, cRadius;
-        public float wPlayer, wCrowd, wAlign, wCohesion, wNoise;
+        [ReadOnly] public NativeArray<float3> obstaclePositions;
+        public int obstacleCount;
+        public float obstacleAvoidRadius;
+        public float obstacleAvoidWeight;
 
+        public float deltaTime, animaSpeed, maxRotationSpeed;
+        public float fRadius, cRadius, arcAngle;
+        public float wPlayer, wCrowd, wAlign, wCohesion, wNoise;
+        public bool swarm, tPlayer, align, cohesion, crowd, noise;
+        public Vector3 playerPosition;
         public uint seed;
 
-        public void Execute(int index, TransformAccess transform)
+        public void Execute(int i, TransformAccess tx)
         {
-            float3 pos = transform.position;
-            quaternion rot = transform.rotation;
-            float3 currentForward = math.mul(rot, new float3(0, 0, 1));
-            float3 desiredForward = currentForward;
-            var ed = animaJobData[index];
+            float3 pos = tx.position;
+            quaternion r = tx.rotation;
+            float3 forward = math.mul(r, new float3(0, 0, 1));
+            float3 desired = forward;
+            var ed = animaJobData[i];
 
-            // Swarm behaviors.
-            if (swarm)
+            // 360° obstacle avoidance
+            if (obstacleCount > 0)
             {
-                float3 alignSum = float3.zero;
-                int alignCount = 0;
-                float3 cohesionSum = float3.zero;
-                int cohesionCount = 0;
-                float3 crowdAdjust = float3.zero;
-
-                // Loop through all anima positions to detect neighbors.
-                for (int i = 0; i < animaPositions.Length; i++)
+                float3 tot = 0; float w = 0;
+                for (int j = 0; j < obstacleCount; j++)
                 {
-                    if (i == index) continue;
-                    float3 otherPos = animaPositions[i];
-                    float dist = math.distance(pos, otherPos);
-                    if (dist < fRadius)
+                    float3 toObs = obstaclePositions[j] - pos;
+                    float d = math.length(toObs);
+                    if (d < obstacleAvoidRadius)
                     {
-                        float3 toOther = math.normalize(otherPos - pos);
-                        // Check if within the arc.
-                        float angle = math.degrees(math.acos(math.clamp(math.dot(currentForward, toOther), -1f, 1f)));
-                        if (angle < arcAngle * 0.5f)
-                        {
-                            float3 otherForward = math.mul(animaRotations[i], new float3(0, 0, 1));
-                            alignSum += otherForward;
-                            alignCount++;
-                        }
-                        // Cohesion: accumulate positions.
-                        cohesionSum += otherPos;
-                        cohesionCount++;
-                        // Crowd avoidance: if too close.
-                        if (dist < cRadius)
-                            crowdAdjust += (pos - otherPos) / dist;
+                        var dir = math.normalize(toObs);
+                        float a = math.degrees(math.acos(math.clamp(math.dot(forward, dir), -1f, 1f)));
+                        float dw = math.lerp(1f, 0.2f, a / 180f);
+                        float pw = (obstacleAvoidRadius - d) / obstacleAvoidRadius;
+                        float wt = dw * pw;
+                        tot += -dir * wt;
+                        w += wt;
                     }
                 }
-                if (align && alignCount > 0)
+                if (w > 0)
+                    desired = math.normalize(math.lerp(desired, math.normalize(tot / w), obstacleAvoidWeight * deltaTime));
+            }
+
+            // boid behaviors
+            if (swarm)
+            {
+                float3 aSum = 0, cSum = 0, cAdj = 0;
+                int aC = 0, cC = 0;
+                for (int j = 0; j < animaPositions.Length; j++) if (j != i)
+                    {
+                        float3 op = animaPositions[j];
+                        float d = math.distance(pos, op);
+                        if (d < fRadius)
+                        {
+                            float3 toO = math.normalize(op - pos);
+                            float ang = math.degrees(math.acos(math.clamp(math.dot(forward, toO), -1f, 1f)));
+                            if (ang < arcAngle * 0.5f)
+                            { aSum += math.mul(animaRotations[j], new float3(0, 0, 1)); aC++; }
+                            cSum += op; cC++;
+                            if (d < cRadius) cAdj += (pos - op) / d;
+                        }
+                    }
+                if (align && aC > 0)
+                    desired = math.normalize(math.lerp(desired, math.normalize(aSum / aC), wAlign * deltaTime));
+                if (cohesion && cC > 0)
                 {
-                    float3 avgForward = math.normalize(alignSum / alignCount);
-                    desiredForward = math.normalize(math.lerp(desiredForward, avgForward, wAlign * deltaTime));
+                    var toAvg = math.normalize(cSum / cC - pos);
+                    desired = math.normalize(math.lerp(desired, toAvg, wCohesion * deltaTime));
                 }
-                if (cohesion && cohesionCount > 0)
-                {
-                    float3 avgPos = cohesionSum / cohesionCount;
-                    float3 toAvg = math.normalize(avgPos - pos);
-                    desiredForward = math.normalize(math.lerp(desiredForward, toAvg, wCohesion * deltaTime));
-                }
-                if (crowd && math.length(crowdAdjust) > 0)
-                {
-                    float3 avoidance = math.normalize(crowdAdjust);
-                    desiredForward = math.normalize(math.lerp(desiredForward, avoidance, wCrowd * deltaTime));
-                }
+                if (crowd && math.length(cAdj) > 0)
+                    desired = math.normalize(math.lerp(desired, math.normalize(cAdj), wCrowd * deltaTime));
                 if (noise)
                 {
                     ed.rotationCounter++;
                     if (ed.rotationCounter >= ed.rotationFrequency)
                     {
-                        // Generate a random noise direction.
-                        var rand = new Unity.Mathematics.Random(seed + (uint)index);
-                        float3 noiseDir = math.normalize(new float3(rand.NextFloat(-1f, 1f), 0, rand.NextFloat(-1f, 1f)));
-                        ed.targetRotation = quaternion.LookRotationSafe(noiseDir, new float3(0, 1, 0));
+                        var rnd = new Unity.Mathematics.Random(seed + (uint)i);
+                        float3 nd = math.normalize(new float3(rnd.NextFloat(-1f, 1f), 0, rnd.NextFloat(-1f, 1f)));
+                        ed.targetRotation = quaternion.LookRotationSafe(nd, math.up());
                         ed.rotationCounter = 0;
-                        ed.rotationFrequency = (int)math.clamp(rand.NextFloat(1f, 30f), 1, 30);
+                        ed.rotationFrequency = (int)math.clamp(rnd.NextFloat(1f, 30f), 1f, 30f);
                     }
-                    // Blend in the noise influence.
-                    quaternion noiseRot = math.slerp(quaternion.identity, ed.targetRotation, wNoise * deltaTime);
-                    desiredForward = math.normalize(math.mul(noiseRot, desiredForward));
+                    var nr = math.slerp(quaternion.identity, ed.targetRotation, wNoise * deltaTime);
+                    desired = math.normalize(math.mul(nr, desired));
                 }
             }
-            // Always target the player if enabled.
+
+            // target player
             if (tPlayer)
-            {
-                float3 toPlayer = math.normalize((float3)playerPosition - pos);
-                desiredForward = math.normalize(math.lerp(desiredForward, toPlayer, wPlayer * deltaTime));
-            }
+                desired = math.normalize(math.lerp(desired,
+                    math.normalize((float3)playerPosition - pos), wPlayer * deltaTime));
 
-            // Project desiredForward onto the XZ plane
-            float3 horizontalForward = math.normalize(new float3(desiredForward.x, 0f, desiredForward.z));
+            // apply transform
+            var horiz = math.normalize(new float3(desired.x, 0, desired.z));
+            quaternion tgt = math.lengthsq(horiz) > 0.001f
+                ? quaternion.LookRotationSafe(horiz, math.up())
+                : r;
+            float maxRad = math.radians(maxRotationSpeed) * deltaTime;
+            float dotV = math.clamp(math.dot(r.value, tgt.value), -1f, 1f);
+            var newR = math.slerp(r, tgt, math.min(1f, maxRad / math.acos(dotV)));
 
-            // Compute the target rotation based on the horizontal forward direction.
-            quaternion targetRotation = quaternion.identity;
-            if (math.lengthsq(horizontalForward) > 0.001f) // Avoid zero vector
-            {
-                targetRotation = quaternion.LookRotationSafe(horizontalForward, math.up());
-            }
-            else
-            {
-                targetRotation = rot; // If no horizontal direction, maintain current rotation
-            }
-            
-            // Smoothly interpolate the rotation with a maximum speed.
-            float maxRadiansDelta = math.radians(maxRotationSpeed) * deltaTime;
-            quaternion newRot = math.slerp(rot, targetRotation, math.min(1f, maxRadiansDelta / math.acos(math.clamp(math.dot(rot.value, targetRotation.value), -1f, 1f))));
-
-            transform.rotation = newRot;
-            transform.position = pos + math.mul(newRot, new float3(0, 0, 1)) * animaSpeed * deltaTime;
-            animaJobData[index] = ed;
+            tx.rotation = newR;
+            float3 move = math.mul(newR, new float3(0, 0, 1)) * animaSpeed * deltaTime;
+            tx.position = pos + move;
+            animaJobData[i] = ed;
         }
     }
 }

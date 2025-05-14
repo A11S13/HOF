@@ -1066,7 +1066,7 @@ Transform:
   m_GameObject: {fileID: 433032876}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: -1, z: -100000}
+  m_LocalPosition: {x: 18695, y: -1, z: -84908}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1307,51 +1307,28 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb94aa0a7116e0d418b7661e3e48addf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  GlobalSettings:
-    rayCount: 0
-    arcAngle: 0
-    fRadius: 0
-    cRadius: 0
-    wPlayer: 0
-    wCrowd: 0
-    wAlign: 0
-    wCohesion: 0
-    wNoise: 0
-    swarm: 0
-    tPlayer: 0
-    align: 0
-    cohesion: 0
-    crowd: 0
-    noise: 0
-    animaSpeed: 0
-    maxRotationSpeed: 0
-    playerPosition: {x: 0, y: 0, z: 0}
-  animaPrefab: {fileID: 8634147425768112750, guid: 1e6555f33e751ad49bde8718306c1028, type: 3}
-  initialSpawnRadius: 15
-  minSpawnRadius: 115
-  initialSpawnInterval: 3
-  spawnInterval: 0
-  minSpawnInterval: 0.001
-  decayRate: 0.02
-  maxAnimaCount: 1000
-  currentAnimaCount: 0
-  rayCount: 3
-  arcAngle: 90
-  fRadius: 40
-  cRadius: 8
+  rayCount: 8
+  arcAngle: 360
+  fRadius: 10
+  cRadius: 4.6
   wPlayer: 0.2
-  wCrowd: 12
+  wCrowd: 0.29
   wAlign: 1
-  wCohesion: 1
+  wCohesion: 0.25
   wNoise: 0.15
   swarm: 1
   tPlayer: 1
   align: 1
   cohesion: 1
-  noise: 1
   crowd: 1
+  noise: 1
   animaSpeed: 5
-  maxRotationSpeed: 180
+  maxRotationSpeed: 360
+  obstacleLayerMask:
+    serializedVersion: 2
+    m_Bits: 512
+  obstacleScanRadius: 250
+  obstacleAvoidWeight: 350
 --- !u!1 &496776447
 GameObject:
   m_ObjectHideFlags: 0
@@ -2328,7 +2305,7 @@ Transform:
   m_GameObject: {fileID: 963194225}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: -0, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: 0, y: 150, z: -100000}
+  m_LocalPosition: {x: 18695, y: 150, z: -84908}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3748,7 +3725,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
       propertyPath: m_Enabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
