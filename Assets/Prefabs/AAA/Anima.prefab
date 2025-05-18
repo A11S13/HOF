@@ -95,7 +95,6 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 8571920748057680525}
-  - component: {fileID: 3524621202944892469}
   - component: {fileID: -966194731770433473}
   - component: {fileID: 37257938173904109}
   m_Layer: 11
@@ -121,25 +120,6 @@ Transform:
   - {fileID: 6416863418869533486}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &3524621202944892469
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 8634147425768112750}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 3ad700e85ffab3748be20d0e8bf356e8, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  isTargeted: 0
-  isDestroyed: 0
-  health: 100
-  data:
-    rotationCounter: 0
-    rotationFrequency: 0
-    targetRotation: {x: 0, y: 0, z: 0, w: 0}
 --- !u!114 &-966194731770433473
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -155,8 +135,8 @@ MonoBehaviour:
   isTargeted: 0
   isDestroyed: 0
   health: 100
-  animaSpeedMultiplierMin: 0.2
-  animaSpeedMultiplierMax: 1.5
+  animaSpeedMultiplierMin: 1
+  animaSpeedMultiplierMax: 1.2
   animaSpeedMultiplier: 0
   minDespawnCheckInterval: 0
   maxDespawnCheckInterval: 0

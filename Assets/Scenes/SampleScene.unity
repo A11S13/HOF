@@ -1066,7 +1066,7 @@ Transform:
   m_GameObject: {fileID: 433032876}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 20436, y: -1, z: -26845}
+  m_LocalPosition: {x: -74126, y: -1, z: -60889}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -1309,13 +1309,13 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   rayCount: 8
   arcAngle: 360
-  fRadius: 40
-  cRadius: 8.5
+  fRadius: 80
+  cRadius: 12
   wPlayer: 0
-  wCrowd: 105
-  wAlign: 2.2
-  wCohesion: 1.85
-  wNoise: 0.15
+  wCrowd: 3
+  wAlign: 1
+  wCohesion: 1
+  wNoise: 0.6
   swarm: 1
   tPlayer: 1
   align: 1
@@ -1327,11 +1327,11 @@ MonoBehaviour:
   maxRotationSpeed: 180
   obstacleLayerMask:
     serializedVersion: 2
-    m_Bits: 512
-  minObstacleScanRadius: 0.2
-  maxObstacleScanRadius: 12
-  minObstacleAvoidWeight: 1.5
-  maxObstacleAvoidWeight: 100
+    m_Bits: 4608
+  minObstacleScanRadius: 1
+  maxObstacleScanRadius: 50
+  minObstacleAvoidWeight: 300
+  maxObstacleAvoidWeight: 1000
 --- !u!1 &496776447
 GameObject:
   m_ObjectHideFlags: 0
@@ -2308,7 +2308,7 @@ Transform:
   m_GameObject: {fileID: 963194225}
   serializedVersion: 2
   m_LocalRotation: {x: 0.7071068, y: -0, z: -0, w: 0.7071068}
-  m_LocalPosition: {x: 20436, y: 240, z: -26845}
+  m_LocalPosition: {x: -74126, y: 240, z: -60889}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children: []
@@ -3732,7 +3732,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
       propertyPath: m_Enabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -4000,7 +4000,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: 744df627fb86125458180479b9c1d462, type: 3}
       propertyPath: m_Enabled
-      value: 0
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: 744df627fb86125458180479b9c1d462, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'

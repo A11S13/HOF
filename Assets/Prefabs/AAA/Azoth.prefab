@@ -13,7 +13,7 @@ GameObject:
   - component: {fileID: 8145575784641432744}
   - component: {fileID: 7290032428539278168}
   - component: {fileID: 2283223667775868470}
-  m_Layer: 0
+  m_Layer: 12
   m_Name: Azoth
   m_TagString: Azoth
   m_Icon: {fileID: 0}

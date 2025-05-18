@@ -16,7 +16,7 @@ public class AnimaManager : MonoBehaviour
     public float arcAngle = 90f;
     public float fRadius = 40f;
     public float cRadius = 8f;
-    public float wPlayer = 0.2f, wCrowd = 12f, wAlign = 1f, wCohesion = 1f, wNoise = 0.15f;
+    [Range(0, 20)] public float wPlayer = 0.2f, wCrowd = 12f, wAlign = 1f, wCohesion = 1f, wNoise = 0.15f;
     public bool swarm = true, tPlayer = true, align = true, cohesion = true, crowd = true, noise = true;
     public float baseMinSpeed = 2f;
     public float baseMaxSpeed = 10f;
@@ -99,7 +99,7 @@ public class AnimaManager : MonoBehaviour
         var posArr = new NativeArray<float3>(n, Allocator.TempJob);
         var rotArr = new NativeArray<quaternion>(n, Allocator.TempJob);
         var dataArr = new NativeArray<Anima.AnimaData>(n, Allocator.TempJob);
-        var speedMultipliers = new NativeArray<float>(n, Allocator.TempJob); // New array for speed multipliers
+        var speedMultipliers = new NativeArray<float>(n, Allocator.TempJob);
 
         for (int i = 0; i < n; i++)
         {
@@ -107,7 +107,7 @@ public class AnimaManager : MonoBehaviour
             posArr[i] = actives[i].transform.position;
             rotArr[i] = actives[i].transform.rotation;
             dataArr[i] = actives[i].data;
-            speedMultipliers[i] = actives[i].animaSpeedMultiplier; // Get the individual speed multiplier
+            speedMultipliers[i] = actives[i].animaSpeedMultiplier;
         }
 
         var cols = Physics.OverlapSphere(G.playerPosition, 300f, obstacleLayerMask);
@@ -123,7 +123,7 @@ public class AnimaManager : MonoBehaviour
             animaPositions = posArr,
             animaRotations = rotArr,
             animaJobData = dataArr,
-            speedMultipliers = speedMultipliers, // Pass the speed multipliers to the job
+            speedMultipliers = speedMultipliers,
             obstaclePositions = obsArr,
             obstacleCount = obsArr.Length,
             minObstacleScanRadius = G.minObstacleScanRadius,
@@ -154,7 +154,8 @@ public class AnimaManager : MonoBehaviour
 
         for (int i = 0; i < n; i++) actives[i].data = dataArr[i];
 
-        ta.Dispose(); posArr.Dispose(); rotArr.Dispose(); dataArr.Dispose(); obsArr.Dispose(); speedMultipliers.Dispose(); // Dispose the new array
+        ta.Dispose(); posArr.Dispose(); rotArr.Dispose();
+        dataArr.Dispose(); obsArr.Dispose(); speedMultipliers.Dispose();
     }
 
     [BurstCompile]
@@ -163,7 +164,7 @@ public class AnimaManager : MonoBehaviour
         [ReadOnly] public NativeArray<float3> animaPositions;
         [ReadOnly] public NativeArray<quaternion> animaRotations;
         public NativeArray<Anima.AnimaData> animaJobData;
-        [ReadOnly] public NativeArray<float> speedMultipliers; // Read-only access to speed multipliers
+        [ReadOnly] public NativeArray<float> speedMultipliers;
 
         [ReadOnly] public NativeArray<float4> obstaclePositions;
         public int obstacleCount;
@@ -189,78 +190,111 @@ public class AnimaManager : MonoBehaviour
             float3 desired = forward;
             var ed = animaJobData[i];
             var rnd = new Unity.Mathematics.Random(seed + (uint)i);
-            float currentObstacleScanRadius = rnd.NextFloat(minObstacleScanRadius, maxObstacleScanRadius);
-            float currentObstacleAvoidWeight = rnd.NextFloat(minObstacleAvoidWeight, maxObstacleAvoidWeight);
 
-            // Get the speed multiplier for this anima
+            // Speed calculations
             float speedMultiplier = speedMultipliers[i];
             float minSpeed = baseMinSpeed * speedMultiplier;
             float maxSpeed = baseMaxSpeed * speedMultiplier;
 
-            float obsInf = 0; float3 obsSum = 0;
+            // Obstacle avoidance
+            float obsInf = 0;
+            float3 obsSum = 0;
             for (int j = 0; j < obstacleCount; j++)
             {
                 float3 toObs = obstaclePositions[j].xyz - pos;
-                float d = math.length(toObs), rO = obstaclePositions[j].w;
-                if (d < currentObstacleScanRadius + rO)
+                float d = math.length(toObs);
+                float rO = obstaclePositions[j].w;
+                float scanRadius = rnd.NextFloat(minObstacleScanRadius, maxObstacleScanRadius);
+
+                if (d < scanRadius + rO)
                 {
-                    float w = ((currentObstacleScanRadius + rO) - d) / (currentObstacleScanRadius + rO);
-                    obsSum -= math.normalize(toObs) * w; obsInf += w;
+                    float w = ((scanRadius + rO) - d) / (scanRadius + rO);
+                    obsSum -= math.normalize(toObs) * w;
+                    obsInf += w;
                 }
             }
             if (obsInf > 0)
-                desired = math.normalize(math.lerp(desired, math.normalize(obsSum / obsInf), currentObstacleAvoidWeight * deltaTime));
+            {
+                float avoidWeight = rnd.NextFloat(minObstacleAvoidWeight, maxObstacleAvoidWeight);
+                desired = math.lerp(desired, math.normalize(obsSum), avoidWeight * deltaTime);
+            }
 
+            // Neighbor processing
             float3 alignSum = 0, cohSum = 0, sepSum = 0;
             int alignCount = 0, cohCount = 0;
-            for (int j = 0; j < animaPositions.Length; j++) if (j != i)
+            for (int j = 0; j < animaPositions.Length; j++)
+            {
+                if (j == i) continue;
+
+                float d = math.distance(pos, animaPositions[j]);
+                if (d < fRadius)
                 {
-                    float d = math.distance(pos, animaPositions[j]);
-                    if (d < fRadius)
+                    float3 neighborForward = math.mul(animaRotations[j], new float3(0, 0, 1));
+                    alignSum += neighborForward;
+                    alignCount++;
+
+                    cohSum += animaPositions[j];
+                    cohCount++;
+
+                    if (d < cRadius)
                     {
-                        alignSum += math.mul(animaRotations[j], new float3(0, 0, 1)); alignCount++;
-                        cohSum += animaPositions[j]; cohCount++;
-                        if (d < cRadius) sepSum += (pos - animaPositions[j]) / d;
+                        sepSum += (pos - animaPositions[j]) / math.max(d, 0.0001f);
                     }
                 }
+            }
 
+            // Alignment
             if (align && alignCount > 0)
-                desired = math.normalize(math.lerp(desired, math.normalize(alignSum / alignCount), wAlign * deltaTime));
-            if (cohesion && cohCount > 0)
-                desired = math.normalize(math.lerp(desired, math.normalize((cohSum / cohCount) - pos), wCohesion * deltaTime));
-            float crowdInf = crowd ? math.length(sepSum) : 0;
-            if (crowd && crowdInf > 0)
-                desired = math.normalize(math.lerp(desired, math.normalize(sepSum), wCrowd * deltaTime));
+            {
+                float3 alignmentForce = math.normalize(alignSum / alignCount);
+                desired += alignmentForce * wAlign;
+            }
 
-            float wanderInf = 0;
+            // Cohesion
+            if (cohesion && cohCount > 0)
+            {
+                float3 cohesionForce = math.normalize((cohSum / cohCount) - pos);
+                desired += cohesionForce * wCohesion;
+            }
+
+            // Separation
+            if (crowd && math.length(sepSum) > 0)
+            {
+                float3 separationForce = math.normalize(sepSum);
+                desired += separationForce * wCrowd;
+            }
+
+            // Noise
             if (noise)
             {
-                float3 wanderOffset = new float3(rnd.NextFloat(-1f, 1f), 0, rnd.NextFloat(-1f, 1f)) * wNoise;
-                desired = math.normalize(desired + wanderOffset);
-                wanderInf = wNoise;
+                float3 noiseForce = rnd.NextFloat3Direction() * wNoise;
+                desired += noiseForce;
             }
 
-            float playerInf = 0;
+            // Player attraction
             if (tPlayer)
             {
-                var toPlayer = math.normalize(playerPosition - pos);
-                desired = math.normalize(math.lerp(desired, toPlayer, wPlayer * deltaTime));
-                playerInf = wPlayer * math.clamp(math.distance(playerPosition, pos) / fRadius, 0, 1);
+                float3 toPlayer = math.normalize(playerPosition - pos);
+                desired += toPlayer * wPlayer;
             }
 
-            float finalSpeed = obsInf > 0 ? maxSpeed :
-                math.lerp(minSpeed, maxSpeed,
-                    math.clamp((obsInf + crowdInf + (align ? wAlign : 0) + playerInf + wanderInf) /
-                    (currentObstacleScanRadius + wCrowd + wAlign + wPlayer + wNoise), 0, 1));
+            // Normalize and stabilize
+            desired = math.normalizesafe(desired);
+            desired += new float3(0.01f, 0, 0.01f); // Stabilization factor
+            desired = math.normalize(desired);
 
-            float3 horiz = math.normalize(new float3(desired.x, 0, desired.z));
-            quaternion tgt = math.lengthsq(horiz) > 0.001f ? quaternion.LookRotationSafe(horiz, math.up()) : rot;
-            float maxRad = math.radians(maxRotationSpeed) * deltaTime;
-            float dot = math.clamp(math.dot(rot.value, tgt.value), -1f, 1f);
-            quaternion newR = math.slerp(rot, tgt, math.min(1f, maxRad / math.acos(dot)));
+            // Speed calculation
+            float speed = obsInf > 0 ? maxSpeed : math.lerp(minSpeed, maxSpeed,
+                math.length(desired) * 0.5f + 0.5f);
 
-            tx.rotation = newR;
-            tx.position = pos + math.mul(newR, new float3(0, 0, 1)) * finalSpeed * deltaTime;
+            // Rotation calculation
+            float3 horizDir = math.normalizesafe(new float3(desired.x, 0, desired.z));
+            quaternion targetRot = quaternion.LookRotation(horizDir, math.up());
+            float angle = math.acos(math.clamp(math.dot(math.forward(rot), horizDir), -1f, 1f));
+            float rotateT = math.min(1f, math.radians(maxRotationSpeed) * deltaTime / math.max(angle, 0.0001f));
+
+            tx.rotation = math.slerp(rot, targetRot, rotateT);
+            tx.position = pos + math.mul(tx.rotation, new float3(0, 0, 1)) * speed * deltaTime;
             animaJobData[i] = ed;
         }
     }
