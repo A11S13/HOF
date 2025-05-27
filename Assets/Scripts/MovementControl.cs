@@ -20,12 +20,9 @@ public class MovementControl : MonoBehaviour
     public Joystick joystick;
 
     // Variables for handling movement and rotation
-    private Vector3 currentThrottleVelocity;
+    private Vector3 targetVelocity;
     private bool isJoystickInUse;
-    private Vector3 lastThrottleVector;
-    private Vector3 shipVelocity;
-    private Quaternion targetRotation;
-    private Vector3 impulseToApply;
+    private Quaternion targetRotation = Quaternion.identity; // Initialize to identity
 
     void Start()
     {
@@ -39,12 +36,15 @@ public class MovementControl : MonoBehaviour
         }
     }
 
-    void Update()
+    void FixedUpdate()
     {
-        // Handle player input and movement
+        // Handle player input and movement using physics
         HandleThrottle();
         HandleRotation();
-        MovePlayer();
+    }
+
+    void Update()
+    {
         FollowPlayer();
     }
 
@@ -66,25 +66,25 @@ public class MovementControl : MonoBehaviour
             // Scale the rawThrottle value to be within the range [0, 1] based on the dead zone
             float throttle = Mathf.Clamp01((rawThrottle - joystick.DeadZone * throttleDeadZone) / (1 - joystick.DeadZone * throttleDeadZone));
 
-            // Update lastThrottleVector based on the rawThrottle value
-            lastThrottleVector = transform.forward * throttle;
+            // Calculate the desired velocity based on input
+            targetVelocity = transform.forward * throttle * maxSpeed;
 
-            // Gradually change the shipVelocity towards the target velocity
-            shipVelocity = Vector3.SmoothDamp(shipVelocity, lastThrottleVector * maxSpeed, ref currentThrottleVelocity, deceleration);
-
+            // Apply force to the Rigidbody to reach the target velocity
+            Vector3 velocityChange = targetVelocity - rb.linearVelocity;
+            Vector3 force = velocityChange * acceleration;
+            rb.AddForce(force, ForceMode.Acceleration); // Using Acceleration mode for smoother control
         }
         else if (isJoystickInUse)
         {
-            // If joystick was in use but released, smoothly decelerate the ship
-            shipVelocity = Vector3.SmoothDamp(shipVelocity, lastThrottleVector * maxSpeed, ref currentThrottleVelocity, deceleration);
+            // If joystick was in use but released, do NOT set targetVelocity to zero.
+            //  Instead, maintain the last targetVelocity, so the ship continues with its current momentum.
             isJoystickInUse = false;
         }
-    }
-
-    void MovePlayer()
-    {
-        // Update the position based on the ship's velocity
-        transform.position += shipVelocity * Time.deltaTime * acceleration;
+        else
+        {
+            //When joystick is not in use, set targetVelocity to current velocity, to stop acceleration.
+            targetVelocity = rb.linearVelocity;
+        }
     }
 
     void HandleRotation()
@@ -96,25 +96,34 @@ public class MovementControl : MonoBehaviour
         {
             float angle = Vector3.SignedAngle(Vector3.forward, joystickDirection, Vector3.up);
 
-            // Calculate the rotation based on the angle
+            // Calculate the target rotation based on the angle
             targetRotation = Quaternion.Euler(0f, angle, 0f);
         }
+
+        // Apply rotation using Slerp for smooth rotation
+        rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, rotationSpeed * Time.fixedDeltaTime));
     }
 
     void FollowPlayer()
     {
         if (_attachedCamera != null)
         {
-            // Placeholder for camera follow logic
-            // This method could be extended to smoothly follow the player's position
             Vector3 cameraPosition = new Vector3(transform.position.x, _attachedCamera.transform.position.y, transform.position.z);
             _attachedCamera.transform.position = cameraPosition;
         }
     }
 
-    void LateUpdate()
+    // This function will be called automatically by Unity when a collision occurs.
+    void OnCollisionEnter(Collision collision)
     {
-        // Apply rotation using Slerp for smooth rotation
-        transform.rotation = Quaternion.Slerp(transform.rotation, targetRotation, rotationSpeed * Time.deltaTime);
+        // Check if the collision involves an asteroid (you might need to tag your asteroids)
+        if (collision.gameObject.tag == "Asteroid")
+        {
+            // Get the collision impulse (the change in momentum).
+            Vector3 collisionImpulse = collision.impulse;
+
+            // Apply the impulse to the player's Rigidbody.
+            rb.AddForce(collisionImpulse, ForceMode.Impulse);
+        }
     }
 }
