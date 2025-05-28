@@ -7,6 +7,8 @@ public class Weapon : MonoBehaviour
     ChipSynth _cS;
     AudioSource audioSource;
 
+    public Rigidbody shipRb;
+
     public int ID;
 
     public ShipCore.TargetData[] CombinedTargets { get; private set; }
@@ -53,6 +55,7 @@ public class Weapon : MonoBehaviour
         initialPitch = 0.18f + ID / 100;
         finalPitch = 0.3f + ID / 100;
         incrementSkipFrames = 3;
+        shipRb = GameObject.Find("PLAYER").GetComponent<Rigidbody>();
         _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
         _cS = GetComponent<ChipSynth>();
         _sC.SetWeaponsID();
@@ -360,6 +363,12 @@ public class Weapon : MonoBehaviour
             projectileSpawnPoint.position,
             projectileSpawnPoint.rotation
         );
+
+        // Get this ship's velocity
+        Vector3 shipVelocity = Vector3.zero;
+        shipVelocity = shipRb.linearVelocity;
+        newProjectile.GetComponent<Projectile>().Initialize(shipVelocity);
+
 
         // Instantiate the ProjectileSoundHolder as a child of the turret
         GameObject soundHolder = Instantiate(

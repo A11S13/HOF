@@ -2,13 +2,31 @@ using UnityEngine;
 
 public class Projectile : MonoBehaviour
 {
-    public static float speed = 100f;
+    public static float speed = 200f;
     public static float damage = 20f;
-    public static float impulseMagnitude = 0.005f;
+
+    private Vector3 velocity;
+    private bool isInitialized = false;
+
+    void Start()
+    {
+        // Only set default velocity if not already initialized
+        if (!isInitialized)
+        {
+            velocity = transform.forward * speed;
+        }
+    }
+
+    public void Initialize(Vector3 parentVelocity)
+    {
+        // Add parent velocity to projectile's base velocity
+        velocity = transform.forward * speed + parentVelocity;
+        isInitialized = true;
+    }
 
     void FixedUpdate()
     {
-        transform.Translate(Vector3.forward * speed * Time.fixedDeltaTime);
+        transform.position += velocity * Time.fixedDeltaTime;
     }
 
     void OnTriggerEnter(Collider other)

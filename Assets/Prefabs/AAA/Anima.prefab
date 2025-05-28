@@ -97,6 +97,7 @@ GameObject:
   - component: {fileID: 8571920748057680525}
   - component: {fileID: -966194731770433473}
   - component: {fileID: 37257938173904109}
+  - component: {fileID: -612222275985905434}
   m_Layer: 11
   m_Name: Anima
   m_TagString: Anima
@@ -165,3 +166,22 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 1.74, y: 8, z: 5.26}
   m_Center: {x: 0, y: 0, z: 0}
+--- !u!114 &-612222275985905434
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 8634147425768112750}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ad700e85ffab3748be20d0e8bf356e8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  isTargeted: 0
+  isDestroyed: 0
+  health: 100
+  data:
+    rotationCounter: 0
+    rotationFrequency: 0
+    targetRotation: {x: 0, y: 0, z: 0, w: 0}
