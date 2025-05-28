@@ -993,12 +993,12 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _attachedCamera: {fileID: 963194227}
-  maxSpeed: 80
+  maxSpeed: 100
   acceleration: 0.0125
   deceleration: 0.1
   defaultAcceleration: 5
   rotationSpeed: 2
-  rotationDeadZone: 4
+  rotationDeadZone: 1
   throttleDeadZone: 5
   joystick: {fileID: 1106857797}
 --- !u!65 &433032878
@@ -3732,7 +3732,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
       propertyPath: m_Enabled
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -4000,7 +4000,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: 744df627fb86125458180479b9c1d462, type: 3}
       propertyPath: m_Enabled
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: 744df627fb86125458180479b9c1d462, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'

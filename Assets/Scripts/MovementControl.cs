@@ -22,14 +22,18 @@ public class MovementControl : MonoBehaviour
     // Variables for handling movement and rotation
     private Vector3 targetVelocity;
     private bool isJoystickInUse;
-    private Quaternion targetRotation = Quaternion.identity; // Initialize to identity
+    private Quaternion targetRotation = Quaternion.identity;
+
+    // Cruise control from slider (0-1 range)
+    private float cruiseControlLevel = 1f;
+
+    // Store the base velocity when joystick is released
+    private Vector3 baseVelocity;
 
     void Start()
     {
-        // Get the Rigidbody component attached to the same GameObject
         rb = GetComponent<Rigidbody>();
 
-        // Check if the Rigidbody component is found
         if (rb == null)
         {
             Debug.LogError("Rigidbody component not found. Make sure to attach a Rigidbody to the same GameObject as the MovementControl script.");
@@ -38,9 +42,9 @@ public class MovementControl : MonoBehaviour
 
     void FixedUpdate()
     {
-        // Handle player input and movement using physics
         HandleThrottle();
         HandleRotation();
+        ApplyEngineSpeedModification();
     }
 
     void Update()
@@ -50,13 +54,22 @@ public class MovementControl : MonoBehaviour
 
     public void UpdateMaxSpeed(float enginesDistributedEnergy)
     {
-        // Update acceleration based on the engine slider value
-        acceleration = defaultAcceleration * enginesDistributedEnergy / 100;
+        float normalizedSliderValue = Mathf.Clamp01(enginesDistributedEnergy / 400f);
+
+        if (normalizedSliderValue < 0.05f)
+        {
+            cruiseControlLevel = 0f;
+            acceleration = 0f;
+        }
+        else
+        {
+            cruiseControlLevel = (normalizedSliderValue - 0.05f) / 0.95f;
+            acceleration = defaultAcceleration * cruiseControlLevel;
+        }
     }
 
     void HandleThrottle()
     {
-        // Calculate throttle from joystick direction magnitude
         float rawThrottle = joystick.Direction.magnitude;
 
         if (rawThrottle > joystick.DeadZone * throttleDeadZone)
@@ -72,35 +85,59 @@ public class MovementControl : MonoBehaviour
             // Apply force to the Rigidbody to reach the target velocity
             Vector3 velocityChange = targetVelocity - rb.linearVelocity;
             Vector3 force = velocityChange * acceleration;
-            rb.AddForce(force, ForceMode.Acceleration); // Using Acceleration mode for smoother control
+            rb.AddForce(force, ForceMode.Acceleration);
         }
         else if (isJoystickInUse)
         {
-            // If joystick was in use but released, do NOT set targetVelocity to zero.
-            //  Instead, maintain the last targetVelocity, so the ship continues with its current momentum.
+            // Just released joystick - store the current velocity as base velocity
             isJoystickInUse = false;
+            baseVelocity = rb.linearVelocity;
+
+            // Store the current speed as a percentage of maxSpeed for proper scaling
+            float currentSpeedPercent = rb.linearVelocity.magnitude / maxSpeed;
+            cruiseControlLevel = Mathf.Clamp01(currentSpeedPercent);
         }
         else
         {
-            //When joystick is not in use, set targetVelocity to current velocity, to stop acceleration.
             targetVelocity = rb.linearVelocity;
+        }
+    }
+
+    void ApplyEngineSpeedModification()
+    {
+        // Apply cruise control when not actively using joystick
+        if (!isJoystickInUse && baseVelocity.magnitude > 0.01f)
+        {
+            // Calculate what percentage of maxSpeed the baseVelocity was when joystick was released
+            float baseSpeedPercent = baseVelocity.magnitude / maxSpeed;
+
+            // Scale this base speed percentage by the current cruise control level
+            // This way, slider acts as a multiplier of the speed you had when you released joystick
+            float targetSpeedPercent = baseSpeedPercent * cruiseControlLevel;
+            float targetSpeed = maxSpeed * targetSpeedPercent;
+
+            // Keep the direction from base velocity
+            Vector3 direction = baseVelocity.normalized;
+            Vector3 targetVelocity = direction * targetSpeed;
+
+            // Directly set the velocity (or use smooth transition if preferred)
+            //rb.linearVelocity = targetVelocity;
+
+            // Alternative smooth transition (uncomment if you prefer gradual changes):
+            rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, targetVelocity, Time.fixedDeltaTime * 10f);
         }
     }
 
     void HandleRotation()
     {
-        // Use the joystick's direction to calculate the angle in screen space
         Vector3 joystickDirection = new Vector3(joystick.Direction.x, 0, joystick.Direction.y);
 
         if (joystickDirection.magnitude > joystick.DeadZone * rotationDeadZone)
         {
             float angle = Vector3.SignedAngle(Vector3.forward, joystickDirection, Vector3.up);
-
-            // Calculate the target rotation based on the angle
             targetRotation = Quaternion.Euler(0f, angle, 0f);
         }
 
-        // Apply rotation using Slerp for smooth rotation
         rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, rotationSpeed * Time.fixedDeltaTime));
     }
 
@@ -113,16 +150,11 @@ public class MovementControl : MonoBehaviour
         }
     }
 
-    // This function will be called automatically by Unity when a collision occurs.
     void OnCollisionEnter(Collision collision)
     {
-        // Check if the collision involves an asteroid (you might need to tag your asteroids)
         if (collision.gameObject.tag == "Asteroid")
         {
-            // Get the collision impulse (the change in momentum).
             Vector3 collisionImpulse = collision.impulse;
-
-            // Apply the impulse to the player's Rigidbody.
             rb.AddForce(collisionImpulse, ForceMode.Impulse);
         }
     }
