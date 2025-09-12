@@ -184,19 +184,48 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 3b04f32b618b10e498f033eb0a92b0d7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  asteroidPrefab: {fileID: 1818697677462650816, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
+  largeAsteroidPrefabs:
+  - {fileID: 6754295512699531694, guid: f6bfa28b5c7461940bcb78758fd1b69d, type: 3}
+  - {fileID: 3849560248501338491, guid: ef58e3b5a24e0ca479ee725108a7cc78, type: 3}
+  - {fileID: 1759282278639211749, guid: 5ab14ff5b3a8ce64bad5476ed27080f4, type: 3}
+  - {fileID: 7577749194559049120, guid: 2bfb3f6c2fbfb484297e225be0eb14d8, type: 3}
+  - {fileID: 5189486733607811089, guid: a2f8a647afd95ff4ca66a39b343c9ce1, type: 3}
+  - {fileID: 3088208163517521211, guid: 34ee166e2a1b6334db677586e5e0b437, type: 3}
+  - {fileID: 7709439500659721579, guid: 30bc5c7ec049649478c81fc1722049df, type: 3}
+  mediumAsteroidPrefabs:
+  - {fileID: 554900315706729717, guid: 1cba6c82e0b3ab042af22034b0ec1859, type: 3}
+  - {fileID: 4471968864500462112, guid: 007819b2d8503704fb5f23a915eb0db7, type: 3}
+  - {fileID: 4191888297653409287, guid: 98ce12e4b5c861545a887a9872c60784, type: 3}
+  - {fileID: 5543953602342249939, guid: 427c9e7588562da4782a7587dabde0e3, type: 3}
+  smallAsteroidPrefabs:
+  - {fileID: 1115620600164949478, guid: 6d1b77a340aef5c48865ecee6ad76547, type: 3}
+  - {fileID: 660652320775386097, guid: 8c58ac1eab588d643ad9be7e89080e8d, type: 3}
+  - {fileID: 1708096469245714569, guid: 6617bfb3bde4097429289ecefc6df15d, type: 3}
+  - {fileID: 8156104455054529353, guid: aa3182d4649465648a77480af95b0986, type: 3}
   innerRadius: 1000
   outerRadius: 1200
   spawnRate: 60000
   cleanupMargin: 1.2
-  minAsteroidSize: 0.5
-  maxAsteroidSize: 100
+  minLargeAsteroidSize: 1
+  maxLargeAsteroidSize: 1.5
+  minMediumAsteroidSize: 1
+  maxMediumAsteroidSize: 1.5
+  minSmallAsteroidSize: 0.7
+  maxSmallAsteroidSize: 1.2
   densityThreshold: 0.2
   spacing: 10
+  largeAsteroidProbability: 0.323
+  mediumAsteroidProbability: 0.339
   collisionMask:
     serializedVersion: 2
     m_Bits: 512
   orbitalPlane: {fileID: 1311720357}
+  mediumFragmentsFromLarge: 2
+  smallFragmentsFromMedium: 4
+  smallFragmentsFromLarge: 4
+  fragmentOffset: 30
+  explosionForce: 10
+  fragmentCooldown: 0.1
 --- !u!4 &48758181
 Transform:
   m_ObjectHideFlags: 0
@@ -2706,88 +2735,6 @@ RectTransform:
   m_AnchoredPosition: {x: 266, y: 249}
   m_SizeDelta: {x: 141.3, y: 20}
   m_Pivot: {x: 0.5, y: 0.5}
---- !u!1001 &1042490542
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: -5346712214843802314, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_Constraints
-      value: 4
-      objectReference: {fileID: 0}
-    - target: {fileID: 869867768951533908, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -141702.36
-      objectReference: {fileID: 0}
-    - target: {fileID: 869867768951533908, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 869867768951533908, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -290.50433
-      objectReference: {fileID: 0}
-    - target: {fileID: 869867768951533908, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 869867768951533908, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 869867768951533908, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 869867768951533908, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 869867768951533908, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 869867768951533908, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 869867768951533908, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1117594794044661270, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: orbitalSpeed
-      value: -40
-      objectReference: {fileID: 0}
-    - target: {fileID: 1117594794044661270, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: speedVariation
-      value: 20
-      objectReference: {fileID: 0}
-    - target: {fileID: 1818697677462650816, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_Name
-      value: Asteroid
-      objectReference: {fileID: 0}
-    - target: {fileID: 3236385341735084485, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_Material
-      value: 
-      objectReference: {fileID: 13400000, guid: 4d09a9e1fab4782478e8ff9b407d5eb8, type: 2}
-    - target: {fileID: 3236385341735084485, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_ProvidesContacts
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 6217131520226331616, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
-      propertyPath: m_Enabled
-      value: 0
-      objectReference: {fileID: 0}
-    m_RemovedComponents:
-    - {fileID: 0}
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: e1fe9a07b0ab1214a87d2a1ab78853c5, type: 3}
 --- !u!1 &1092850299
 GameObject:
   m_ObjectHideFlags: 0
@@ -9594,7 +9541,7 @@ MonoBehaviour:
   shipData: {fileID: 11400000, guid: 689ef4322c40e6649b950096d39b37c6, type: 2}
   sonarRadius: 100
   Weapons: []
-  firingThresholdAngle: 30
+  firingThresholdAngle: 10
   distanceThreshold: 0.01
   angularThreshold: 1000
   angularMarging: 1000
@@ -9605,6 +9552,7 @@ MonoBehaviour:
   tags:
   - Enemy
   - Anima
+  - Asteroid
 --- !u!65 &2239112340433964453
 BoxCollider:
   m_ObjectHideFlags: 0
@@ -9906,4 +9854,3 @@ SceneRoots:
   - {fileID: 424906581}
   - {fileID: 1384905070}
   - {fileID: 1723048144}
-  - {fileID: 1042490542}

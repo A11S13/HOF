@@ -2,7 +2,7 @@ using UnityEngine;
 
 public class Projectile : MonoBehaviour
 {
-    public static float speed = 200f;
+    public float speed = 200f;
     public static float damage = 20f;
 
     private Vector3 velocity;
@@ -31,7 +31,14 @@ public class Projectile : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        if (other.CompareTag("Enemy"))
+        // Check if we hit an asteroid
+        Asteroid asteroid = other.GetComponent<Asteroid>();
+        if (asteroid != null)
+        {
+            asteroid.TakeDamage((int)damage);
+            Destroy(gameObject);
+        }
+        else if (other.CompareTag("Enemy"))
         {
             Destroy(gameObject);
         }

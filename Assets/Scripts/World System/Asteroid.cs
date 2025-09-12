@@ -3,22 +3,34 @@ using System.Collections;
 
 public class Asteroid : MonoBehaviour
 {
-    public float orbitalSpeed = 10f; // Adjustable speed parameter
+    public float orbitalSpeed = 10f;
     public float speedVariation = 2f;
+    public float rotationSpeed = 5f;
+
     private Vector3 orbitCenter = Vector3.zero;
     private Vector3 initialPosition;
     private Rigidbody rb;
-    public float rotationSpeed = 5f;
 
     private Transform playerTransform;
     private float cleanupRadiusSquared;
     private bool canDespawn = false;
 
-    public void InitializeDespawn(Transform player, float cleanupRadiusSq)
+    private AsteroidBelt asteroidBelt;
+    private AsteroidSize asteroidSize;
+
+    [Header("Health Settings")]
+    public int maxHealth = 100;
+    private int currentHealth;
+
+    public void Initialize(AsteroidBelt belt, AsteroidSize size, Transform player, float cleanupRadiusSq)
     {
+        asteroidBelt = belt;
+        asteroidSize = size;
         playerTransform = player;
         cleanupRadiusSquared = cleanupRadiusSq;
         canDespawn = true;
+        currentHealth = maxHealth;
+
         StartCoroutine(SelfDespawnCheck());
     }
 
@@ -26,11 +38,13 @@ public class Asteroid : MonoBehaviour
     {
         initialPosition = transform.position;
         rb = GetComponent<Rigidbody>();
+
         if (rb == null)
         {
             Debug.LogError("Rigidbody component is required for the Asteroid script to work. Please attach a Rigidbody to the GameObject.");
             rb = gameObject.AddComponent<Rigidbody>();
         }
+
         rb.useGravity = false;
 
         float initialAngle = Mathf.Atan2(initialPosition.z, initialPosition.x);
@@ -53,8 +67,7 @@ public class Asteroid : MonoBehaviour
     {
         while (canDespawn)
         {
-            // Wait for a random number of frames
-            int waitFrames = Random.Range(5, 15); // Adjust range as needed
+            int waitFrames = Random.Range(5, 15);
             for (int i = 0; i < waitFrames; i++)
             {
                 yield return null;
@@ -63,14 +76,65 @@ public class Asteroid : MonoBehaviour
             if (playerTransform != null && (transform.position - playerTransform.position).sqrMagnitude > cleanupRadiusSquared)
             {
                 Destroy(gameObject);
-                canDespawn = false; // Ensure the coroutine stops
+                canDespawn = false;
+            }
+        }
+    }
+
+    public void TakeDamage(int damage)
+    {
+        currentHealth -= damage;
+
+        if (currentHealth <= 0)
+        {
+            Explode();
+        }
+    }
+
+    private void Explode()
+    {
+        // Create fragments
+        if (asteroidBelt != null)
+        {
+            asteroidBelt.CreateAsteroidFragments(transform.position, asteroidSize);
+        }
+
+        // Add explosion effect here (particles, sound, etc.)
+
+        // Destroy this asteroid
+        Destroy(gameObject);
+    }
+
+    void OnCollisionEnter(Collision collision)
+    {
+        // Check if collided with a bullet or other damaging object
+        if (collision.gameObject.CompareTag("Projectile"))
+        {
+            // Get the projectile component to access damage value
+            Projectile projectile = collision.gameObject.GetComponent<Projectile>();
+            if (projectile != null)
+            {
+                TakeDamage((int)projectile.GetDamage());
+            }
+        }
+    }
+
+    void OnTriggerEnter(Collider other)
+    {
+        // Also handle trigger collisions (in case projectiles are set as triggers)
+        if (other.CompareTag("Projectile"))
+        {
+            Projectile projectile = other.GetComponent<Projectile>();
+            if (projectile != null)
+            {
+                TakeDamage((int)projectile.GetDamage());
+                Destroy(other.gameObject); // Destroy the projectile
             }
         }
     }
 
     void FixedUpdate()
     {
-        // No need to calculate and set velocity in FixedUpdate anymore. The asteroid will continue to move
-        // based on its initial velocity and the lack of any forces acting upon it (other than the initial impulse).
+        // Orbital motion is handled by initial velocity
     }
 }

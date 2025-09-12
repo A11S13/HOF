@@ -125,7 +125,7 @@ public class Weapon : MonoBehaviour
             //Debug.Log("Target is too far away");
             target.GetComponent<Enemy>().isTargeted = false;
             //target.transform.Find("IndicatorRed").gameObject.SetActive(false);
-            _sC.FormClosestEnemiesArray();
+            _sC.ActualizeTargets();
             PickTarget();
         }
     }
