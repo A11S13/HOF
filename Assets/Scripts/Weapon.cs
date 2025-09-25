@@ -1,5 +1,6 @@
 using System.Linq;
 using UnityEngine;
+using System.Collections;
 
 public class Weapon : MonoBehaviour
 {
@@ -32,35 +33,26 @@ public class Weapon : MonoBehaviour
     public GameObject projectilePrefab;
     public GameObject projectileSoundHolderPrefab;
 
-    public float initialPitch;
-    public float finalPitch;
-    public float currentPitch;
-
     public float angularDistance;
-    public float pitchIncrement;
-    public float arpeggioRange;
     public int incrementSkipFrames;
+
+    private AudioSource fireAudio;
+    [SerializeField] float soundRate = 20f; // sounds/sec
+    static float nextSoundTime; // shared across all Weapon instances
 
     void Awake()
     {
-        //_enemyColliders = _sC.enemyColliders;
+        fireAudio = GetComponent<AudioSource>();
     }
 
     void Start()
     {
         isAI = false;
         target = null;
-        audioSource = gameObject.GetComponent<AudioSource>();
-        audioSource.spatialBlend = 1.0f; //force 2D sound
-        initialPitch = 0.18f + ID / 100;
-        finalPitch = 0.3f + ID / 100;
         incrementSkipFrames = 3;
         shipRb = GameObject.Find("PLAYER").GetComponent<Rigidbody>();
         _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
-        _cS = GetComponent<ChipSynth>();
         _sC.SetWeaponsID();
-        _cS.frequency1 = _cS.frequency1 + ID * 2;
-        _cS.frequency2 = _cS.frequency2 + ID * 2;
         FindProjectileSpawnPoint();
         turretJoystick = GameObject
             .FindGameObjectWithTag("TurretJoystick")
@@ -109,11 +101,8 @@ public class Weapon : MonoBehaviour
         }
         else
         {
-            //audioSource.pitch = 0.02f;
-            //audioSource.Play();
             if (_sC.targetDataArray.Length > 0)
                 PickTarget();
-            //Debug.Log("no fokin target");
         }
         if (
             target != null
@@ -281,8 +270,6 @@ public class Weapon : MonoBehaviour
     // Method to rotate towards a target position
     private void RotateTowardsTarget(Vector3 targetPosition)
     {
-        audioSource.Play();
-
         Vector3 direction = targetPosition - transform.position;
         direction.y = 0f; // Keep the rotation only in the horizontal plane
 
@@ -297,25 +284,13 @@ public class Weapon : MonoBehaviour
 
             if (Time.frameCount % incrementSkipFrames == 0)
             {
-                arpeggioRange = finalPitch - audioSource.pitch;
                 // Calculate the angular distance in degrees
                 angularDistance = Quaternion.Angle(transform.rotation, targetRotation);
                 if (angularDistance < 0.01f)
                 {
                     angularDistance = 0.01f;
                 }
-
-                // Calculate the pitch increment
-                pitchIncrement = (arpeggioRange / angularDistance) * rotationSpeed;
-
-                currentPitch = audioSource.pitch + pitchIncrement;
-                audioSource.pitch = currentPitch;
             }
-        }
-        if (angularDistance < _sC.firingThresholdAngle)
-        {
-            audioSource.pitch = initialPitch;
-            audioSource.Stop();
         }
     }
 
@@ -329,8 +304,6 @@ public class Weapon : MonoBehaviour
         float angleToTarget = Vector3.Angle(turretForward, directionToTarget);
 
         // Set your firing threshold angle (adjust as needed)
-
-
         return angleToTarget <= _sC.firingThresholdAngle;
     }
 
@@ -352,49 +325,21 @@ public class Weapon : MonoBehaviour
 
     public void UpdateFirePower(float weaponsDistributedEnergy)
     {
-        fireRate = initialFireRate * weaponsDistributedEnergy * 0.01f + 2f;
+        fireRate = initialFireRate * weaponsDistributedEnergy * 0.001f + 2f;
     }
 
     void Fire()
     {
-        // Instantiate the projectile at the spawn point
-        GameObject newProjectile = Instantiate(
-            projectilePrefab,
-            projectileSpawnPoint.position,
-            projectileSpawnPoint.rotation
-        );
+        float spread = 3f;
+        float randomYaw = Random.Range(-spread, spread);
+        Quaternion spreadRot = projectileSpawnPoint.rotation * Quaternion.Euler(0, randomYaw, 0);
 
-        // Get this ship's velocity
-        Vector3 shipVelocity = Vector3.zero;
-        shipVelocity = shipRb.linearVelocity;
-        newProjectile.GetComponent<Projectile>().Initialize(shipVelocity);
-
-
-        // Instantiate the ProjectileSoundHolder as a child of the turret
-        GameObject soundHolder = Instantiate(
-            projectileSoundHolderPrefab,
-            transform.position,
-            Quaternion.identity,
-            transform
-        );
-
-        // Get the AudioSource component from the ProjectileSoundHolder
-        AudioSource soundHolderAudioSource = soundHolder.GetComponent<AudioSource>();
-
-        // Play the firing sound on ProjectileSoundHolder using PlayScheduled
-        if (soundHolderAudioSource != null)
-        {
-            double playTime = AudioSettings.dspTime + 0.1; // Adjust the initial play time
-            soundHolderAudioSource.PlayScheduled(playTime);
-        }
-
-        // Update the nextFireTime for the firing rate control
+        GameObject p = Instantiate(projectilePrefab, projectileSpawnPoint.position, spreadRot);
+        p.GetComponent<Projectile>().Initialize(shipRb.linearVelocity);
         nextFireTime = Time.fixedTime + 1.0f / fireRate;
+        Destroy(p, 3f);
 
-        // Set a time delay for destroying the projectile and sound holder
-        float projectileLifetime = 3.0f; // Adjust as needed
-        Destroy(newProjectile, projectileLifetime);
-        Destroy(soundHolder, 1.0f);
+        GetComponent<WeaponAudioPool>().PlayShot();
     }
 
     private void ManualControl()

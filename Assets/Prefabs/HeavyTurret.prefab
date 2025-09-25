@@ -225,8 +225,8 @@ GameObject:
   m_Component:
   - component: {fileID: 7227428263767149554}
   - component: {fileID: 4300599530254364890}
-  - component: {fileID: 6305453719481516968}
-  - component: {fileID: 3217910677553132144}
+  - component: {fileID: 3894672787624144696}
+  - component: {fileID: 4534025389884212402}
   m_Layer: 0
   m_Name: HeavyTurret
   m_TagString: HeavyTurret
@@ -277,19 +277,15 @@ MonoBehaviour:
   isAI: 0
   localRotationDeadZone: 0.1
   rotationSpeed: 20
-  initialFireRate: 40
-  fireRate: 10
+  initialFireRate: 1
+  fireRate: 1
   _enemyColliders: []
   projectilePrefab: {fileID: 1875161418295932753, guid: 14875d327e26ec94bbc59743387c229b, type: 3}
   projectileSoundHolderPrefab: {fileID: 5557137643636974703, guid: 6cfbf035ce1e17d4184efa1985870ee6, type: 3}
-  initialPitch: 0
-  finalPitch: 0
-  currentPitch: 0
   angularDistance: 0
-  pitchIncrement: 0
-  arpeggioRange: 0
   incrementSkipFrames: 0
---- !u!114 &6305453719481516968
+  soundRate: 20
+--- !u!114 &3894672787624144696
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -298,23 +294,13 @@ MonoBehaviour:
   m_GameObject: {fileID: 8000410653846524232}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 00dd8bbf26ceed744b45d012893fa1f0, type: 3}
+  m_Script: {fileID: 11500000, guid: 4e5fdeba90d63e848b3d521fa4718648, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  PlayProjected1: 0
-  PlayProjected2: 0
-  PureSin: 0
-  Phased: 0
-  frequency1: 388
-  phase1: 0
-  frequency2: 255
-  phase2: 0
-  sampleRate: 800
-  waveLengthInSeconds: 0.004
-  timeIndex: 0
-  currentPhase1: 0
-  currentPhase2: 0
---- !u!82 &3217910677553132144
+  shotClip: {fileID: 8300000, guid: c71208a5da5ab814d824847ea1a834e5, type: 3}
+  outputGroup: {fileID: -3971088069843499658, guid: 49cd38965b49c0b45bc893d993408560, type: 2}
+  poolSize: 8
+--- !u!82 &4534025389884212402
 AudioSource:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -323,19 +309,19 @@ AudioSource:
   m_GameObject: {fileID: 8000410653846524232}
   m_Enabled: 1
   serializedVersion: 4
-  OutputAudioMixerGroup: {fileID: 3879452874403120852, guid: 49cd38965b49c0b45bc893d993408560, type: 2}
+  OutputAudioMixerGroup: {fileID: -3971088069843499658, guid: 49cd38965b49c0b45bc893d993408560, type: 2}
   m_audioClip: {fileID: 0}
   m_Resource: {fileID: 0}
   m_PlayOnAwake: 0
   m_Volume: 1
-  m_Pitch: 0.42
+  m_Pitch: 1
   Loop: 0
   Mute: 0
   Spatialize: 0
   SpatializePostEffects: 0
   Priority: 128
   DopplerLevel: 1
-  MinDistance: 1
+  MinDistance: 495.0495
   MaxDistance: 500
   Pan2D: 0
   rolloffMode: 0
@@ -371,7 +357,7 @@ AudioSource:
     m_Curve:
     - serializedVersion: 3
       time: 0
-      value: 1
+      value: 0
       inSlope: 0
       outSlope: 0
       tangentMode: 0
