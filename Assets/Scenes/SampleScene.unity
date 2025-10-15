@@ -9831,7 +9831,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   unitTech: Terran Technocracy
   shipData: {fileID: 11400000, guid: 689ef4322c40e6649b950096d39b37c6, type: 2}
-  sonarRadius: 100
+  sonarRadius: 250
   Weapons: []
   firingThresholdAngle: 10
   distanceThreshold: 0.01
@@ -10171,71 +10171,6 @@ PrefabInstance:
       insertIndex: -1
       addedObject: {fileID: 2239112340433964458}
   m_SourcePrefab: {fileID: 100100000, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
---- !u!1001 &7147872160443857658
-PrefabInstance:
-  m_ObjectHideFlags: 0
-  serializedVersion: 2
-  m_Modification:
-    serializedVersion: 3
-    m_TransformParent: {fileID: 0}
-    m_Modifications:
-    - target: {fileID: 992603879187262352, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
-      propertyPath: m_LocalPosition.x
-      value: -74099.84
-      objectReference: {fileID: 0}
-    - target: {fileID: 992603879187262352, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
-      propertyPath: m_LocalPosition.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 992603879187262352, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
-      propertyPath: m_LocalPosition.z
-      value: -60890.055
-      objectReference: {fileID: 0}
-    - target: {fileID: 992603879187262352, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
-      propertyPath: m_LocalRotation.w
-      value: 1
-      objectReference: {fileID: 0}
-    - target: {fileID: 992603879187262352, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
-      propertyPath: m_LocalRotation.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 992603879187262352, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
-      propertyPath: m_LocalRotation.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 992603879187262352, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
-      propertyPath: m_LocalRotation.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 992603879187262352, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.x
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 992603879187262352, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.y
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 992603879187262352, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
-      propertyPath: m_LocalEulerAnglesHint.z
-      value: 0
-      objectReference: {fileID: 0}
-    - target: {fileID: 1012487767772925059, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
-      propertyPath: morph
-      value: 0.8239844
-      objectReference: {fileID: 0}
-    - target: {fileID: 2044892534391141163, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
-      propertyPath: m_Name
-      value: Anima
-      objectReference: {fileID: 0}
-    - target: {fileID: 8511319697528291888, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
-      propertyPath: 'm_BlendShapeWeights.Array.data[0]'
-      value: 69.561714
-      objectReference: {fileID: 0}
-    m_RemovedComponents: []
-    m_RemovedGameObjects: []
-    m_AddedGameObjects: []
-    m_AddedComponents: []
-  m_SourcePrefab: {fileID: 100100000, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:
   m_ObjectHideFlags: 0
@@ -10256,6 +10191,5 @@ SceneRoots:
   - {fileID: 424906581}
   - {fileID: 1384905070}
   - {fileID: 1723048144}
-  - {fileID: 7147872160443857658}
   - {fileID: 550753210414506930}
   - {fileID: 14782838}

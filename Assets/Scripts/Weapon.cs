@@ -1,6 +1,7 @@
 using System.Linq;
 using UnityEngine;
 using System.Collections;
+using System.Collections.Generic;
 
 public class Weapon : MonoBehaviour
 {
@@ -40,6 +41,10 @@ public class Weapon : MonoBehaviour
     [SerializeField] float soundRate = 20f; // sounds/sec
     static float nextSoundTime; // shared across all Weapon instances
 
+    // Target assignment tracking
+    private static Dictionary<GameObject, int> targetWeaponCount = new Dictionary<GameObject, int>();
+    private static System.Object lockObject = new System.Object();
+
     void Awake()
     {
         fireAudio = GetComponent<AudioSource>();
@@ -59,6 +64,15 @@ public class Weapon : MonoBehaviour
             .GetComponent<FixedJoystick>();
     }
 
+    void OnDestroy()
+    {
+        // Clean up target assignment when weapon is destroyed
+        if (target != null)
+        {
+            RemoveTargetAssignment(target);
+        }
+    }
+
     void Update()
     {
         if (isAI)
@@ -75,15 +89,18 @@ public class Weapon : MonoBehaviour
     {
         if (target == null || target.GetComponent<Enemy>() == null || target.GetComponent<Enemy>().isDestroyed)
         {
+            if (target != null)
+            {
+                RemoveTargetAssignment(target);
+            }
             target = null;
             _sC.ActualizeTargets();
             PickTarget();
-            return; // stop AIControl this frame
+            return;
         }
 
         if (target != null)
         {
-            target.GetComponent<Enemy>().isTargeted = true;
             RotateTowardsTarget(target.transform.position);
 
             if (IsAimedAtTarget(target.transform.position))
@@ -97,9 +114,9 @@ public class Weapon : MonoBehaviour
                 }
                 else
                 {
+                    RemoveTargetAssignment(target);
                     _sC.FormClosestEnemiesArray();
-                    if (_sC.targetDataArray.Length > 0)
-                        PickTarget();
+                    PickTarget();
                 }
             }
         }
@@ -117,25 +134,80 @@ public class Weapon : MonoBehaviour
         indicatorBlue.SetActive(false);
 
         PrioritizeTargets();
+
         if (CombinedTargets.Length != 0)
         {
-            prevTarget = CombinedTargets[0].TargetObject;
+            // Try to find the best available target
+            GameObject newTarget = FindBestAvailableTarget();
+
+            if (newTarget != null && newTarget != target)
+            {
+                // Remove previous target assignment
+                if (target != null)
+                {
+                    RemoveTargetAssignment(target);
+                }
+
+                // Assign new target
+                target = newTarget;
+                AddTargetAssignment(target);
+            }
+            else if (newTarget == null && CombinedTargets.Length > 0)
+            {
+                // Fallback: use the best target even if it's already targeted
+                target = CombinedTargets[0].TargetObject;
+                AddTargetAssignment(target);
+            }
         }
         else
         {
-            prevTarget = null;
+            target = null;
         }
 
-        RePrioritizeTarget();
-        if (target == prevTarget && target != null)
+        UpdateTargetIndicators();
+    }
+
+    private GameObject FindBestAvailableTarget()
+    {
+        foreach (var targetData in CombinedTargets)
         {
+            if (targetData.TargetObject == null) continue;
+
+            int weaponCount = GetTargetWeaponCount(targetData.TargetObject);
+
+            // Use the Weapons array length directly from ShipCore
+            if (weaponCount < _sC.Weapons.Length)
+            {
+                return targetData.TargetObject;
+            }
+        }
+
+        // If all targets are at max weapon count, return the best one anyway
+        return CombinedTargets.Length > 0 ? CombinedTargets[0].TargetObject : null;
+    }
+
+    private void UpdateTargetIndicators()
+    {
+        if (target == null)
+        {
+            indicatorRed.SetActive(true);
+            indicatorGreen.SetActive(false);
+            indicatorBlue.SetActive(false);
+            return;
+        }
+
+        int weaponCount = GetTargetWeaponCount(target);
+
+        if (weaponCount == 1)
+        {
+            // Only this weapon is targeting
             indicatorRed.SetActive(false);
             indicatorGreen.SetActive(true);
             indicatorBlue.SetActive(false);
         }
-
-        if (target != prevTarget && target != null && !target.GetComponent<Enemy>().isDestroyed)
+        else
         {
+            // Multiple weapons targeting the same enemy
             indicatorRed.SetActive(false);
             indicatorGreen.SetActive(false);
             indicatorBlue.SetActive(true);
@@ -147,48 +219,39 @@ public class Weapon : MonoBehaviour
         ShipCore.TargetData[] closestTargets = FindClosest();
         ShipCore.TargetData[] angularClosestTargets = FindAngularClosest();
 
-        int length = angularClosestTargets.Length + closestTargets.Length;
-        CombinedTargets = new ShipCore.TargetData[length];
+        // Combine and remove duplicates more efficiently
+        Dictionary<GameObject, ShipCore.TargetData> combinedDict = new Dictionary<GameObject, ShipCore.TargetData>();
 
-        for (int i = 0, j = 0; j < length; i++, j++)
+        // Add closest targets first
+        foreach (var targetData in closestTargets)
         {
-            CombinedTargets[j] = closestTargets[i];
-            CombinedTargets[j + 1] = angularClosestTargets[i];
-            j++;
+            if (targetData.TargetObject != null && !combinedDict.ContainsKey(targetData.TargetObject))
+            {
+                combinedDict[targetData.TargetObject] = targetData;
+            }
         }
 
-        // Loop through the array to filter duplicates based on unifiedDistance
-        for (int i = 0; i < CombinedTargets.Length; i++)
+        // Add angular closest targets, keeping the best unified distance
+        foreach (var targetData in angularClosestTargets)
         {
-            for (int j = i + 1; j < CombinedTargets.Length; j++)
+            if (targetData.TargetObject != null)
             {
-                if (CombinedTargets[i].TargetObject == CombinedTargets[j].TargetObject)
+                if (!combinedDict.ContainsKey(targetData.TargetObject))
                 {
-                    // If the current target has a smaller unifiedDistance, keep it
-                    if (CombinedTargets[j].UnifiedDistance < CombinedTargets[i].UnifiedDistance)
-                    {
-                        CombinedTargets[i] = CombinedTargets[j];
-                    }
-                    // Remove the duplicate
-                    CombinedTargets[j] = new ShipCore.TargetData(); // Use the default constructor
+                    combinedDict[targetData.TargetObject] = targetData;
+                }
+                else if (targetData.UnifiedDistance < combinedDict[targetData.TargetObject].UnifiedDistance)
+                {
+                    combinedDict[targetData.TargetObject] = targetData;
                 }
             }
         }
 
-        // Remove default entries from the array
-        CombinedTargets = CombinedTargets
-            .Where(target => !target.Equals(default(ShipCore.TargetData)))
-            .ToArray();
+        CombinedTargets = combinedDict.Values.ToArray();
 
-        // Remove elements with isTargeted == true
-        CombinedTargets = CombinedTargets
-            .Where(targetData => !targetData.TargetObject.GetComponent<Enemy>().isTargeted)
-            .ToArray();
+        // Sort by unified distance
+        System.Array.Sort(CombinedTargets, (a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance));
 
-        System.Array.Sort(
-            CombinedTargets,
-            (a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance)
-        );
         return CombinedTargets;
     }
 
@@ -199,7 +262,13 @@ public class Weapon : MonoBehaviour
             CombinedTargets = _sC.ArrangeTargets(CombinedTargets);
             if (CombinedTargets.Length > 0)
             {
-                target = CombinedTargets[0].TargetObject;
+                GameObject newTarget = CombinedTargets[0].TargetObject;
+                if (newTarget != target)
+                {
+                    RemoveTargetAssignment(target);
+                    target = newTarget;
+                    AddTargetAssignment(target);
+                }
                 return CombinedTargets;
             }
         }
@@ -208,61 +277,103 @@ public class Weapon : MonoBehaviour
 
     private ShipCore.TargetData[] FindClosest()
     {
+        if (_sC.targetDataArray.Length == 0)
+            return new ShipCore.TargetData[0];
+
         int length = Mathf.Min(_sC.Weapons.Length, _sC.targetDataArray.Length);
-        ShipCore.TargetData[] closestTargetsArray = new ShipCore.TargetData[length];
+        List<ShipCore.TargetData> closestTargets = new List<ShipCore.TargetData>();
 
-        if (_sC.targetDataArray.Length > 0)
+        for (int i = 0; i < length; i++)
         {
-            for (int i = 0; i < length; i++)
+            if (_sC.targetDataArray[i].TargetObject != null)
             {
-                if (_sC.targetDataArray[i].GameObject != null)
-                {
-                    GameObject enemy = _sC.targetDataArray[i].GameObject; // Use index i to get the current enemy
-                    float distance = Vector3.Distance(transform.position, enemy.transform.position);
+                GameObject enemy = _sC.targetDataArray[i].TargetObject;
+                float distance = Vector3.Distance(transform.position, enemy.transform.position);
 
-                    closestTargetsArray[i] = new ShipCore.TargetData(
-                        enemy,
-                        distance * _sC.distanceThreshold
-                    );
-                }
-
+                closestTargets.Add(new ShipCore.TargetData(
+                    enemy,
+                    distance * _sC.distanceThreshold
+                ));
             }
         }
-        return closestTargetsArray;
+
+        return closestTargets.ToArray();
     }
 
     private ShipCore.TargetData[] FindAngularClosest()
     {
+        if (_sC.targetDataArray.Length == 0)
+            return new ShipCore.TargetData[0];
+
         int length = Mathf.Min(_sC.Weapons.Length, _sC.targetDataArray.Length);
-        ShipCore.TargetData[] closestTargetsArray = new ShipCore.TargetData[length];
+        List<ShipCore.TargetData> angularTargets = new List<ShipCore.TargetData>();
 
-        if (_sC.targetDataArray.Length > 0)
+        for (int i = 0; i < length; i++)
         {
-            for (int i = 0; i < length; i++)
+            if (_sC.targetDataArray[i].TargetObject != null)
             {
-                if (_sC.targetDataArray[i].GameObject != null)
-                {
-                    GameObject enemy = _sC.targetDataArray[i].GameObject;
-                    Vector3 directionToEnemy = enemy.transform.position - transform.position;
-                    directionToEnemy.y = 0f;
-                    Vector3 turretForward = transform.forward;
-                    float angularDistance = Vector3.Angle(turretForward, directionToEnemy);
+                GameObject enemy = _sC.targetDataArray[i].TargetObject;
+                Vector3 directionToEnemy = enemy.transform.position - transform.position;
+                directionToEnemy.y = 0f;
+                Vector3 turretForward = transform.forward;
+                float angularDistance = Vector3.Angle(turretForward, directionToEnemy);
 
-                    closestTargetsArray[i] = new ShipCore.TargetData(
-                        enemy,
-                        angularDistance * _sC.angularThreshold + _sC.angularMarging
-                    );
+                angularTargets.Add(new ShipCore.TargetData(
+                    enemy,
+                    angularDistance * _sC.angularThreshold + _sC.angularMarging
+                ));
+            }
+        }
+
+        return angularTargets.ToArray();
+    }
+
+    // Thread-safe target assignment methods
+    private void AddTargetAssignment(GameObject targetObj)
+    {
+        lock (lockObject)
+        {
+            if (targetWeaponCount.ContainsKey(targetObj))
+            {
+                targetWeaponCount[targetObj]++;
+            }
+            else
+            {
+                targetWeaponCount[targetObj] = 1;
+            }
+        }
+    }
+
+    private void RemoveTargetAssignment(GameObject targetObj)
+    {
+        if (targetObj == null) return;
+
+        lock (lockObject)
+        {
+            if (targetWeaponCount.ContainsKey(targetObj))
+            {
+                targetWeaponCount[targetObj]--;
+                if (targetWeaponCount[targetObj] <= 0)
+                {
+                    targetWeaponCount.Remove(targetObj);
                 }
             }
         }
-        return closestTargetsArray;
     }
 
-    // Method to rotate towards a target position
+    private int GetTargetWeaponCount(GameObject targetObj)
+    {
+        lock (lockObject)
+        {
+            return targetWeaponCount.ContainsKey(targetObj) ? targetWeaponCount[targetObj] : 0;
+        }
+    }
+
+    // Rest of your existing methods remain the same...
     private void RotateTowardsTarget(Vector3 targetPosition)
     {
         Vector3 direction = targetPosition - transform.position;
-        direction.y = 0f; // Keep the rotation only in the horizontal plane
+        direction.y = 0f;
 
         if (direction != Vector3.zero)
         {
@@ -275,7 +386,6 @@ public class Weapon : MonoBehaviour
 
             if (Time.frameCount % incrementSkipFrames == 0)
             {
-                // Calculate the angular distance in degrees
                 angularDistance = Quaternion.Angle(transform.rotation, targetRotation);
                 if (angularDistance < 0.01f)
                 {
@@ -288,13 +398,9 @@ public class Weapon : MonoBehaviour
     private bool IsAimedAtTarget(Vector3 targetPosition)
     {
         Vector3 directionToTarget = targetPosition - transform.position;
-        directionToTarget.y = 0f; // Keep the check only in the horizontal plane
-
+        directionToTarget.y = 0f;
         Vector3 turretForward = transform.forward;
-
         float angleToTarget = Vector3.Angle(turretForward, directionToTarget);
-
-        // Set your firing threshold angle (adjust as needed)
         return angleToTarget <= _sC.firingThresholdAngle;
     }
 
@@ -305,7 +411,6 @@ public class Weapon : MonoBehaviour
 
     bool CanFire()
     {
-        // Check if enough time has passed since the last firing, adjusted by Time.fixedDeltaTime
         return Time.fixedTime >= nextFireTime && Time.fixedDeltaTime > 0;
     }
 
@@ -347,13 +452,10 @@ public class Weapon : MonoBehaviour
             turretJoystick.Direction.y
         );
 
-        // Check if the joystick is touched outside the dead zone for rotation
         if (turretDirection.magnitude > localRotationDeadZone)
         {
             float angle = Vector3.SignedAngle(Vector3.forward, turretDirection, Vector3.up);
             Quaternion targetRotation = Quaternion.Euler(0f, angle, 0f);
-
-            // Smoothly rotate the turret
             transform.rotation = Quaternion.Slerp(
                 transform.rotation,
                 targetRotation,

@@ -15,6 +15,9 @@ public class ShipCore : MonoBehaviour
     public float distanceThreshold = 1;
     public float angularThreshold = 1;
     public float angularMarging = 10; //to not intercept on rotation
+    [Header("Weapon AI Settings")]
+    [Tooltip("Maximum weapons that can target the same enemy (equals total weapons count)")]
+    public int maxWeaponsPerTarget => Weapons.Length;
 
     public Slider shieldsSlider;
     public Slider enginesSlider;

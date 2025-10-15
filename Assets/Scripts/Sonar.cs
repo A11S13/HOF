@@ -27,7 +27,7 @@ public class Sonar : MonoBehaviour
         sonarPrevMaxRadius = _sC.sonarRadius;
         trackedColliders = new List<Collider>();
         CreateSonarVisual();
-        sonarCurrentRadius = 100f;
+        sonarCurrentRadius = _sC.sonarRadius;
     }
 
     private void CreateSonarVisual()
