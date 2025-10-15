@@ -94,22 +94,28 @@ public class ShipCore : MonoBehaviour
 
     public void FormClosestEnemiesArray()
     {
-        int length = Mathf.Min(_sonar.trackedColliders.Count, Weapons.Length);
 
+        // Remove any destroyed/null colliders first
+        _sonar.trackedColliders = _sonar.trackedColliders
+            .Where(c => c != null && c.gameObject != null)
+            .ToList();
+
+        int length = Mathf.Min(_sonar.trackedColliders.Count, Weapons.Length);
         targetDataArray = new TargetData[length];
 
         for (int i = 0; i < length; i++)
         {
-            float unifiedDistance = Vector3.Distance(
-                transform.position,
-                _sonar.trackedColliders[i].transform.position
-            );
-            targetDataArray[i] = new TargetData(
-                _sonar.trackedColliders[i].gameObject,
-                unifiedDistance
-            );
+            var col = _sonar.trackedColliders[i];
+            if (col == null) continue;
+
+            var enemy = col.GetComponent<Enemy>();
+            if (enemy == null || !enemy.IsAlive()) continue;
+
+            float unifiedDistance = Vector3.Distance(transform.position, col.transform.position);
+            targetDataArray[i] = new TargetData(col.gameObject, unifiedDistance);
         }
     }
+
 
     public TargetData[] ArrangeTargets(TargetData[] passedCombinedTargets) // DELETES DUBLICATES
     {

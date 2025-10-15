@@ -73,26 +73,30 @@ public class Weapon : MonoBehaviour
 
     private void AIControl()
     {
+        if (target == null || target.GetComponent<Enemy>() == null || target.GetComponent<Enemy>().isDestroyed)
+        {
+            target = null;
+            _sC.ActualizeTargets();
+            PickTarget();
+            return; // stop AIControl this frame
+        }
+
         if (target != null)
         {
             target.GetComponent<Enemy>().isTargeted = true;
-            //target.transform.Find("IndicatorRed").gameObject.SetActive(true);
-            //target.transform.Find("IndicatorBlue").gameObject.SetActive(false);
-            // 2. Rotate Towards Target
             RotateTowardsTarget(target.transform.position);
-            // 3. Fire if Aimed
+
             if (IsAimedAtTarget(target.transform.position))
             {
-                if (!target.GetComponent<Enemy>().isDestroyed)
+                float dist = Vector3.Distance(transform.position, target.transform.position);
+
+                if (!target.GetComponent<Enemy>().isDestroyed && dist <= _sC.sonarRadius)
                 {
                     if (CanFire())
-                    {
                         Fire();
-                    }
                 }
                 else
                 {
-                    //Debug.Log("+ FRAG!");
                     _sC.FormClosestEnemiesArray();
                     if (_sC.targetDataArray.Length > 0)
                         PickTarget();
@@ -103,19 +107,6 @@ public class Weapon : MonoBehaviour
         {
             if (_sC.targetDataArray.Length > 0)
                 PickTarget();
-        }
-        if (
-            target != null
-            && Vector3.Distance(transform.position, target.transform.position)
-                > _sC.sonarRadius
-            && !target.GetComponent<Enemy>().isDestroyed
-        )
-        {
-            //Debug.Log("Target is too far away");
-            target.GetComponent<Enemy>().isTargeted = false;
-            //target.transform.Find("IndicatorRed").gameObject.SetActive(false);
-            _sC.ActualizeTargets();
-            PickTarget();
         }
     }
 

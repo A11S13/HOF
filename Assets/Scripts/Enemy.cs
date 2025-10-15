@@ -15,6 +15,12 @@ public class Enemy : MonoBehaviour
         public int rotationFrequency;
         public Quaternion targetRotation;
     }
+
+    public bool IsAlive()
+    {
+        return !isDestroyed && health > 0 && gameObject != null;
+    }
+
     public EnemyData data;
     void OnEnable()
     {

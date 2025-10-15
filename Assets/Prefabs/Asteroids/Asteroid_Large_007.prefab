@@ -48,9 +48,21 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: -7511558181221131132, guid: 7e55afb29cb3a6b44b6a7799953e299d, type: 3}
+      propertyPath: 'm_Materials.Array.data[0]'
+      value: 
+      objectReference: {fileID: 2100000, guid: 2c6780e2962828248a451a143cb424af, type: 2}
     - target: {fileID: 919132149155446097, guid: 7e55afb29cb3a6b44b6a7799953e299d, type: 3}
       propertyPath: m_Name
       value: Asteroid_Large_007
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 7e55afb29cb3a6b44b6a7799953e299d, type: 3}
+      propertyPath: m_Layer
+      value: 9
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 7e55afb29cb3a6b44b6a7799953e299d, type: 3}
+      propertyPath: m_TagString
+      value: Asteroid
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -65,6 +77,9 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 7e55afb29cb3a6b44b6a7799953e299d, type: 3}
       insertIndex: -1
       addedObject: {fileID: -7642134738563450624}
+    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: 7e55afb29cb3a6b44b6a7799953e299d, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 4950895095924745462}
   m_SourcePrefab: {fileID: 100100000, guid: 7e55afb29cb3a6b44b6a7799953e299d, type: 3}
 --- !u!1 &7709439500659721579 stripped
 GameObject:
@@ -137,3 +152,22 @@ Rigidbody:
   m_Interpolate: 0
   m_Constraints: 4
   m_CollisionDetection: 0
+--- !u!114 &4950895095924745462
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 7709439500659721579}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 3ad700e85ffab3748be20d0e8bf356e8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  isTargeted: 0
+  isDestroyed: 0
+  health: 5000
+  data:
+    rotationCounter: 0
+    rotationFrequency: 0
+    targetRotation: {x: 0, y: 0, z: 0, w: 0}
