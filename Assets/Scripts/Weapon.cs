@@ -13,6 +13,10 @@ public class Weapon : MonoBehaviour
 
     public int ID;
 
+    float reactionDelay;
+    float nextReactionTime;
+    [SerializeField] float switchAggression = 3.75f;
+
     public ShipCore.TargetData[] CombinedTargets { get; private set; }
     public GameObject target;
     public GameObject prevTarget;
@@ -62,6 +66,12 @@ public class Weapon : MonoBehaviour
         turretJoystick = GameObject
             .FindGameObjectWithTag("TurretJoystick")
             .GetComponent<FixedJoystick>();
+
+        // Desync the first shot
+        nextFireTime = Random.Range(0f, 0.8f);
+
+        reactionDelay = Random.Range(0.1f, 1.75f);
+        nextReactionTime = 0f;
     }
 
     void OnDestroy()
@@ -127,6 +137,17 @@ public class Weapon : MonoBehaviour
         }
     }
 
+    bool ShouldSwitch(GameObject cur, GameObject best)
+    {
+        if (cur == null) return true;
+
+        float dCur = (cur.transform.position - transform.position).sqrMagnitude;
+        float dBest = (best.transform.position - transform.position).sqrMagnitude;
+
+        // switch sooner — new target only needs to be slightly closer
+        return dBest * switchAggression < dCur;
+    }
+
     private void PickTarget()
     {
         indicatorRed.SetActive(true);
@@ -134,34 +155,39 @@ public class Weapon : MonoBehaviour
         indicatorBlue.SetActive(false);
 
         PrioritizeTargets();
-
-        if (CombinedTargets.Length != 0)
-        {
-            // Try to find the best available target
-            GameObject newTarget = FindBestAvailableTarget();
-
-            if (newTarget != null && newTarget != target)
-            {
-                // Remove previous target assignment
-                if (target != null)
-                {
-                    RemoveTargetAssignment(target);
-                }
-
-                // Assign new target
-                target = newTarget;
-                AddTargetAssignment(target);
-            }
-            else if (newTarget == null && CombinedTargets.Length > 0)
-            {
-                // Fallback: use the best target even if it's already targeted
-                target = CombinedTargets[0].TargetObject;
-                AddTargetAssignment(target);
-            }
-        }
-        else
+        if (CombinedTargets.Length == 0)
         {
             target = null;
+            UpdateTargetIndicators();
+            return;
+        }
+
+        GameObject best = FindBestAvailableTarget();
+        if (best == null)
+        {
+            target = CombinedTargets[0].TargetObject;
+            AddTargetAssignment(target);
+            UpdateTargetIndicators();
+            return;
+        }
+
+        // -------------------------------------------------
+        // Desync: apply a tiny per-turret jitter
+        // -------------------------------------------------
+        float jitter = 0.15f; // keep tiny; prevents sync without lagging turrets
+        float now = Time.time + Random.Range(-jitter, jitter);
+
+        // -------------------------------------------------
+        // Change only when allowed
+        // -------------------------------------------------
+        if (best != target && ShouldSwitch(target, best) && now >= nextReactionTime)
+        {
+            if (target != null) RemoveTargetAssignment(target);
+
+            target = best;
+            AddTargetAssignment(target);
+
+            nextReactionTime = now + reactionDelay;
         }
 
         UpdateTargetIndicators();
@@ -427,13 +453,15 @@ public class Weapon : MonoBehaviour
     void Fire()
     {
         float spread = 3f;
-        float randomYaw = Random.Range(-spread, spread);
-        Quaternion spreadRot = projectileSpawnPoint.rotation * Quaternion.Euler(0, randomYaw, 0);
+        float yaw = Random.Range(-spread, spread);
+        Quaternion rot = projectileSpawnPoint.rotation * Quaternion.Euler(0, yaw, 0);
 
-        GameObject p = Instantiate(projectilePrefab, projectileSpawnPoint.position, spreadRot);
+        var p = Instantiate(projectilePrefab, projectileSpawnPoint.position, rot);
         p.GetComponent<Projectile>().Initialize(shipRb.linearVelocity);
-        nextFireTime = Time.fixedTime + 1.0f / fireRate;
         Destroy(p, 3f);
+
+        float jitter = Random.Range(-0.05f, 0.05f);   // tiny desync, per-shot
+        nextFireTime = Time.fixedTime + 1f / fireRate + jitter;
 
         GetComponent<WeaponAudioPool>().PlayShot();
     }
