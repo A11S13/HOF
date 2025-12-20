@@ -9831,7 +9831,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   unitTech: Terran Technocracy
   shipData: {fileID: 11400000, guid: 689ef4322c40e6649b950096d39b37c6, type: 2}
-  sonarRadius: 150
+  sonarRadius: 200
   Weapons: []
   firingThresholdAngle: 10
   distanceThreshold: 0.01

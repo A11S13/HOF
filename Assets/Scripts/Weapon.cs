@@ -6,9 +6,6 @@ using System.Collections.Generic;
 public class Weapon : MonoBehaviour
 {
     ShipCore _sC;
-    ChipSynth _cS;
-    AudioSource audioSource;
-    WeaponAudioPool _wAP;
 
     public Rigidbody shipRb;
 
@@ -16,7 +13,6 @@ public class Weapon : MonoBehaviour
 
     float reactionDelay;
     float nextReactionTime;
-    [SerializeField] float switchAggression = 3.75f;
     float targetLostUntil;
     float fireAccumulator;
     public float FirePhase => fireAccumulator;
@@ -32,14 +28,20 @@ public class Weapon : MonoBehaviour
     public float rotationSpeed = 5f;
     private FixedJoystick turretJoystick;
     private Transform projectileSpawnPoint;
+    float projectileSpeed;
     public float initialFireRate;
+
+    Vector3 lastTargetPos;
+    Vector3 targetVel;
+    const float VelSampleDt = 0.05f; // 20 Hz perception
+    float velSampleTimer;
+    const float MinPredictTime = 0.05f; // seconds
 
     [SerializeField]
     private float fireRate;
     bool isFiring;
     float firingRate;
     private float nextFireTime;
-    public Collider[] _enemyColliders;
 
     public GameObject projectilePrefab;
 
@@ -53,6 +55,8 @@ public class Weapon : MonoBehaviour
     private static Dictionary<GameObject, int> targetWeaponCount = new Dictionary<GameObject, int>();
     private static System.Object lockObject = new System.Object();
 
+    LineRenderer lr;
+
     void Awake()
     {
         fireAudio = GetComponent<AudioSource>();
@@ -64,6 +68,7 @@ public class Weapon : MonoBehaviour
         isAI = false;
         target = null;
         incrementSkipFrames = 3;
+        projectileSpeed = projectilePrefab.GetComponent<Projectile>().speed;
         audioDSP = GetComponent<WeaponAudioDSP>();
         shipRb = GameObject.Find("PLAYER").GetComponent<Rigidbody>();
         _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
@@ -78,6 +83,10 @@ public class Weapon : MonoBehaviour
 
         reactionDelay = Random.Range(0.0f, 0.75f);
         nextReactionTime = 0f;
+
+        lr = gameObject.AddComponent<LineRenderer>();
+        lr.positionCount = 2;
+        lr.widthMultiplier = 0.05f;
     }
 
     void OnDestroy()
@@ -133,13 +142,48 @@ public class Weapon : MonoBehaviour
         if (!target)
             return;
 
-        RotateTowardsTarget(target.transform.position);
+        velSampleTimer -= Time.deltaTime;
+        if (velSampleTimer <= 0f)
+        {
+            var pos = target.transform.position;
+            targetVel = (pos - lastTargetPos) / VelSampleDt;
+            lastTargetPos = pos;
+            velSampleTimer = VelSampleDt;
+        }
 
-        if (IsAimedAtTarget(target.transform.position))
+
+        var to = target.transform.position - projectileSpawnPoint.position;
+
+        var aimPos =
+            to.magnitude / projectileSpeed < MinPredictTime
+            ? target.transform.position
+            : Predict(projectileSpawnPoint.position, target.transform.position, targetVel, projectileSpeed);
+
+
+
+        RotateTowardsTarget(aimPos);
+
+        if (IsAimedAtTarget(aimPos))
         {
             float aim = 1f - angularDistance / _sC.firingThresholdAngle;
             TryFire(aim);
         }
+
+        lr.SetPosition(0, projectileSpawnPoint.position);
+        lr.SetPosition(1, aimPos);
+        Debug.DrawLine(transform.position, target.transform.position, Color.white);
+        Debug.DrawLine(transform.position, aimPos, Color.green);
+
+    }
+    Vector3 Predict(Vector3 origin, Vector3 pos, Vector3 vel, float speed)
+    {
+        vel -= shipRb.linearVelocity; // critical fix
+
+        var to = pos - origin;
+        //var t = to.magnitude / speed;
+
+        var t = Mathf.Min(to.magnitude / speed, 2f);
+        return pos + vel * t;
     }
 
     bool ShouldSwitch(GameObject cur, GameObject best)
@@ -209,6 +253,8 @@ public class Weapon : MonoBehaviour
             if (target) RemoveTargetAssignment(target);
 
             target = best;
+            lastTargetPos = target.transform.position;
+            targetVel = Vector3.zero;
             AddTargetAssignment(target);
 
             fireAccumulator += Time.deltaTime * fireRate * (1f + WeaponBias(target));
