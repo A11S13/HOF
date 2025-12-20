@@ -16,6 +16,8 @@ public class Weapon : MonoBehaviour
     float reactionDelay;
     float nextReactionTime;
     [SerializeField] float switchAggression = 3.75f;
+    float targetLostUntil;
+    float fireAccumulator;
 
     public ShipCore.TargetData[] CombinedTargets { get; private set; }
     public GameObject target;
@@ -56,6 +58,7 @@ public class Weapon : MonoBehaviour
 
     void Start()
     {
+        fireAccumulator = Random.value;
         isAI = false;
         target = null;
         incrementSkipFrames = 3;
@@ -68,9 +71,9 @@ public class Weapon : MonoBehaviour
             .GetComponent<FixedJoystick>();
 
         // Desync the first shot
-        nextFireTime = Random.Range(0f, 0.8f);
+        nextFireTime = Time.time + Random.value * (1f / Mathf.Max(1f, fireRate));
 
-        reactionDelay = Random.Range(0.1f, 1.75f);
+        reactionDelay = Random.Range(0.0f, 0.25f);
         nextReactionTime = 0f;
     }
 
@@ -85,67 +88,67 @@ public class Weapon : MonoBehaviour
 
     void Update()
     {
-        if (isAI)
-        {
-            AIControl();
-        }
-        else
-        {
-            ManualControl();
-        }
+        fireAccumulator += Time.deltaTime * fireRate;
+        fireAccumulator -= Mathf.Floor(fireAccumulator);
+        if (isAI) AIControl();
+        else ManualControl();
+    }
+
+    void TryFire(float aimFactor)
+    {
+        if (aimFactor <= 0f) return;
+
+        if (fireAccumulator < Time.deltaTime * fireRate)
+            Fire();
     }
 
     private void AIControl()
     {
-        if (target == null || target.GetComponent<Enemy>() == null || target.GetComponent<Enemy>().isDestroyed)
+        if (target && (target.GetComponent<Enemy>() == null || target.GetComponent<Enemy>().isDestroyed))
         {
-            if (target != null)
-            {
-                RemoveTargetAssignment(target);
-            }
+            RemoveTargetAssignment(target);
             target = null;
-            _sC.ActualizeTargets();
-            PickTarget();
+            targetLostUntil = Time.time + reactionDelay;
             return;
         }
 
-        if (target != null)
-        {
-            RotateTowardsTarget(target.transform.position);
+        if (Time.time >= targetLostUntil)
+            PickTarget();   // <-- ALWAYS re-evaluate
 
-            if (IsAimedAtTarget(target.transform.position))
-            {
-                float dist = Vector3.Distance(transform.position, target.transform.position);
+        if (!target)
+            return;
 
-                if (!target.GetComponent<Enemy>().isDestroyed && dist <= _sC.sonarRadius)
-                {
-                    if (CanFire())
-                        Fire();
-                }
-                else
-                {
-                    RemoveTargetAssignment(target);
-                    _sC.FormClosestEnemiesArray();
-                    PickTarget();
-                }
-            }
-        }
-        else
+        RotateTowardsTarget(target.transform.position);
+
+        if (IsAimedAtTarget(target.transform.position))
         {
-            if (_sC.targetDataArray.Length > 0)
-                PickTarget();
+            float aim = 1f - angularDistance / _sC.firingThresholdAngle;
+            TryFire(aim);
         }
     }
 
     bool ShouldSwitch(GameObject cur, GameObject best)
     {
-        if (cur == null) return true;
+        if (!cur) return true;
 
         float dCur = (cur.transform.position - transform.position).sqrMagnitude;
         float dBest = (best.transform.position - transform.position).sqrMagnitude;
 
-        // switch sooner — new target only needs to be slightly closer
-        return dBest * switchAggression < dCur;
+        // switch early but stable (~15% closer)
+        return dBest < dCur * 0.85f;
+    }
+
+    float TargetScore(GameObject t)
+    {
+        float d = (t.transform.position - transform.position).sqrMagnitude;
+        float pressure = GetTargetWeaponCount(t);
+
+        return d * (1f + pressure * 0.15f);
+    }
+
+    float WeaponBias(GameObject t)
+    {
+        return Mathf.Abs((t.GetInstanceID() ^ ID) % 17) * 0.001f;
     }
 
     private void PickTarget()
@@ -161,6 +164,7 @@ public class Weapon : MonoBehaviour
             UpdateTargetIndicators();
             return;
         }
+
 
         GameObject best = FindBestAvailableTarget();
         if (best == null)
@@ -180,9 +184,14 @@ public class Weapon : MonoBehaviour
         // -------------------------------------------------
         // Change only when allowed
         // -------------------------------------------------
-        if (best != target && ShouldSwitch(target, best) && now >= nextReactionTime)
+        bool urgent =
+            target &&
+            (best.transform.position - transform.position).sqrMagnitude <
+            (target.transform.position - transform.position).sqrMagnitude * 0.5f;
+
+        if (best != target && (urgent || (ShouldSwitch(target, best) && now >= nextReactionTime)))
         {
-            if (target != null) RemoveTargetAssignment(target);
+            if (target) RemoveTargetAssignment(target);
 
             target = best;
             AddTargetAssignment(target);
@@ -195,21 +204,31 @@ public class Weapon : MonoBehaviour
 
     private GameObject FindBestAvailableTarget()
     {
-        foreach (var targetData in CombinedTargets)
+        GameObject best = null;
+        float bestScore = float.MaxValue;
+
+        foreach (var t in CombinedTargets)
         {
-            if (targetData.TargetObject == null) continue;
+            var obj = t.TargetObject;
+            if (!obj) continue;
 
-            int weaponCount = GetTargetWeaponCount(targetData.TargetObject);
+            float d = (obj.transform.position - transform.position).sqrMagnitude;
 
-            // Use the Weapons array length directly from ShipCore
-            if (weaponCount < _sC.Weapons.Length)
+            // hard override: close threats always win
+            if (d < 25f * 25f)
+                return obj;
+
+            float score = d * (1f + GetTargetWeaponCount(obj) * 0.15f)
+              + WeaponBias(obj);
+
+            if (score < bestScore)
             {
-                return targetData.TargetObject;
+                bestScore = score;
+                best = obj;
             }
         }
 
-        // If all targets are at max weapon count, return the best one anyway
-        return CombinedTargets.Length > 0 ? CombinedTargets[0].TargetObject : null;
+        return best;
     }
 
     private void UpdateTargetIndicators()
@@ -303,55 +322,47 @@ public class Weapon : MonoBehaviour
 
     private ShipCore.TargetData[] FindClosest()
     {
-        if (_sC.targetDataArray.Length == 0)
-            return new ShipCore.TargetData[0];
+        var src = _sC.targetDataArray;
+        if (src.Length == 0) return src;
 
-        int length = Mathf.Min(_sC.Weapons.Length, _sC.targetDataArray.Length);
-        List<ShipCore.TargetData> closestTargets = new List<ShipCore.TargetData>();
+        var list = new List<ShipCore.TargetData>(src.Length);
 
-        for (int i = 0; i < length; i++)
+        foreach (var t in src)
         {
-            if (_sC.targetDataArray[i].TargetObject != null)
-            {
-                GameObject enemy = _sC.targetDataArray[i].TargetObject;
-                float distance = Vector3.Distance(transform.position, enemy.transform.position);
+            if (!t.TargetObject) continue;
 
-                closestTargets.Add(new ShipCore.TargetData(
-                    enemy,
-                    distance * _sC.distanceThreshold
-                ));
-            }
+            float d = (t.TargetObject.transform.position - transform.position).sqrMagnitude;
+            list.Add(new ShipCore.TargetData(t.TargetObject, d * _sC.distanceThreshold));
         }
 
-        return closestTargets.ToArray();
+        list.Sort((a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance));
+        return list.ToArray();
     }
 
     private ShipCore.TargetData[] FindAngularClosest()
     {
-        if (_sC.targetDataArray.Length == 0)
-            return new ShipCore.TargetData[0];
+        var src = _sC.targetDataArray;
+        if (src.Length == 0) return src;
 
-        int length = Mathf.Min(_sC.Weapons.Length, _sC.targetDataArray.Length);
-        List<ShipCore.TargetData> angularTargets = new List<ShipCore.TargetData>();
+        var list = new List<ShipCore.TargetData>(src.Length);
+        Vector3 fwd = transform.forward;
 
-        for (int i = 0; i < length; i++)
+        foreach (var t in src)
         {
-            if (_sC.targetDataArray[i].TargetObject != null)
-            {
-                GameObject enemy = _sC.targetDataArray[i].TargetObject;
-                Vector3 directionToEnemy = enemy.transform.position - transform.position;
-                directionToEnemy.y = 0f;
-                Vector3 turretForward = transform.forward;
-                float angularDistance = Vector3.Angle(turretForward, directionToEnemy);
+            if (!t.TargetObject) continue;
 
-                angularTargets.Add(new ShipCore.TargetData(
-                    enemy,
-                    angularDistance * _sC.angularThreshold + _sC.angularMarging
-                ));
-            }
+            Vector3 dir = t.TargetObject.transform.position - transform.position;
+            dir.y = 0f;
+
+            float a = Vector3.Angle(fwd, dir);
+            list.Add(new ShipCore.TargetData(
+                t.TargetObject,
+                a * _sC.angularThreshold + _sC.angularMarging
+            ));
         }
 
-        return angularTargets.ToArray();
+        list.Sort((a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance));
+        return list.ToArray();
     }
 
     // Thread-safe target assignment methods
@@ -435,10 +446,6 @@ public class Weapon : MonoBehaviour
         isAI = !isAI;
     }
 
-    bool CanFire()
-    {
-        return Time.fixedTime >= nextFireTime && Time.fixedDeltaTime > 0;
-    }
 
     void FindProjectileSpawnPoint()
     {
@@ -459,9 +466,6 @@ public class Weapon : MonoBehaviour
         var p = Instantiate(projectilePrefab, projectileSpawnPoint.position, rot);
         p.GetComponent<Projectile>().Initialize(shipRb.linearVelocity);
         Destroy(p, 3f);
-
-        float jitter = Random.Range(-0.05f, 0.05f);   // tiny desync, per-shot
-        nextFireTime = Time.fixedTime + 1f / fireRate + jitter;
 
         GetComponent<WeaponAudioPool>().PlayShot();
     }
@@ -494,18 +498,16 @@ public class Weapon : MonoBehaviour
 
     void HandleFire()
     {
-        Vector3 fireDirection = new Vector3(
+        Vector3 fireDir = new Vector3(
             turretJoystick.Direction.x,
             0,
             turretJoystick.Direction.y
         );
 
-        if (fireDirection.magnitude > turretJoystick.DeadZone)
-        {
-            if (CanFire())
-            {
-                Fire();
-            }
-        }
+        float mag = fireDir.magnitude;
+        if (mag <= turretJoystick.DeadZone) return;
+
+        // Manual aim quality = stick deflection
+        TryFire(Mathf.Clamp01(mag));
     }
 }

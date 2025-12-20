@@ -269,6 +269,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   shipRb: {fileID: 0}
   ID: 0
+  switchAggression: 2
   target: {fileID: 0}
   prevTarget: {fileID: 0}
   indicatorRed: {fileID: 9043623084846214810}
@@ -297,7 +298,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4e5fdeba90d63e848b3d521fa4718648, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  shotClip: {fileID: 8300000, guid: c71208a5da5ab814d824847ea1a834e5, type: 3}
+  shotClip: {fileID: 8300000, guid: 6324d7a38de2fd243b9abaa9a6891c97, type: 3}
   outputGroup: {fileID: -3971088069843499658, guid: 49cd38965b49c0b45bc893d993408560, type: 2}
   poolSize: 8
 --- !u!82 &4534025389884212402
