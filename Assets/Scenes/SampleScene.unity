@@ -9831,7 +9831,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   unitTech: Terran Technocracy
   shipData: {fileID: 11400000, guid: 689ef4322c40e6649b950096d39b37c6, type: 2}
-  sonarRadius: 250
+  sonarRadius: 150
   Weapons: []
   firingThresholdAngle: 10
   distanceThreshold: 0.01
@@ -10033,21 +10033,6 @@ MonoBehaviour:
   Biota: 0
   Inerta: 0
   Gas: 0
---- !u!114 &2239112340433964465
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 1466269553703180057}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 4e5fdeba90d63e848b3d521fa4718648, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  shotClip: {fileID: 8300000, guid: 6324d7a38de2fd243b9abaa9a6891c97, type: 3}
-  outputGroup: {fileID: -3971088069843499658, guid: 49cd38965b49c0b45bc893d993408560, type: 2}
-  poolSize: 8
 --- !u!1001 &2678637358168556879
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -10189,9 +10174,6 @@ PrefabInstance:
     - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
       insertIndex: -1
       addedObject: {fileID: 2239112340433964458}
-    - targetCorrespondingSourceObject: {fileID: 8586162263944497461, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
-      insertIndex: -1
-      addedObject: {fileID: 2239112340433964465}
   m_SourcePrefab: {fileID: 100100000, guid: 9805655cfdecb6f4790969908ff4d571, type: 3}
 --- !u!1660057539 &9223372036854775807
 SceneRoots:

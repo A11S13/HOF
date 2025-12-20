@@ -19,6 +19,7 @@ public class Weapon : MonoBehaviour
     [SerializeField] float switchAggression = 3.75f;
     float targetLostUntil;
     float fireAccumulator;
+    public float FirePhase => fireAccumulator;
 
     public ShipCore.TargetData[] CombinedTargets { get; private set; }
     public GameObject target;
@@ -35,6 +36,8 @@ public class Weapon : MonoBehaviour
 
     [SerializeField]
     private float fireRate;
+    bool isFiring;
+    float firingRate;
     private float nextFireTime;
     public Collider[] _enemyColliders;
 
@@ -44,6 +47,7 @@ public class Weapon : MonoBehaviour
     public int incrementSkipFrames;
 
     private AudioSource fireAudio;
+    WeaponAudioDSP audioDSP;
 
     // Target assignment tracking
     private static Dictionary<GameObject, int> targetWeaponCount = new Dictionary<GameObject, int>();
@@ -60,7 +64,7 @@ public class Weapon : MonoBehaviour
         isAI = false;
         target = null;
         incrementSkipFrames = 3;
-        _wAP = GameObject.Find("MOTHERSHIP").GetComponent<WeaponAudioPool>();
+        audioDSP = GetComponent<WeaponAudioDSP>();
         shipRb = GameObject.Find("PLAYER").GetComponent<Rigidbody>();
         _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
         _sC.SetWeaponsID();
@@ -72,7 +76,7 @@ public class Weapon : MonoBehaviour
         // Desync the first shot
         nextFireTime = Time.time + Random.value * (1f / Mathf.Max(1f, fireRate));
 
-        reactionDelay = Random.Range(0.0f, 0.25f);
+        reactionDelay = Random.Range(0.0f, 0.75f);
         nextReactionTime = 0f;
     }
 
@@ -89,13 +93,25 @@ public class Weapon : MonoBehaviour
     {
         fireAccumulator += Time.deltaTime * fireRate;
         fireAccumulator -= Mathf.Floor(fireAccumulator);
+
+        isFiring = false;
+
         if (isAI) AIControl();
         else ManualControl();
+
+        audioDSP.Drive(isFiring, fireAccumulator);
     }
 
     void TryFire(float aimFactor)
     {
-        if (aimFactor <= 0f) return;
+        if (aimFactor <= 0f)
+        {
+            isFiring = false;
+            return;
+        }
+
+        isFiring = true;
+        firingRate = fireRate;
 
         if (fireAccumulator < Time.deltaTime * fireRate)
             Fire();
@@ -195,6 +211,8 @@ public class Weapon : MonoBehaviour
             target = best;
             AddTargetAssignment(target);
 
+            fireAccumulator += Time.deltaTime * fireRate * (1f + WeaponBias(target));
+            //fireAccumulator = Random.value; // break phase lock
             nextReactionTime = now + reactionDelay;
         }
 
@@ -465,8 +483,6 @@ public class Weapon : MonoBehaviour
         var p = Instantiate(projectilePrefab, projectileSpawnPoint.position, rot);
         p.GetComponent<Projectile>().Initialize(shipRb.linearVelocity);
         Destroy(p, 3f);
-
-        _wAP.PlayShot();
     }
 
     private void ManualControl()
