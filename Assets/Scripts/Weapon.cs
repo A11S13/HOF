@@ -8,6 +8,7 @@ public class Weapon : MonoBehaviour
     ShipCore _sC;
     ChipSynth _cS;
     AudioSource audioSource;
+    WeaponAudioPool _wAP;
 
     public Rigidbody shipRb;
 
@@ -30,7 +31,7 @@ public class Weapon : MonoBehaviour
     public float rotationSpeed = 5f;
     private FixedJoystick turretJoystick;
     private Transform projectileSpawnPoint;
-    public float initialFireRate = 40f;
+    public float initialFireRate;
 
     [SerializeField]
     private float fireRate;
@@ -38,14 +39,11 @@ public class Weapon : MonoBehaviour
     public Collider[] _enemyColliders;
 
     public GameObject projectilePrefab;
-    public GameObject projectileSoundHolderPrefab;
 
     public float angularDistance;
     public int incrementSkipFrames;
 
     private AudioSource fireAudio;
-    [SerializeField] float soundRate = 20f; // sounds/sec
-    static float nextSoundTime; // shared across all Weapon instances
 
     // Target assignment tracking
     private static Dictionary<GameObject, int> targetWeaponCount = new Dictionary<GameObject, int>();
@@ -62,6 +60,7 @@ public class Weapon : MonoBehaviour
         isAI = false;
         target = null;
         incrementSkipFrames = 3;
+        _wAP = GameObject.Find("MOTHERSHIP").GetComponent<WeaponAudioPool>();
         shipRb = GameObject.Find("PLAYER").GetComponent<Rigidbody>();
         _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
         _sC.SetWeaponsID();
@@ -467,7 +466,7 @@ public class Weapon : MonoBehaviour
         p.GetComponent<Projectile>().Initialize(shipRb.linearVelocity);
         Destroy(p, 3f);
 
-        GetComponent<WeaponAudioPool>().PlayShot();
+        _wAP.PlayShot();
     }
 
     private void ManualControl()
