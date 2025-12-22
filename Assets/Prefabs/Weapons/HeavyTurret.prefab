@@ -138,7 +138,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   shipRb: {fileID: 0}
   ID: 0
-  switchAggression: 2
   target: {fileID: 0}
   prevTarget: {fileID: 0}
   indicatorRed: {fileID: 9043623084846214810}
@@ -149,7 +148,6 @@ MonoBehaviour:
   rotationSpeed: 20
   initialFireRate: 2
   fireRate: 1
-  _enemyColliders: []
   projectilePrefab: {fileID: 1875161418295932753, guid: 14875d327e26ec94bbc59743387c229b, type: 3}
   angularDistance: 0
   incrementSkipFrames: 0

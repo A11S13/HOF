@@ -13,16 +13,19 @@ public class WeaponAudioDSP : MonoBehaviour
     float[] data;
     float step;
     float gain;
+    float releaseStep;
 
     float dt;
 
     const float ReleaseTime = 0.02f;   // click-safe
     const float WeaponGain = 0.3f;    // gain staging
 
+    bool wasFiring;
+
     void Awake()
     {
         var src = gameObject.AddComponent<AudioSource>();
-        src.playOnAwake = true;
+        src.playOnAwake = false;
         src.loop = true;
         src.outputAudioMixerGroup = weaponsBus;
 
@@ -31,49 +34,56 @@ public class WeaponAudioDSP : MonoBehaviour
 
         int outputRate = AudioSettings.outputSampleRate;
         step = (float)clip.frequency / outputRate;
-        dt = 1f / outputRate;
+        releaseStep = 1f / (ReleaseTime * outputRate);
 
-        // decorrelate multiple weapons
-        phase = Random.Range(0f, data.Length * 0.2f);
+        phase = data.Length;
+        gain = Random.Range(0.8f, 1f);
 
-        // tiny pitch variance (optional but recommended)
+
         step *= Random.Range(0.98f, 1.02f);
     }
 
-    public void Drive(bool isFiring, float weaponPhase01)
+    public void Drive(bool isFiring, float firePhase01)
     {
-        // retrigger exactly on bullet wrap
-        if (isFiring && weaponPhase01 < firePhase)
-            phase = 0f;
+        if (isFiring && firePhase01 < firePhase)
+        {
+            phase = Random.Range(0f, 2f);
+            gain = Mathf.Max(gain, 0.6f);
+        }
+
+
 
         firing = isFiring;
-        firePhase = weaponPhase01;
+        firePhase = firePhase01;
     }
+
 
     void OnAudioFilterRead(float[] buffer, int channels)
     {
-        for (int i = 0; i < buffer.Length; i++)
-            buffer[i] = 0f;
-
         for (int i = 0; i < buffer.Length; i += channels)
         {
-            bool finishingShot = !firing && phase < data.Length;
-
-            gain = (firing || finishingShot)
-                ? 1f
-                : Mathf.Max(0f, gain - dt / ReleaseTime);
-
             if (gain <= 0f)
-                return;
+                break;
 
-            int s = (int)phase;
-            float v = s < data.Length ? data[s] * gain * WeaponGain : 0f;
+            int i0 = (int)phase;
+            int i1 = i0 + 1;
 
-            for (int c = 0; c < channels; c++)
-                buffer[i + c] += v;
+            if (i1 < data.Length)
+            {
+                float t = phase - i0;
+                float s = data[i0] + (data[i1] - data[i0]) * t;
+                float v = s * gain * WeaponGain;
 
-            if (phase < data.Length)
+                for (int c = 0; c < channels; c++)
+                    buffer[i + c] += v;
+
                 phase += step;
+            }
+            else
+            {
+                gain = Mathf.Max(0f, gain - releaseStep);
+            }
         }
     }
 }
+

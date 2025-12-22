@@ -17,6 +17,13 @@ public class Weapon : MonoBehaviour
     float fireAccumulator;
     public float FirePhase => fireAccumulator;
 
+    // small randomized desync helpers
+    float _phaseDriftTimer;
+    const float PhaseDriftMinInterval = 0.2f;
+    const float PhaseDriftMaxInterval = 1.2f;
+    const float PhaseDriftAmount = 0.25f; // max amount to nudge accumulator
+
+
     public ShipCore.TargetData[] CombinedTargets { get; private set; }
     public GameObject target;
     public GameObject prevTarget;
@@ -65,6 +72,12 @@ public class Weapon : MonoBehaviour
     void Start()
     {
         fireAccumulator = Random.value;
+        // desync base rate a touch so identical weapons don't tick perfectly together
+        fireRate *= Random.Range(0.985f, 1.015f);
+
+        // initialize phase drift
+        _phaseDriftTimer = Random.Range(0f, PhaseDriftMaxInterval);
+
         isAI = false;
         target = null;
         incrementSkipFrames = 3;
@@ -102,6 +115,17 @@ public class Weapon : MonoBehaviour
     {
         fireAccumulator += Time.deltaTime * fireRate;
         fireAccumulator -= Mathf.Floor(fireAccumulator);
+
+        // occasional low-frequency phase drift to break phase lock
+        _phaseDriftTimer -= Time.deltaTime;
+        if (_phaseDriftTimer <= 0f)
+        {
+            // nudge the phase by a small random amount, clamp to [0,1)
+            fireAccumulator = (fireAccumulator + Random.Range(-PhaseDriftAmount, PhaseDriftAmount)) % 1f;
+            if (fireAccumulator < 0f) fireAccumulator += 1f;
+            _phaseDriftTimer = Random.Range(PhaseDriftMinInterval, PhaseDriftMaxInterval);
+        }
+
 
         isFiring = false;
 
@@ -253,6 +277,9 @@ public class Weapon : MonoBehaviour
             if (target) RemoveTargetAssignment(target);
 
             target = best;
+            // small phase kick on target switch to avoid synchronized re-firing when many turrets switch at once
+            fireAccumulator = (fireAccumulator + Random.Range(0f, 0.5f)) % 1f;
+
             lastTargetPos = target.transform.position;
             targetVel = Vector3.zero;
             AddTargetAssignment(target);
