@@ -265,7 +265,7 @@ AudioMixerEffectController:
     m_GUID: c7460346e1abdf64da13f8de9a8b4939
   m_SendTarget: {fileID: 0}
   m_EnableWetMix: 0
-  m_Bypass: 0
+  m_Bypass: 1
 --- !u!244 &-2024770079255340640
 AudioMixerEffectController:
   m_ObjectHideFlags: 3
@@ -403,7 +403,7 @@ AudioMixerSnapshotController:
     2989dab0460e8e249a0fc2a0fd876482: -7.436929
     e5acf2c07e4fc1645b725ce3f83920dd: 3.04
     d61ff3c0f9e94444e93cfa6d1150a205: 0.66
-    50aa53d0a87caaf4b9e5cd258f79826f: 319
+    50aa53d0a87caaf4b9e5cd258f79826f: 729
     8dfdf6d0a9a75d74294d47e7a934deb0: 8.8
     e7080dd0312d0c04aafd6d30ce142634: 200
     af2a25e09e4f8e14a9d60c8936c1cece: 14.9
@@ -426,7 +426,7 @@ AudioMixerSnapshotController:
     9bb54142a9c0d1c4c8fee773c51328b7: 10
     46b4746210d91464a9e2da059410aebe: 20
     9ad426627b8972e49a65169fc13927a2: 35
-    ee4178622584f4e4193f1e61f9f05506: 7.1
+    ee4178622584f4e4193f1e61f9f05506: 2.4
     e169757211aa9d140bdd0ca845ae497f: 14
     ae3e1ca2b0565e04497be56ea34e62cc: 0.5
     eada6ea2c7b5ac44d8f607e053aa11cf: 173

@@ -193,10 +193,10 @@ public class Weapon : MonoBehaviour
             TryFire(aim);
         }
 
-        lr.SetPosition(0, projectileSpawnPoint.position);
+        /*lr.SetPosition(0, projectileSpawnPoint.position);
         lr.SetPosition(1, aimPos);
         Debug.DrawLine(transform.position, target.transform.position, Color.white);
-        Debug.DrawLine(transform.position, aimPos, Color.green);
+        Debug.DrawLine(transform.position, aimPos, Color.green);*/
 
     }
     Vector3 Predict(Vector3 origin, Vector3 pos, Vector3 vel, float speed)
