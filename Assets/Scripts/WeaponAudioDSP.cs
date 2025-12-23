@@ -15,6 +15,8 @@ public class WeaponAudioDSP : MonoBehaviour
     float gain;
     float releaseStep;
     const float DenseMakeup = 1.45f;
+    float targetGain;
+
 
 
 
@@ -57,6 +59,8 @@ public class WeaponAudioDSP : MonoBehaviour
     // called on main thread
     public void Drive(bool isFiring, float firePhase01)
     {
+        targetGain = 1f;
+
         // bullet edge detection (wrap)
         if (isFiring && firePhase01 < firePhase)
         {
@@ -111,7 +115,8 @@ public class WeaponAudioDSP : MonoBehaviour
                 float procPre = raw;
 
                 // apply lowpass smoothing (per-voice state)
-                float lpCoeff = Mathf.Lerp(0.16f, 0.26f, processingAmount);
+                float lpCoeff = Mathf.Lerp(0.22f, 0.14f, processingAmount);
+
 
                 lp += (procPre - lp) * lpCoeff;
 
@@ -124,7 +129,8 @@ public class WeaponAudioDSP : MonoBehaviour
                 float sat = v - v * v * v * k;
 
                 sat += raw * 0.05f * processingAmount;
-                sat += (raw - processed) * 0.05f * processingAmount;
+                sat += (raw - processed) * 0.09f * processingAmount;
+
 
 
 
@@ -142,11 +148,15 @@ public class WeaponAudioDSP : MonoBehaviour
 
                 // advance phase using drift-influenced step
                 phase += localStep;
+
+                gain += (targetGain - gain) * 0.0025f;
+
             }
             else
             {
                 // tail / release
-                gain = Mathf.Max(0f, gain - releaseStep);
+                gain = Mathf.Max(0f, gain - releaseStep * Mathf.Lerp(1f, 0.6f, processingAmount));
+
             }
 
             // write to all channels
