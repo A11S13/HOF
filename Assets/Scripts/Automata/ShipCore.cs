@@ -5,36 +5,56 @@ using UnityEngine.UI;
 public class ShipCore : MonoBehaviour
 {
     public string unitTech;
-    // Reference to ShipData Scriptable Object
     public ShipData shipData;
+
     Sonar _sonar;
+
     public float sonarRadius = 100f;
+    public TargetingConfig targetingConfig;
 
     public Weapon[] Weapons;
+
     public float firingThresholdAngle = 5f;
     public float distanceThreshold = 1;
     public float angularThreshold = 1;
-    public float angularMarging = 10; //to not intercept on rotation
+    public float angularMarging = 10;
+
     [Header("Weapon AI Settings")]
-    [Tooltip("Maximum weapons that can target the same enemy (equals total weapons count)")]
     public int maxWeaponsPerTarget => Weapons.Length;
 
     public Slider shieldsSlider;
     public Slider enginesSlider;
     public Slider weaponsSlider;
     public Slider commandSlider;
+
     float enginesDistributedEnergy;
     float weaponsDistributedEnergy;
 
-    private MovementControl movementControl;
-    private TargetData[][] AllTargetsArrays;
+    MovementControl movementControl;
+
+    TargetData[][] AllTargetsArrays;
     public TargetData[] targetDataArray;
-    public string[] tags = new string[] { "Enemy" };
 
     void Awake()
     {
         _sonar = GameObject.Find("Sonar").GetComponent<Sonar>();
-        Weapons = Object.FindObjectsByType<Weapon>(FindObjectsSortMode.None); // Creates Weapons Array
+        Weapons = Object.FindObjectsByType<Weapon>(FindObjectsSortMode.None);
+    }
+
+    void Start()
+    {
+        ActualizeTargets();
+        AllTargetsArrays = new TargetData[][] { };
+
+        movementControl = GetComponentInParent<MovementControl>();
+
+        enginesDistributedEnergy = shipData.overallEnergy * enginesSlider.value;
+        weaponsDistributedEnergy = shipData.overallEnergy * weaponsSlider.value;
+
+        movementControl.UpdateMaxSpeed(enginesDistributedEnergy);
+
+        foreach (var w in Weapons)
+            w.UpdateFirePower(weaponsDistributedEnergy);
     }
 
     void FixedUpdate()
@@ -43,165 +63,90 @@ public class ShipCore : MonoBehaviour
         AllTargetsArrays = new TargetData[][] { };
     }
 
-    void Start()
-    {
-        ActualizeTargets();
-        AllTargetsArrays = new TargetData[][] { }; // Initialize Array of input Targets Arrays
-        // Assuming the MovementControl component is attached to the same GameObject as ShipCore
-        movementControl = GetComponentInParent<MovementControl>();
-
-        // Calculate initial distributed energy based on the overall energy from ShipData and the initial value of engines slider
-        float initialEnginesValue = enginesSlider.value;
-        enginesDistributedEnergy = shipData.overallEnergy * initialEnginesValue;
-
-        // Calculate initial distributed energy for weapons based on ShipData and the initial value of weapons slider
-        float initialWeaponsValue = weaponsSlider.value;
-        weaponsDistributedEnergy = shipData.overallEnergy * initialWeaponsValue;
-
-        // Update acceleration in MovementControl with the initial value
-        movementControl.UpdateMaxSpeed(enginesDistributedEnergy);
-
-        // Notify Weapons about initial energy distribution
-        foreach (var Weapon in Weapons)
-        {
-            Weapon.UpdateFirePower(weaponsDistributedEnergy);
-        }
-    }
-
     public void SetWeaponsID()
     {
-        int middleIndex = Weapons.Length / 2;
+        int middle = Weapons.Length / 2;
 
         for (int i = 0; i < Weapons.Length; i++)
         {
-            int id;
-
-            if (Weapons.Length % 2 == 1) // Odd number of weapons
-            {
-                id = i - middleIndex;
-            }
-            else // Even number of weapons
-            {
-                id = i - middleIndex + 1;
-            }
+            int id = Weapons.Length % 2 == 1
+                ? i - middle
+                : i - middle + 1;
 
             Weapons[i].ID = id;
         }
     }
 
+
     public void ActualizeTargets()
     {
-        _sonar.DriveSonar(tags, 50);
-        FormClosestEnemiesArray();
+        _sonar.DriveSonar(50);
+        FormClosestTargetsArray();
     }
 
-    public void FormClosestEnemiesArray()
+    void FormClosestTargetsArray()
     {
-        _sonar.trackedColliders = _sonar.trackedColliders
-            .Where(c => c && c.GetComponent<Enemy>()?.IsAlive() == true)
-            .OrderBy(c => (c.transform.position - transform.position).sqrMagnitude)
-            .ToList();
+        var targets = _sonar.trackedTargets;
 
-        targetDataArray = new TargetData[_sonar.trackedColliders.Count];
+        targetDataArray = new TargetData[targets.Count];
 
-        for (int i = 0; i < targetDataArray.Length; i++)
+        for (int i = 0; i < targets.Count; i++)
         {
-            var c = _sonar.trackedColliders[i];
-            float d = (c.transform.position - transform.position).sqrMagnitude;
-            targetDataArray[i] = new TargetData(c.gameObject, d);
+            var t = targets[i];
+            float d = (t.transform.position - transform.position).sqrMagnitude;
+            targetDataArray[i] = new TargetData(t.gameObject, d);
         }
     }
 
-
-    public TargetData[] ArrangeTargets(TargetData[] passedCombinedTargets) // DELETES DUBLICATES
+    public TargetData[] ArrangeTargets(TargetData[] passedCombinedTargets)
     {
-        //Debug.Log("RECEIVING TARGET DATA");
-
-        if (AllTargetsArrays.Length == 0) // 1) ATA IS EMPTY
+        if (AllTargetsArrays.Length == 0)
         {
-            passedCombinedTargets = new TargetData[] { passedCombinedTargets[0] };
-            AllTargetsArrays = AllTargetsArrays
-                .Concat(new TargetData[][] { passedCombinedTargets })
-                .ToArray();
-
+            passedCombinedTargets = new[] { passedCombinedTargets[0] };
+            AllTargetsArrays = AllTargetsArrays.Concat(new[] { passedCombinedTargets }).ToArray();
             return passedCombinedTargets;
         }
-        else // 2) TARGET MATCH
+
+        while (
+            passedCombinedTargets.Length != 0 &&
+            AllTargetsArrays.Any(a => passedCombinedTargets[0].TargetObject == a[0].TargetObject)
+        )
         {
-            while ( // REMOVE MATCHING TARGETS
-                passedCombinedTargets.Length != 0
-                && AllTargetsArrays.Any(
-                    array => passedCombinedTargets[0].TargetObject == array[0].TargetObject
-                )
-            )
-            {
-                //Debug.Log("SKIPPING...");
-                passedCombinedTargets = passedCombinedTargets.Skip(1).ToArray();
-            }
-            if (passedCombinedTargets.Length != 0)
-            {
-                passedCombinedTargets = new TargetData[] { passedCombinedTargets[0] };
-                AllTargetsArrays = AllTargetsArrays
-                    .Concat(new TargetData[][] { passedCombinedTargets })
-                    .ToArray();
-
-                return passedCombinedTargets;
-            }
-            return passedCombinedTargets;
+            passedCombinedTargets = passedCombinedTargets.Skip(1).ToArray();
         }
-    }
 
-    // Method to handle engines slider change
-    public void OnEnginesSliderChanged(float enginesValue)
-    {
-        if (movementControl != null)
+        if (passedCombinedTargets.Length != 0)
         {
-            // Calculate distributed energy based on the overall energy from ShipData and the engines value
-            enginesDistributedEnergy = shipData.overallEnergy * enginesValue;
-
-            // Update acceleration in MovementControl
-            movementControl.UpdateMaxSpeed(enginesDistributedEnergy);
+            passedCombinedTargets = new[] { passedCombinedTargets[0] };
+            AllTargetsArrays = AllTargetsArrays.Concat(new[] { passedCombinedTargets }).ToArray();
         }
+
+        return passedCombinedTargets;
     }
 
-    // Method to handle shields slider change
-    public void OnShieldsSliderChanged(float shieldsValue)
+    public void OnEnginesSliderChanged(float v)
     {
-        // Your implementation for handling shields slider change
+        if (!Application.isPlaying || !this) return;
+        enginesDistributedEnergy = shipData.overallEnergy * v;
+        movementControl.UpdateMaxSpeed(enginesDistributedEnergy);
     }
 
-    // Method to handle weapons slider change
-    public void OnWeaponsSliderChanged(float weaponsValue)
+    public void OnWeaponsSliderChanged(float v)
     {
-        weaponsDistributedEnergy = shipData.overallEnergy * weaponsValue;
-        foreach (var Weapon in Weapons)
-        {
-            Weapon.UpdateFirePower(weaponsDistributedEnergy);
-        }
-    }
-
-    // Method to handle command slider change
-    public void OnCommandSliderChanged(float commandValue)
-    {
-        // Your implementation for handling command slider change
+        weaponsDistributedEnergy = shipData.overallEnergy * v;
+        foreach (var w in Weapons)
+            w.UpdateFirePower(weaponsDistributedEnergy);
     }
 
     public struct TargetData
     {
-        public GameObject TargetObject { get; set; }
-        public float UnifiedDistance { get; } // Unified distance for both linear and angular distances
+        public GameObject TargetObject { get; }
+        public float UnifiedDistance { get; }
 
-        // Add a property for the GameObject
-        public GameObject GameObject
+        public TargetData(GameObject obj, float d)
         {
-            get { return TargetObject; }
-            set { TargetObject = value; }
-        }
-
-        public TargetData(GameObject targetObject, float unifiedDistance)
-        {
-            TargetObject = targetObject;
-            UnifiedDistance = unifiedDistance;
+            TargetObject = obj;
+            UnifiedDistance = d;
         }
     }
 }

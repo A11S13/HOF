@@ -152,13 +152,18 @@ public class Weapon : MonoBehaviour
 
     private void AIControl()
     {
-        if (target && (target.GetComponent<Enemy>() == null || target.GetComponent<Enemy>().isDestroyed))
+        if (target)
         {
-            RemoveTargetAssignment(target);
-            target = null;
-            targetLostUntil = Time.time + reactionDelay;
-            return;
+            var t = target.GetComponent<Targetable>();
+            if (t == null || !t.IsAlive)
+            {
+                RemoveTargetAssignment(target);
+                target = null;
+                targetLostUntil = Time.time + reactionDelay;
+                return;
+            }
         }
+
 
         if (Time.time >= targetLostUntil)
             PickTarget();   // <-- ALWAYS re-evaluate

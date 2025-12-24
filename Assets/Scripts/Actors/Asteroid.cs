@@ -18,9 +18,6 @@ public class Asteroid : MonoBehaviour
     private AsteroidBelt asteroidBelt;
     private AsteroidSize asteroidSize;
 
-    [Header("Health Settings")]
-    public int maxHealth = 100;
-    private int currentHealth;
 
     public void Initialize(AsteroidBelt belt, AsteroidSize size, Transform player, float cleanupRadiusSq)
     {
@@ -29,7 +26,6 @@ public class Asteroid : MonoBehaviour
         playerTransform = player;
         cleanupRadiusSquared = cleanupRadiusSq;
         canDespawn = true;
-        currentHealth = maxHealth;
 
         StartCoroutine(SelfDespawnCheck());
     }
@@ -81,15 +77,11 @@ public class Asteroid : MonoBehaviour
         }
     }
 
-    public void TakeDamage(int damage)
+    void OnDeath()
     {
-        currentHealth -= damage;
-
-        if (currentHealth <= 0)
-        {
-            Explode();
-        }
+        Explode();
     }
+
 
     private void Explode()
     {
@@ -105,33 +97,8 @@ public class Asteroid : MonoBehaviour
         Destroy(gameObject);
     }
 
-    void OnCollisionEnter(Collision collision)
-    {
-        // Check if collided with a bullet or other damaging object
-        if (collision.gameObject.CompareTag("Projectile"))
-        {
-            // Get the projectile component to access damage value
-            Projectile projectile = collision.gameObject.GetComponent<Projectile>();
-            if (projectile != null)
-            {
-                TakeDamage((int)projectile.GetDamage());
-            }
-        }
-    }
 
-    void OnTriggerEnter(Collider other)
-    {
-        // Also handle trigger collisions (in case projectiles are set as triggers)
-        if (other.CompareTag("Projectile"))
-        {
-            Projectile projectile = other.GetComponent<Projectile>();
-            if (projectile != null)
-            {
-                TakeDamage((int)projectile.GetDamage());
-                Destroy(other.gameObject); // Destroy the projectile
-            }
-        }
-    }
+
 
     void FixedUpdate()
     {

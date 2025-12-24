@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Collections;
 using Unity.Jobs;
 using Unity.Mathematics;
@@ -8,92 +7,77 @@ using UnityEngine;
 public class Sonar : MonoBehaviour
 {
     ShipCore _sC;
-    public Collider[] enemyColliders;
-    public int maxTrackedCap;
+    TargetingConfig config;
+
     public float sonarCurrentRadius = 100f;
-    public float sonarPrevMaxRadius;
     public Material sonarMaterial;
 
-    private LineRenderer sonarVisual;
-    private int maxTracked;
+    LineRenderer sonarVisual;
 
-    public List<Collider> trackedColliders = new List<Collider>();
-
-    void FixedUpdate() { }
+    public List<Targetable> trackedTargets = new List<Targetable>();
 
     void Awake()
     {
         _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
-        sonarPrevMaxRadius = _sC.sonarRadius;
-        trackedColliders = new List<Collider>();
-        CreateSonarVisual();
+        config = _sC.targetingConfig;
         sonarCurrentRadius = _sC.sonarRadius;
+        CreateSonarVisual();
     }
 
-    private void CreateSonarVisual()
+    void FixedUpdate() { }
+
+    void CreateSonarVisual()
     {
         sonarVisual = gameObject.AddComponent<LineRenderer>();
         sonarVisual.material = sonarMaterial;
-        sonarVisual.positionCount = 100; // Adjust based on the circle's smoothness
+        sonarVisual.positionCount = 100;
+        sonarVisual.startWidth = 0.2f;
+        sonarVisual.endWidth = 0.2f;
 
-        // Set the initial circle points using polar coordinates
-        List<Vector3> points = new List<Vector3>();
+        var points = new Vector3[100];
         for (int i = 0; i < 100; i++)
         {
-            float angle = i * 2 * Mathf.PI / 100;
-            float x = Mathf.Cos(angle) * sonarCurrentRadius;
-            float z = Mathf.Sin(angle) * sonarCurrentRadius;
-            float y = 0;
-
-            points.Add(new Vector3(x, y, z));
+            float a = i * 2 * Mathf.PI / 100;
+            points[i] = new Vector3(Mathf.Cos(a), 0, Mathf.Sin(a)) * sonarCurrentRadius;
         }
 
-        // Set positions
-        sonarVisual.SetPositions(points.ToArray());
-
-        // Set the width of the line
-        sonarVisual.startWidth = 0.2f; // Adjust the width as needed
-        sonarVisual.endWidth = 0.2f; // Adjust the width as needed
+        sonarVisual.SetPositions(points);
     }
 
-    public void DriveSonar(string[] tags, int maxCount)
+    public void DriveSonar(int maxCount)
     {
-        // 1. Get all colliders in sphere
-        Collider[] allColliders = Physics.OverlapSphere(transform.position, sonarCurrentRadius);
+        var colliders = Physics.OverlapSphere(transform.position, sonarCurrentRadius);
+        var targets = new List<Targetable>();
 
-        // 2. Filter by tags
-        List<Collider> filteredColliders = new List<Collider>();
-        foreach (var col in allColliders)
+        foreach (var col in colliders)
         {
-            foreach (string tag in tags)
-            {
-                if (col.CompareTag(tag))
-                {
-                    filteredColliders.Add(col);
-                    break;
-                }
-            }
+            var t = col.GetComponent<Targetable>();
+            if (t == null || !t.IsAlive)
+                continue;
+
+            if (!config.Allows(t))
+                continue;
+
+            targets.Add(t);
         }
 
-        int targetCount = filteredColliders.Count;
-        if (targetCount == 0)
+        int count = targets.Count;
+        if (count == 0)
         {
-            trackedColliders.Clear();
+            trackedTargets.Clear();
             return;
         }
 
-        // 3. Prepare data for jobs
-        NativeArray<float3> positions = new NativeArray<float3>(targetCount, Allocator.TempJob);
-        NativeArray<int> indices = new NativeArray<int>(targetCount, Allocator.TempJob);
-        NativeArray<float> distances = new NativeArray<float>(targetCount, Allocator.TempJob);
+        var positions = new NativeArray<float3>(count, Allocator.TempJob);
+        var indices = new NativeArray<int>(count, Allocator.TempJob);
+        var distances = new NativeArray<float>(count, Allocator.TempJob);
 
-        for (int i = 0; i < targetCount; i++)
+        for (int i = 0; i < count; i++)
         {
-            positions[i] = filteredColliders[i].transform.position;
+            positions[i] = targets[i].transform.position;
             indices[i] = i;
         }
 
-        // 4. Schedule jobs
         var distanceJob = new SonarDistanceJob
         {
             SeekerPos = (float3)transform.position,
@@ -107,19 +91,14 @@ public class Sonar : MonoBehaviour
             Indices = indices
         };
 
-        JobHandle distanceHandle = distanceJob.Schedule(targetCount, 64);
+        JobHandle distanceHandle = distanceJob.Schedule(count, 64);
         JobHandle sortHandle = sortJob.Schedule(distanceHandle);
         sortHandle.Complete();
 
-        // 5. Update tracked colliders
-        trackedColliders.Clear();
-        int resultCount = Mathf.Min(maxCount, targetCount);
-        for (int i = 0; i < resultCount; i++)
-        {
-            trackedColliders.Add(filteredColliders[indices[i]]);
-        }
+        trackedTargets.Clear();
+        for (int i = 0; i < Mathf.Min(maxCount, count); i++)
+            trackedTargets.Add(targets[indices[i]]);
 
-        // 6. Cleanup
         positions.Dispose();
         indices.Dispose();
         distances.Dispose();

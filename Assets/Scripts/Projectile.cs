@@ -5,21 +5,17 @@ public class Projectile : MonoBehaviour
     public float speed = 200f;
     public static float damage = 20f;
 
-    private Vector3 velocity;
-    private bool isInitialized = false;
+    Vector3 velocity;
+    bool isInitialized;
 
     void Start()
     {
-        // Only set default velocity if not already initialized
         if (!isInitialized)
-        {
             velocity = transform.forward * speed;
-        }
     }
 
     public void Initialize(Vector3 parentVelocity)
     {
-        // Add parent velocity to projectile's base velocity
         velocity = transform.forward * speed + parentVelocity;
         isInitialized = true;
     }
@@ -31,15 +27,10 @@ public class Projectile : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        // Check if we hit an asteroid
-        Asteroid asteroid = other.GetComponent<Asteroid>();
-        if (asteroid != null)
+        var d = other.GetComponent<Damageable>();
+        if (d != null)
         {
-            asteroid.TakeDamage((int)damage);
-            Destroy(gameObject);
-        }
-        else if (other.CompareTag("Enemy"))
-        {
+            d.Damage(damage);
             Destroy(gameObject);
         }
     }
