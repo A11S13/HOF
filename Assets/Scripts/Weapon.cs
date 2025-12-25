@@ -554,6 +554,7 @@ public class Weapon : MonoBehaviour
 
     void Fire()
     {
+        EventBus.Instance.Publish(new PlayerShotEvent());
         float spread = 3f;
         float yaw = Random.Range(-spread, spread);
         Quaternion rot = projectileSpawnPoint.rotation * Quaternion.Euler(0, yaw, 0);

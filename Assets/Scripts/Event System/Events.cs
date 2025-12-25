@@ -5,6 +5,10 @@ public struct GameStartEvent : IGlobalEvent { }
 public struct ClusterTransitionEvent : IGlobalEvent { }
 public struct AnimaWaveStartedEvent : IGlobalEvent { }
 public struct AnimaWaveClearedEvent : IGlobalEvent { }
+public struct AggressionDecayedEvent : IGlobalEvent { }
+public struct PlayerShotEvent : IGlobalEvent { }
+
+
 
 
 // LOCAL EVENTS

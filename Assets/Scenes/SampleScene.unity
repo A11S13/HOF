@@ -1479,7 +1479,7 @@ AudioSource:
   m_PlayOnAwake: 0
   m_Volume: 1
   m_Pitch: 1
-  Loop: 0
+  Loop: 1
   Mute: 0
   Spatialize: 0
   SpatializePostEffects: 0
@@ -2126,6 +2126,7 @@ GameObject:
   - component: {fileID: 741419630}
   - component: {fileID: 741419632}
   - component: {fileID: 741419633}
+  - component: {fileID: 741419634}
   m_Layer: 0
   m_Name: OBSERVER
   m_TagString: Untagged
@@ -2231,6 +2232,25 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   neutralKillThreshold: 3
   wavesPerTrigger: 1
+--- !u!114 &741419634
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 741419625}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 30ad11d824ce5a7418d9cd1c796aed89, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  aggressionPerKill: 5
+  maxAggression: 100
+  decayRate: 2
+  decayDelay: 1
+  shootingActivityWindow: 2
+  showDebugInfo: 1
+  debugLogInterval: 0.5
 --- !u!1 &884419063
 GameObject:
   m_ObjectHideFlags: 0
@@ -9674,10 +9694,17 @@ MonoBehaviour:
   _stateManager: {fileID: 741419628}
   musicAudioSource: {fileID: 496776449}
   audioSource: {fileID: 2094032405}
-  enterClip: {fileID: 0}
-  leaveClip: {fileID: 0}
+  enterClip: {fileID: 8300000, guid: 68be9c3757c178d4ebad5b6268b67175, type: 3}
+  leaveClip: {fileID: 8300000, guid: 0d316b0c1e971244ab4e7b43792f3130, type: 3}
   waveStartClip: {fileID: 8300000, guid: 92b190a1f555ee543ae3ef2324713e91, type: 3}
   waveEndClip: {fileID: 8300000, guid: 90e2b0a7473fbda498ba4f193e862247, type: 3}
+  calmMusic: {fileID: 8300000, guid: 4890576d7bcca764494bec4174355375, type: 3}
+  threateningMusic: {fileID: 8300000, guid: 4b361eb96c03ede4aa1e4797d9fd5a5d, type: 3}
+  aftermathMusic: {fileID: 8300000, guid: 36ce5e96bf4a76d43b668361f5916ae1, type: 3}
+  musicFadeDuration: 3
+  baseAftermathDelay: 1
+  delayPerAggression: 0.1
+  maxAftermathDelay: 10
 --- !u!1 &2048803199
 GameObject:
   m_ObjectHideFlags: 0
