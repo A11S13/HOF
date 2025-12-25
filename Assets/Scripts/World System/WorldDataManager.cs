@@ -62,6 +62,49 @@ public class WorldDataManager : MonoBehaviour
         //Debug.Log($"WORLD TEXTURE: {_textureSize}: px {_pixelToQuadrantRatio}: r");
     }
 
+    public void SpawnAnimaAt(Vector3 position, bool friendly)
+    {
+        float q = _stateManager.quadrantSize;
+
+        Vector3 p = position + new Vector3(
+            _stateManager.clusterBounds.x * 0.5f,
+            0,
+            _stateManager.clusterBounds.y * 0.5f
+        );
+
+        int x = Mathf.FloorToInt(p.x / q);
+        int y = Mathf.FloorToInt(p.z / q);
+
+        int maxX = Mathf.FloorToInt(_stateManager.clusterBounds.x / q);
+        int maxY = Mathf.FloorToInt(_stateManager.clusterBounds.y / q);
+
+        x = Mathf.Clamp(x, 0, maxX - 1);
+        y = Mathf.Clamp(y, 0, maxY - 1);
+
+        var quadrant = new Vector2Int(x, y);
+
+        var data = new GameObjectData
+        {
+            Position = position,
+            Rotation = Quaternion.identity,
+            PrefabID = "Anima",
+            ObjectID = GenerateUniqueName("Anima", position),
+            Velocity = Vector3.zero,
+            AngularVelocity = Vector3.zero
+        };
+
+        var instance = SpawnGameObject(data, quadrant);
+        if (!instance) return;
+
+        var alignment = instance.GetComponent<Alignment>();
+        if (alignment)
+            alignment.isFriendly = friendly;
+    }
+
+
+
+
+
     private void InitializeObjectPools()
     {
         _prefabLookup[animaPrefab.name] = animaPrefab;
@@ -283,66 +326,50 @@ public class WorldDataManager : MonoBehaviour
         return obj;
     }
 
-    private void SpawnGameObject(GameObjectData objData, Vector2Int quadrantPos)
-{
-    // Get object from pool instead of instantiating
-    GameObject instance = GetPooledObject(objData.PrefabID);
-    if (instance == null) return;
-
-    // Set position and rotation
-    instance.transform.position = objData.Position;
-    instance.transform.rotation = objData.Rotation;
-    instance.name = objData.ObjectID; // Ensure the GameObject's name is the ObjectID
-
-    // Apply velocity and angular velocity if the object has a Rigidbody
-    Rigidbody rb = instance.GetComponent<Rigidbody>();
-    if (rb != null)
+    private GameObject SpawnGameObject(GameObjectData objData, Vector2Int quadrantPos)
     {
-        rb.linearVelocity = objData.Velocity;  // Corrected: linearVelocity
-        rb.angularVelocity = objData.AngularVelocity;
-    }
+        GameObject instance = GetPooledObject(objData.PrefabID);
+        if (instance == null) return null;
 
-    // Initialize the WorldObject method on the spawned object
-    // Initialize Azoth objects
-    if (objData.PrefabID == "Azoth")
-    {
-        Azoth azothScript = instance.GetComponent<Azoth>();
-        if (azothScript != null)
+        instance.transform.position = objData.Position;
+        instance.transform.rotation = objData.Rotation;
+        instance.name = objData.ObjectID;
+
+        Rigidbody rb = instance.GetComponent<Rigidbody>();
+        if (rb)
         {
-            azothScript.Initialize(quadrantPos, this, objData.ObjectID); // Pass ObjectID
+            rb.linearVelocity = objData.Velocity;
+            rb.angularVelocity = objData.AngularVelocity;
         }
-    }
-    // Initialize Anima objects
-    else if (objData.PrefabID == "Anima")
-    {
-        Anima animaScript = instance.GetComponent<Anima>();
-        if (animaScript != null)
+
+        if (objData.PrefabID == "Azoth")
         {
-            animaScript.Initialize(quadrantPos, this, objData.ObjectID); // Pass ObjectID
+            var azoth = instance.GetComponent<Azoth>();
+            if (azoth)
+                azoth.Initialize(quadrantPos, this, objData.ObjectID);
         }
+        else if (objData.PrefabID == "Anima")
+        {
+            var anima = instance.GetComponent<Anima>();
+            if (anima)
+                anima.Initialize(quadrantPos, this, objData.ObjectID);
+        }
+
+        if (!_activeObjects.ContainsKey(quadrantPos))
+            _activeObjects[quadrantPos] = new List<GameObject>();
+
+        _activeObjects[quadrantPos].Add(instance);
+
+        switch (objData.PrefabID)
+        {
+            case "Azoth": _activeAzothCount++; break;
+            case "Anima": _activeAnimaCount++; break;
+            case "Artifica": _activeArtificaCount++; break;
+        }
+
+        return instance;
     }
 
-    if (!_activeObjects.ContainsKey(quadrantPos))
-    {
-        _activeObjects[quadrantPos] = new List<GameObject>();
-    }
-    _activeObjects[quadrantPos].Add(instance);
-
-    string prefabId = objData.PrefabID;
-
-    switch (prefabId)
-    {
-        case "Azoth":
-            _activeAzothCount++;
-            break;
-        case "Anima":
-            _activeAnimaCount++;
-            break;
-        case "Artifica":
-            _activeArtificaCount++;
-            break;
-    }
-}
 
     public void WriteQuadrantData(Vector2Int quadrantPos, GameObject obj, Vector3 velocity, Vector3 angularVelocity)
     {

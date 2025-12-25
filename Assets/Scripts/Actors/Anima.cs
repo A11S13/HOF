@@ -121,6 +121,14 @@ public class Anima : MonoBehaviour
 
     void Explode()
     {
+        var alignment = GetComponent<Alignment>();
+        bool wasFriendly = alignment && alignment.isFriendly;
+
+        EventBus.Instance.Publish(
+            new AnimaKilledEvent(transform.position, wasFriendly)
+        );
+
+
         // Calculate the current quadrant before returning to pool
         Vector2Int currentObjectQuadrant = GetCurrentQuadrant();
 

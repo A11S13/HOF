@@ -1281,6 +1281,7 @@ GameObject:
   m_Component:
   - component: {fileID: 463808926}
   - component: {fileID: 463808928}
+  - component: {fileID: 463808929}
   m_Layer: 0
   m_Name: OVERMIND
   m_TagString: Untagged
@@ -1319,7 +1320,7 @@ MonoBehaviour:
   arcAngle: 360
   fRadius: 80
   cRadius: 12
-  wPlayer: 0
+  wPlayer: 20
   wCrowd: 3
   wAlign: 1
   wCohesion: 1
@@ -1340,6 +1341,23 @@ MonoBehaviour:
   maxObstacleScanRadius: 50
   minObstacleAvoidWeight: 300
   maxObstacleAvoidWeight: 1000
+--- !u!114 &463808929
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 463808923}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 9ed68e54b9a574643bc8684c84af4d2c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  world: {fileID: 741419630}
+  animaPrefab: {fileID: 2044892534391141163, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
+  animasPerWave: 5
+  waveInterval: 2
+  spawnRadius: 20
 --- !u!1 &487768711
 GameObject:
   m_ObjectHideFlags: 0
@@ -2108,6 +2126,7 @@ GameObject:
   - component: {fileID: 741419629}
   - component: {fileID: 741419630}
   - component: {fileID: 741419632}
+  - component: {fileID: 741419633}
   m_Layer: 0
   m_Name: OBSERVER
   m_TagString: Untagged
@@ -2199,6 +2218,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _WSM: {fileID: 741419628}
+--- !u!114 &741419633
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 741419625}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: ef6b7c796e6027d4faec4d664bf881be, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  neutralKillThreshold: 3
+  wavesPerTrigger: 2
 --- !u!1 &884419063
 GameObject:
   m_ObjectHideFlags: 0
@@ -9640,8 +9673,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   _stateManager: {fileID: 0}
-  musicAudioSource: {fileID: 496776449}
-  audioSource: {fileID: 2094032405}
+  musicAudioSource: {fileID: 0}
+  audioSource: {fileID: 0}
   enterClip: {fileID: 0}
   leaveClip: {fileID: 0}
 --- !u!1 &2048803199

@@ -17,3 +17,29 @@ public struct QuadrantTransitionEvent : IQuadrantEvent
     }
 }
 
+public struct AnimaKilledEvent : IGlobalEvent
+{
+    public Vector3 Position;
+    public bool WasFriendly;
+
+    public AnimaKilledEvent(Vector3 pos, bool wasFriendly)
+    {
+        Position = pos;
+        WasFriendly = wasFriendly;
+    }
+}
+
+public struct StartAnimaWaveEvent : ILocalEvent
+{
+    public Vector3 Location { get; }
+    public int Waves { get; }
+
+    public StartAnimaWaveEvent(Vector3 location, int waves)
+    {
+        Location = location;
+        Waves = waves;
+    }
+}
+
+
+

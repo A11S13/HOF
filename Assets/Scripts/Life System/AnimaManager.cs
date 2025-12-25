@@ -94,7 +94,7 @@ public class AnimaManager : MonoBehaviour
         UpdateSettings();
         var actives = animas.Where(a => a && a.gameObject.activeSelf).ToList();
         int n = actives.Count; if (n == 0) return;
-
+        var friendlyArr = new NativeArray<bool>(n, Allocator.TempJob);
         var ta = new TransformAccessArray(n);
         var posArr = new NativeArray<float3>(n, Allocator.TempJob);
         var rotArr = new NativeArray<quaternion>(n, Allocator.TempJob);
@@ -108,7 +108,11 @@ public class AnimaManager : MonoBehaviour
             rotArr[i] = actives[i].transform.rotation;
             dataArr[i] = actives[i].data;
             speedMultipliers[i] = actives[i].animaSpeedMultiplier;
+
+            var al = actives[i].GetComponent<Alignment>();
+            friendlyArr[i] = al && al.isFriendly;
         }
+
 
         var cols = Physics.OverlapSphere(G.playerPosition, 300f, obstacleLayerMask);
         var obsArr = new NativeArray<float4>(cols.Length, Allocator.TempJob);
@@ -124,6 +128,8 @@ public class AnimaManager : MonoBehaviour
             animaRotations = rotArr,
             animaJobData = dataArr,
             speedMultipliers = speedMultipliers,
+            animaFriendly = friendlyArr,
+
             obstaclePositions = obsArr,
             obstacleCount = obsArr.Length,
             minObstacleScanRadius = G.minObstacleScanRadius,
@@ -131,6 +137,7 @@ public class AnimaManager : MonoBehaviour
             minObstacleAvoidWeight = G.minObstacleAvoidWeight,
             maxObstacleAvoidWeight = G.maxObstacleAvoidWeight,
             deltaTime = Time.deltaTime,
+
             fRadius = G.fRadius,
             cRadius = G.cRadius,
             arcAngle = G.arcAngle,
@@ -139,12 +146,14 @@ public class AnimaManager : MonoBehaviour
             wAlign = G.wAlign,
             wCohesion = G.wCohesion,
             wNoise = G.wNoise,
+
             swarm = G.swarm,
             tPlayer = G.tPlayer,
             align = G.align,
             cohesion = G.cohesion,
             crowd = G.crowd,
             noise = G.noise,
+
             baseMinSpeed = G.baseMinSpeed,
             baseMaxSpeed = G.baseMaxSpeed,
             maxRotationSpeed = G.maxRotationSpeed,
@@ -152,15 +161,19 @@ public class AnimaManager : MonoBehaviour
             seed = (uint)UnityEngine.Random.Range(1, int.MaxValue)
         }.Schedule(ta).Complete();
 
+
         for (int i = 0; i < n; i++) actives[i].data = dataArr[i];
 
         ta.Dispose(); posArr.Dispose(); rotArr.Dispose();
         dataArr.Dispose(); obsArr.Dispose(); speedMultipliers.Dispose();
+        friendlyArr.Dispose();
+
     }
 
     [BurstCompile]
     struct AnimaAIJob : IJobParallelForTransform
     {
+        [ReadOnly] public NativeArray<bool> animaFriendly;
         [ReadOnly] public NativeArray<float3> animaPositions;
         [ReadOnly] public NativeArray<quaternion> animaRotations;
         public NativeArray<Anima.AnimaData> animaJobData;
@@ -272,11 +285,12 @@ public class AnimaManager : MonoBehaviour
             }
 
             // Player attraction
-            if (tPlayer)
+            if (tPlayer && !animaFriendly[i])
             {
                 float3 toPlayer = math.normalize(playerPosition - pos);
                 desired += toPlayer * wPlayer;
             }
+
 
             // Normalize and stabilize
             desired = math.normalizesafe(desired);
