@@ -29,7 +29,7 @@ public class EventBus
             return _instance;
         }
     }
-    private EventBus() { } // ConFuckingStructor
+    private EventBus() { } 
 
     private Dictionary<Type, Delegate> _eventHandlers = new Dictionary<Type, Delegate>();
 
