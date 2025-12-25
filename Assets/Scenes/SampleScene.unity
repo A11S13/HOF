@@ -1341,9 +1341,10 @@ MonoBehaviour:
   maxObstacleScanRadius: 50
   minObstacleAvoidWeight: 300
   maxObstacleAvoidWeight: 1000
+  obstacleUpdateInterval: 0.1
   despawnCheckInterval: 0.2
   animasPerCheck: 20
-  debugDespawn: 1
+  debugDespawn: 0
 --- !u!114 &463808929
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -2252,7 +2253,7 @@ MonoBehaviour:
   decayRate: 2
   decayDelay: 1
   shootingActivityWindow: 2
-  showDebugInfo: 1
+  showDebugInfo: 0
   debugLogInterval: 0.5
 --- !u!1 &884419063
 GameObject:

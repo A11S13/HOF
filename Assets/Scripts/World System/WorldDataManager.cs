@@ -93,16 +93,25 @@ public class WorldDataManager : MonoBehaviour
             AngularVelocity = Vector3.zero
         };
 
+        // Spawn the object (this will set isFriendly = true by default in SpawnGameObject)
         var instance = SpawnGameObject(data, quadrant);
         if (!instance) return;
 
+        // CRITICAL: OVERRIDE the alignment for wave spawns
+        // The 'friendly' parameter is FALSE for hostile waves
         var alignment = instance.GetComponent<Alignment>();
         if (alignment)
+        {
             alignment.isFriendly = friendly;
+        }
+
+        // Update the cached value to match
+        var anima = instance.GetComponent<Anima>();
+        if (anima)
+        {
+            anima.RefreshAlignment();
+        }
     }
-
-
-
 
 
     private void InitializeObjectPools()
@@ -342,6 +351,14 @@ public class WorldDataManager : MonoBehaviour
             rb.angularVelocity = objData.AngularVelocity;
         }
 
+        // CRITICAL: Set alignment for DATA-SPAWNED objects (from quadrants)
+        // These should be FRIENDLY (true) so turrets ignore them
+        var alignment = instance.GetComponent<Alignment>();
+        if (alignment != null)
+        {
+            alignment.isFriendly = true; // Data spawns are friendly/neutral
+        }
+
         if (objData.PrefabID == "Azoth")
         {
             var azoth = instance.GetComponent<Azoth>();
@@ -352,7 +369,11 @@ public class WorldDataManager : MonoBehaviour
         {
             var anima = instance.GetComponent<Anima>();
             if (anima)
+            {
                 anima.Initialize(quadrantPos, this, objData.ObjectID);
+                // Refresh cache to match the alignment we just set
+                anima.RefreshAlignment();
+            }
         }
 
         if (!_activeObjects.ContainsKey(quadrantPos))
@@ -369,6 +390,7 @@ public class WorldDataManager : MonoBehaviour
 
         return instance;
     }
+
 
 
     public void WriteQuadrantData(Vector2Int quadrantPos, GameObject obj, Vector3 velocity, Vector3 angularVelocity)

@@ -1,5 +1,4 @@
 using System.Collections.Generic;
-using System.Linq;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Jobs;
@@ -28,20 +27,30 @@ public class AnimaManager : MonoBehaviour
     public float maxObstacleScanRadius = 12f;
     public float minObstacleAvoidWeight = 1.5f;
     public float maxObstacleAvoidWeight = 2.5f;
+    public float obstacleUpdateInterval = 0.1f; // Update obstacles 10x per second instead of 60x
 
     [Header("Despawn Settings")]
-    [SerializeField] private float despawnCheckInterval = 0.2f; // More frequent checks
-    [SerializeField] private int animasPerCheck = 20; // More per check
-    [SerializeField] private bool debugDespawn = true; // Enable debug logs
+    [SerializeField] private float despawnCheckInterval = 0.2f;
+    [SerializeField] private int animasPerCheck = 20;
+    [SerializeField] private bool debugDespawn = false;
 
     Transform playerTf;
     readonly List<Anima> animas = new();
+
+    // STEP 2: Reusable collections (no LINQ allocations)
+    private readonly List<Anima> _activeAnimasCache = new List<Anima>(200);
+    private readonly List<Collider> _obstacleCache = new List<Collider>(100);
 
     // Despawn check state
     private float _despawnCheckTimer = 0f;
     private int _despawnCheckIndex = 0;
     private WorldDataManager _dataManager;
     private WorldProcessor _worldProcessor;
+
+    // STEP 2: Obstacle update throttling
+    private float _obstacleUpdateTimer = 0f;
+    private NativeArray<float4> _cachedObstacles;
+    private bool _obstaclesInitialized = false;
 
     // Debug counters
     private int _totalDespawnedThisSecond = 0;
@@ -132,13 +141,19 @@ public class AnimaManager : MonoBehaviour
         ProcessAnimaAI();
         ProcessDespawnChecks();
 
-        // Debug output
         if (debugDespawn)
         {
             _debugTimer += Time.deltaTime;
             if (_debugTimer >= 1f)
             {
-                Debug.Log($"[AnimaManager] Active: {animas.Count(a => a && a.gameObject.activeSelf)} | " +
+                int activeCount = 0;
+                for (int i = 0; i < animas.Count; i++)
+                {
+                    if (animas[i] && animas[i].gameObject.activeSelf)
+                        activeCount++;
+                }
+
+                Debug.Log($"[AnimaManager] Active: {activeCount} | " +
                          $"Despawned/sec: {_totalDespawnedThisSecond} | " +
                          $"Active Quadrants: {_worldProcessor?._currentActiveQuadrants.Count ?? 0}");
                 _totalDespawnedThisSecond = 0;
@@ -149,8 +164,15 @@ public class AnimaManager : MonoBehaviour
 
     private void ProcessAnimaAI()
     {
-        var actives = animas.Where(a => a && a.gameObject.activeSelf).ToList();
-        int n = actives.Count;
+        // STEP 2: Reuse list instead of LINQ allocation
+        _activeAnimasCache.Clear();
+        for (int i = 0; i < animas.Count; i++)
+        {
+            if (animas[i] && animas[i].gameObject.activeSelf)
+                _activeAnimasCache.Add(animas[i]);
+        }
+
+        int n = _activeAnimasCache.Count;
         if (n == 0) return;
 
         var friendlyArr = new NativeArray<bool>(n, Allocator.TempJob);
@@ -160,25 +182,20 @@ public class AnimaManager : MonoBehaviour
         var dataArr = new NativeArray<Anima.AnimaData>(n, Allocator.TempJob);
         var speedMultipliers = new NativeArray<float>(n, Allocator.TempJob);
 
+        // STEP 2: No GetComponent calls - use cached value
         for (int i = 0; i < n; i++)
         {
-            ta.Add(actives[i].transform);
-            posArr[i] = actives[i].transform.position;
-            rotArr[i] = actives[i].transform.rotation;
-            dataArr[i] = actives[i].data;
-            speedMultipliers[i] = actives[i].animaSpeedMultiplier;
-
-            var al = actives[i].GetComponent<Alignment>();
-            friendlyArr[i] = al && al.isFriendly;
+            var anima = _activeAnimasCache[i];
+            ta.Add(anima.transform);
+            posArr[i] = anima.transform.position;
+            rotArr[i] = anima.transform.rotation;
+            dataArr[i] = anima.data;
+            speedMultipliers[i] = anima.animaSpeedMultiplier;
+            friendlyArr[i] = anima.isFriendly; // Use cached value!
         }
 
-        var cols = Physics.OverlapSphere(G.playerPosition, 300f, obstacleLayerMask);
-        var obsArr = new NativeArray<float4>(cols.Length, Allocator.TempJob);
-        for (int i = 0; i < cols.Length; i++)
-        {
-            var b = cols[i].bounds;
-            obsArr[i] = new float4(b.center, b.extents.magnitude);
-        }
+        // STEP 2: Throttle obstacle updates
+        UpdateObstacles();
 
         new AnimaAIJob
         {
@@ -187,8 +204,8 @@ public class AnimaManager : MonoBehaviour
             animaJobData = dataArr,
             speedMultipliers = speedMultipliers,
             animaFriendly = friendlyArr,
-            obstaclePositions = obsArr,
-            obstacleCount = obsArr.Length,
+            obstaclePositions = _cachedObstacles,
+            obstacleCount = _cachedObstacles.IsCreated ? _cachedObstacles.Length : 0,
             minObstacleScanRadius = G.minObstacleScanRadius,
             maxObstacleScanRadius = G.maxObstacleScanRadius,
             minObstacleAvoidWeight = G.minObstacleAvoidWeight,
@@ -215,32 +232,67 @@ public class AnimaManager : MonoBehaviour
             seed = (uint)UnityEngine.Random.Range(1, int.MaxValue)
         }.Schedule(ta).Complete();
 
-        for (int i = 0; i < n; i++) actives[i].data = dataArr[i];
+        for (int i = 0; i < n; i++)
+            _activeAnimasCache[i].data = dataArr[i];
 
-        ta.Dispose(); posArr.Dispose(); rotArr.Dispose();
-        dataArr.Dispose(); obsArr.Dispose(); speedMultipliers.Dispose();
+        ta.Dispose();
+        posArr.Dispose();
+        rotArr.Dispose();
+        dataArr.Dispose();
+        speedMultipliers.Dispose();
         friendlyArr.Dispose();
     }
 
     /// <summary>
-    /// Centralized despawn checking - More aggressive version
+    /// STEP 2: Throttled obstacle detection - only updates every X seconds
     /// </summary>
+    private void UpdateObstacles()
+    {
+        _obstacleUpdateTimer += Time.deltaTime;
+
+        if (_obstacleUpdateTimer >= obstacleUpdateInterval || !_obstaclesInitialized)
+        {
+            _obstacleUpdateTimer = 0f;
+
+            // Dispose old array
+            if (_cachedObstacles.IsCreated)
+                _cachedObstacles.Dispose();
+
+            // Reuse list instead of array allocation
+            _obstacleCache.Clear();
+            Physics.OverlapSphereNonAlloc(G.playerPosition, 300f, _obstacleCache.ToArray(), obstacleLayerMask);
+
+            // Use Physics.OverlapSphereNonAlloc properly
+            Collider[] tempBuffer = new Collider[100];
+            int count = Physics.OverlapSphereNonAlloc(G.playerPosition, 300f, tempBuffer, obstacleLayerMask);
+
+            _cachedObstacles = new NativeArray<float4>(count, Allocator.Persistent);
+
+            for (int i = 0; i < count; i++)
+            {
+                var b = tempBuffer[i].bounds;
+                _cachedObstacles[i] = new float4(b.center, b.extents.magnitude);
+            }
+
+            _obstaclesInitialized = true;
+        }
+    }
+
     private void ProcessDespawnChecks()
     {
         if (_dataManager == null || _worldProcessor == null)
         {
-            // Try to re-acquire references
             if (_dataManager == null)
                 _dataManager = FindFirstObjectByType<WorldDataManager>();
             if (_worldProcessor == null)
                 _worldProcessor = FindFirstObjectByType<WorldProcessor>();
 
             if (_dataManager == null || _worldProcessor == null)
-                return; // Still null, can't proceed
+                return;
         }
 
-        var actives = animas.Where(a => a && a.gameObject.activeSelf).ToList();
-        if (actives.Count == 0)
+        // Reuse the active animas cache
+        if (_activeAnimasCache.Count == 0)
         {
             _despawnCheckIndex = 0;
             return;
@@ -254,17 +306,16 @@ public class AnimaManager : MonoBehaviour
 
             int checkedThisFrame = 0;
             int despawnedThisFrame = 0;
-            int totalAnimas = actives.Count;
+            int totalAnimas = _activeAnimasCache.Count;
 
-            // Check multiple animas per interval
             while (checkedThisFrame < animasPerCheck && totalAnimas > 0)
             {
                 if (_despawnCheckIndex >= totalAnimas)
                     _despawnCheckIndex = 0;
 
-                if (_despawnCheckIndex < actives.Count)
+                if (_despawnCheckIndex < _activeAnimasCache.Count)
                 {
-                    var anima = actives[_despawnCheckIndex];
+                    var anima = _activeAnimasCache[_despawnCheckIndex];
                     if (anima != null && anima.gameObject.activeSelf)
                     {
                         bool wasDespawned = anima.CheckDespawn(_dataManager, _worldProcessor);
@@ -285,6 +336,13 @@ public class AnimaManager : MonoBehaviour
                 Debug.Log($"[Despawn Check] Checked: {checkedThisFrame} | Despawned: {despawnedThisFrame}");
             }
         }
+    }
+
+    void OnDestroy()
+    {
+        // STEP 2: Clean up persistent NativeArray
+        if (_cachedObstacles.IsCreated)
+            _cachedObstacles.Dispose();
     }
 
     [BurstCompile]

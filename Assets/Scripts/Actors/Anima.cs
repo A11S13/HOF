@@ -14,6 +14,10 @@ public class Anima : MonoBehaviour
     private Transform _playerTransform;
     private string _objectId;
 
+    // Cached alignment
+    [HideInInspector] public bool isFriendly;
+    private Alignment _alignmentCache;
+
     [System.Serializable]
     public struct AnimaData
     {
@@ -29,12 +33,27 @@ public class Anima : MonoBehaviour
         _dataManager = dataManager;
         _objectId = objectId;
 
-        // Ensure player transform is always set
         if (_playerTransform == null)
         {
             var stateManager = dataManager?.GetComponent<WorldStateManager>();
             _playerTransform = stateManager?.Player;
         }
+
+        // Cache alignment component but DON'T read isFriendly yet
+        // (it might be set after Initialize for wave spawns)
+        if (_alignmentCache == null)
+            _alignmentCache = GetComponent<Alignment>();
+    }
+
+    /// <summary>
+    /// PUBLIC METHOD: Call this after setting alignment to update cache
+    /// </summary>
+    public void RefreshAlignment()
+    {
+        if (_alignmentCache == null)
+            _alignmentCache = GetComponent<Alignment>();
+
+        isFriendly = _alignmentCache != null && _alignmentCache.isFriendly;
     }
 
     void OnEnable()
@@ -57,8 +76,13 @@ public class Anima : MonoBehaviour
         data.rotationCounter = 0;
         data.targetRotation = transform.rotation;
 
+        // Refresh alignment cache from component
+        // This reads the CURRENT value from Alignment component
+        RefreshAlignment();
+
         AnimaManager.Instance?.RegisterAnima(this);
     }
+
 
     void OnDestroy()
     {
@@ -75,8 +99,7 @@ public class Anima : MonoBehaviour
 
     void Explode()
     {
-        var alignment = GetComponent<Alignment>();
-        bool wasFriendly = alignment && alignment.isFriendly;
+        bool wasFriendly = isFriendly;
 
         EventBus.Instance.Publish(
             new AnimaKilledEvent(transform.position, wasFriendly)
@@ -111,12 +134,8 @@ public class Anima : MonoBehaviour
         Destroy(soundHolder, 1f);
     }
 
-    /// <summary>
-    /// Called by AnimaManager to check if this anima should despawn
-    /// </summary>
     public bool CheckDespawn(WorldDataManager dataManager, WorldProcessor worldProcessor)
     {
-        // Ensure we have player reference
         if (_playerTransform == null && dataManager != null)
         {
             var stateManager = dataManager.GetComponent<WorldStateManager>();
@@ -125,7 +144,7 @@ public class Anima : MonoBehaviour
 
         if (_playerTransform == null || dataManager == null || worldProcessor == null)
         {
-            return false; // Can't check, don't despawn
+            return false;
         }
 
         Vector2Int currentObjectQuadrant = GetCurrentQuadrant();
@@ -133,7 +152,6 @@ public class Anima : MonoBehaviour
 
         if (!withinActiveQuadrant)
         {
-            // Update persistent data if quadrant changed
             if (currentObjectQuadrant != _currentQuadrant)
             {
                 dataManager.RemoveObjectFromPersistentData(_currentQuadrant, _objectId);
@@ -142,12 +160,11 @@ public class Anima : MonoBehaviour
                 _currentQuadrant = currentObjectQuadrant;
             }
 
-            // Despawn the object
             dataManager.ReturnToPool(gameObject);
-            return true; // Was despawned
+            return true;
         }
 
-        return false; // Still active
+        return false;
     }
 
     public void SelfDespawn()

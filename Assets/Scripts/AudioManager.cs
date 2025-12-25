@@ -56,7 +56,6 @@ public class AudioManager : MonoBehaviour
             musicAudioSource.clip = calmMusic;
             musicAudioSource.volume = 1f;
             musicAudioSource.Play();
-            Debug.Log("Started calm music");
         }
         else
         {
@@ -102,8 +101,6 @@ public class AudioManager : MonoBehaviour
         audioSource.PlayOneShot(waveEndClip);
 
         float delay = CalculateAftermathDelay();
-
-        Debug.Log($"Wave cleared. Switching to aftermath music in {delay:F1}s (Aggression: {aggressionTracker?.CurrentAggression:F1})");
 
         if (aftermathDelayCoroutine != null)
             StopCoroutine(aftermathDelayCoroutine);
@@ -167,8 +164,6 @@ public class AudioManager : MonoBehaviour
         {
             fadeCoroutine = StartCoroutine(CrossfadeMusic(targetClip));
         }
-
-        Debug.Log($"Music switched to: {newState}");
     }
 
     private IEnumerator CrossfadeMusic(AudioClip newClip)
