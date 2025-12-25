@@ -27,7 +27,11 @@ public class AnimaManager : MonoBehaviour
     public float maxObstacleScanRadius = 12f;
     public float minObstacleAvoidWeight = 1.5f;
     public float maxObstacleAvoidWeight = 2.5f;
-    public float obstacleUpdateInterval = 0.1f; // Update obstacles 10x per second instead of 60x
+    public float obstacleUpdateInterval = 0.1f;
+
+    [Header("Spatial Partitioning")]
+    [SerializeField] private float spatialCellSize = 40f;
+    [SerializeField] private bool useSpatialGrid = true;
 
     [Header("Despawn Settings")]
     [SerializeField] private float despawnCheckInterval = 0.2f;
@@ -37,9 +41,8 @@ public class AnimaManager : MonoBehaviour
     Transform playerTf;
     readonly List<Anima> animas = new();
 
-    // STEP 2: Reusable collections (no LINQ allocations)
+    // Reusable collections
     private readonly List<Anima> _activeAnimasCache = new List<Anima>(200);
-    private readonly List<Collider> _obstacleCache = new List<Collider>(100);
 
     // Despawn check state
     private float _despawnCheckTimer = 0f;
@@ -47,10 +50,15 @@ public class AnimaManager : MonoBehaviour
     private WorldDataManager _dataManager;
     private WorldProcessor _worldProcessor;
 
-    // STEP 2: Obstacle update throttling
+    // Obstacle update throttling
     private float _obstacleUpdateTimer = 0f;
     private NativeArray<float4> _cachedObstacles;
     private bool _obstaclesInitialized = false;
+
+    // Spatial grid storage
+    private NativeParallelMultiHashMap<int, int> _spatialGrid;
+    private bool _spatialGridInitialized = false;
+    private int _lastGridCapacity = 0;
 
     // Debug counters
     private int _totalDespawnedThisSecond = 0;
@@ -85,6 +93,11 @@ public class AnimaManager : MonoBehaviour
             Debug.LogError("AnimaManager: WorldDataManager not found!");
         if (_worldProcessor == null)
             Debug.LogError("AnimaManager: WorldProcessor not found!");
+
+        // Initialize spatial grid with reasonable capacity
+        _spatialGrid = new NativeParallelMultiHashMap<int, int>(200, Allocator.Persistent);
+        _spatialGridInitialized = true;
+        _lastGridCapacity = 200;
     }
 
     void Start() => UpdateSettings();
@@ -164,7 +177,6 @@ public class AnimaManager : MonoBehaviour
 
     private void ProcessAnimaAI()
     {
-        // STEP 2: Reuse list instead of LINQ allocation
         _activeAnimasCache.Clear();
         for (int i = 0; i < animas.Count; i++)
         {
@@ -182,7 +194,6 @@ public class AnimaManager : MonoBehaviour
         var dataArr = new NativeArray<Anima.AnimaData>(n, Allocator.TempJob);
         var speedMultipliers = new NativeArray<float>(n, Allocator.TempJob);
 
-        // STEP 2: No GetComponent calls - use cached value
         for (int i = 0; i < n; i++)
         {
             var anima = _activeAnimasCache[i];
@@ -191,11 +202,13 @@ public class AnimaManager : MonoBehaviour
             rotArr[i] = anima.transform.rotation;
             dataArr[i] = anima.data;
             speedMultipliers[i] = anima.animaSpeedMultiplier;
-            friendlyArr[i] = anima.isFriendly; // Use cached value!
+            friendlyArr[i] = anima.isFriendly;
         }
 
-        // STEP 2: Throttle obstacle updates
         UpdateObstacles();
+
+        // Build spatial grid BEFORE scheduling job
+        BuildSpatialGrid(posArr);
 
         new AnimaAIJob
         {
@@ -204,6 +217,9 @@ public class AnimaManager : MonoBehaviour
             animaJobData = dataArr,
             speedMultipliers = speedMultipliers,
             animaFriendly = friendlyArr,
+            spatialGrid = _spatialGrid,
+            spatialCellSize = spatialCellSize,
+            useSpatialGrid = useSpatialGrid,
             obstaclePositions = _cachedObstacles,
             obstacleCount = _cachedObstacles.IsCreated ? _cachedObstacles.Length : 0,
             minObstacleScanRadius = G.minObstacleScanRadius,
@@ -244,7 +260,7 @@ public class AnimaManager : MonoBehaviour
     }
 
     /// <summary>
-    /// STEP 2: Throttled obstacle detection - only updates every X seconds
+    /// Throttled obstacle detection - only updates every X seconds
     /// </summary>
     private void UpdateObstacles()
     {
@@ -254,15 +270,9 @@ public class AnimaManager : MonoBehaviour
         {
             _obstacleUpdateTimer = 0f;
 
-            // Dispose old array
             if (_cachedObstacles.IsCreated)
                 _cachedObstacles.Dispose();
 
-            // Reuse list instead of array allocation
-            _obstacleCache.Clear();
-            Physics.OverlapSphereNonAlloc(G.playerPosition, 300f, _obstacleCache.ToArray(), obstacleLayerMask);
-
-            // Use Physics.OverlapSphereNonAlloc properly
             Collider[] tempBuffer = new Collider[100];
             int count = Physics.OverlapSphereNonAlloc(G.playerPosition, 300f, tempBuffer, obstacleLayerMask);
 
@@ -278,6 +288,47 @@ public class AnimaManager : MonoBehaviour
         }
     }
 
+    /// <summary>
+    /// Build spatial hash grid on main thread - simple and fast!
+    /// </summary>
+    private void BuildSpatialGrid(NativeArray<float3> positions)
+    {
+        if (!useSpatialGrid) return;
+
+        int count = positions.Length;
+
+        // Expand grid capacity if needed
+        if (count > _lastGridCapacity)
+        {
+            if (_spatialGrid.IsCreated)
+                _spatialGrid.Dispose();
+
+            _lastGridCapacity = Mathf.NextPowerOfTwo(count);
+            _spatialGrid = new NativeParallelMultiHashMap<int, int>(_lastGridCapacity, Allocator.Persistent);
+        }
+
+        _spatialGrid.Clear();
+
+        // Insert all animas into grid
+        for (int i = 0; i < count; i++)
+        {
+            int cellKey = GetCellKey(positions[i], spatialCellSize);
+            _spatialGrid.Add(cellKey, i);
+        }
+    }
+
+    /// <summary>
+    /// Convert world position to grid cell key
+    /// </summary>
+    private int GetCellKey(float3 position, float cellSize)
+    {
+        int x = (int)math.floor(position.x / cellSize);
+        int z = (int)math.floor(position.z / cellSize);
+
+        // Simple hash: combine x and z
+        return (x * 73856093) ^ (z * 19349663);
+    }
+
     private void ProcessDespawnChecks()
     {
         if (_dataManager == null || _worldProcessor == null)
@@ -291,7 +342,6 @@ public class AnimaManager : MonoBehaviour
                 return;
         }
 
-        // Reuse the active animas cache
         if (_activeAnimasCache.Count == 0)
         {
             _despawnCheckIndex = 0;
@@ -340,9 +390,11 @@ public class AnimaManager : MonoBehaviour
 
     void OnDestroy()
     {
-        // STEP 2: Clean up persistent NativeArray
         if (_cachedObstacles.IsCreated)
             _cachedObstacles.Dispose();
+
+        if (_spatialGridInitialized && _spatialGrid.IsCreated)
+            _spatialGrid.Dispose();
     }
 
     [BurstCompile]
@@ -353,6 +405,10 @@ public class AnimaManager : MonoBehaviour
         [ReadOnly] public NativeArray<quaternion> animaRotations;
         public NativeArray<Anima.AnimaData> animaJobData;
         [ReadOnly] public NativeArray<float> speedMultipliers;
+
+        [ReadOnly] public NativeParallelMultiHashMap<int, int> spatialGrid;
+        public float spatialCellSize;
+        public bool useSpatialGrid;
 
         [ReadOnly] public NativeArray<float4> obstaclePositions;
         public int obstacleCount;
@@ -383,6 +439,7 @@ public class AnimaManager : MonoBehaviour
             float minSpeed = baseMinSpeed * speedMultiplier;
             float maxSpeed = baseMaxSpeed * speedMultiplier;
 
+            // Obstacle avoidance
             float obsInf = 0;
             float3 obsSum = 0;
             for (int j = 0; j < obstacleCount; j++)
@@ -405,25 +462,68 @@ public class AnimaManager : MonoBehaviour
                 desired = math.lerp(desired, math.normalize(obsSum), avoidWeight * deltaTime);
             }
 
+            // Flocking behavior with spatial grid optimization
             float3 alignSum = 0, cohSum = 0, sepSum = 0;
             int alignCount = 0, cohCount = 0;
-            for (int j = 0; j < animaPositions.Length; j++)
+
+            if (useSpatialGrid)
             {
-                if (j == i) continue;
-
-                float d = math.distance(pos, animaPositions[j]);
-                if (d < fRadius)
+                // Query 9 neighboring cells (3x3 grid)
+                for (int dx = -1; dx <= 1; dx++)
                 {
-                    float3 neighborForward = math.mul(animaRotations[j], new float3(0, 0, 1));
-                    alignSum += neighborForward;
-                    alignCount++;
-
-                    cohSum += animaPositions[j];
-                    cohCount++;
-
-                    if (d < cRadius)
+                    for (int dz = -1; dz <= 1; dz++)
                     {
-                        sepSum += (pos - animaPositions[j]) / math.max(d, 0.0001f);
+                        float3 offsetPos = pos + new float3(dx * spatialCellSize, 0, dz * spatialCellSize);
+                        int cellKey = GetCellKey(offsetPos, spatialCellSize);
+
+                        if (spatialGrid.TryGetFirstValue(cellKey, out int neighborIdx, out var iterator))
+                        {
+                            do
+                            {
+                                if (neighborIdx == i) continue;
+
+                                float d = math.distance(pos, animaPositions[neighborIdx]);
+                                if (d < fRadius)
+                                {
+                                    float3 neighborForward = math.mul(animaRotations[neighborIdx], new float3(0, 0, 1));
+                                    alignSum += neighborForward;
+                                    alignCount++;
+
+                                    cohSum += animaPositions[neighborIdx];
+                                    cohCount++;
+
+                                    if (d < cRadius)
+                                    {
+                                        sepSum += (pos - animaPositions[neighborIdx]) / math.max(d, 0.0001f);
+                                    }
+                                }
+                            }
+                            while (spatialGrid.TryGetNextValue(out neighborIdx, ref iterator));
+                        }
+                    }
+                }
+            }
+            else
+            {
+                // Fallback: check all animas (O(n) - slower but works)
+                for (int j = 0; j < animaPositions.Length; j++)
+                {
+                    if (j == i) continue;
+
+                    float d = math.distance(pos, animaPositions[j]);
+                    if (d < fRadius)
+                    {
+                        float3 neighborForward = math.mul(animaRotations[j], new float3(0, 0, 1));
+                        alignSum += neighborForward;
+                        alignCount++;
+
+                        cohSum += animaPositions[j];
+                        cohCount++;
+
+                        if (d < cRadius)
+                        {
+                            sepSum += (pos - animaPositions[j]) / math.max(d, 0.0001f);
+                        }
                     }
                 }
             }
@@ -473,6 +573,13 @@ public class AnimaManager : MonoBehaviour
             tx.rotation = math.slerp(rot, targetRot, rotateT);
             tx.position = pos + math.mul(tx.rotation, new float3(0, 0, 1)) * speed * deltaTime;
             animaJobData[i] = ed;
+        }
+
+        private int GetCellKey(float3 position, float cellSize)
+        {
+            int x = (int)math.floor(position.x / cellSize);
+            int z = (int)math.floor(position.z / cellSize);
+            return (x * 73856093) ^ (z * 19349663);
         }
     }
 }
