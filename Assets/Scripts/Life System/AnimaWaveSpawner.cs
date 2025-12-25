@@ -1,10 +1,16 @@
 using System.Collections;
 using UnityEngine;
-using UnityEngine.LightTransport;
 
 public class AnimaWaveSpawner : MonoBehaviour
 {
     [SerializeField] WorldDataManager world;
+    [SerializeField] int animasPerWave = 5;
+    [SerializeField] float waveInterval = 2f;
+    [SerializeField] float spawnRadius = 20f;
+
+    int aliveHostiles;
+    bool isWaveSequenceActive; // Track if wave sequence is running
+    int remainingWaves; // Track remaining waves
 
     void Awake()
     {
@@ -12,18 +18,20 @@ public class AnimaWaveSpawner : MonoBehaviour
             world = FindFirstObjectByType<WorldDataManager>();
     }
 
-    [SerializeField] GameObject animaPrefab;
-    [SerializeField] int animasPerWave = 5;
-    [SerializeField] float waveInterval = 2f;
-    [SerializeField] float spawnRadius = 20f;
-
     void OnEnable()
     {
         EventBus.Instance.Subscribe<StartAnimaWaveEvent>(StartWave);
+        EventBus.Instance.Subscribe<AnimaSpawnedEvent>(OnAnimaSpawned);
+        EventBus.Instance.Subscribe<AnimaKilledEvent>(OnAnimaKilled);
     }
 
     void StartWave(StartAnimaWaveEvent e)
     {
+        aliveHostiles = 0;
+        isWaveSequenceActive = true; // Mark sequence as active
+        remainingWaves = e.Waves; // Track total waves
+
+        EventBus.Instance.Publish(new AnimaWaveStartedEvent());
         StartCoroutine(SpawnWaves(e.Location, e.Waves));
     }
 
@@ -44,6 +52,35 @@ public class AnimaWaveSpawner : MonoBehaviour
             p.y = 0f;
 
             world.SpawnAnimaAt(p, false);
+
+            EventBus.Instance.Publish(
+                new AnimaSpawnedEvent(p, false)
+            );
+        }
+    }
+
+    void OnAnimaSpawned(AnimaSpawnedEvent e)
+    {
+        if (!e.IsFriendly)
+            aliveHostiles++;
+    }
+
+    void OnAnimaKilled(AnimaKilledEvent e)
+    {
+        if (e.WasFriendly)
+            return;
+
+        if (--aliveHostiles > 0)
+            return;
+
+        // Sub-wave cleared, decrement remaining waves
+        remainingWaves--;
+
+        // Only publish clear event when ALL waves are done
+        if (remainingWaves <= 0 && isWaveSequenceActive)
+        {
+            isWaveSequenceActive = false;
+            EventBus.Instance.Publish(new AnimaWaveClearedEvent());
         }
     }
 }

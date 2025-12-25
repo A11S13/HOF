@@ -5,7 +5,6 @@ public class Anima : MonoBehaviour
 {
     public bool isTargeted;
     public bool isDestroyed;
-    public float health = 100f;
     public float animaSpeedMultiplierMin = 1f; // Minimum speed multiplier
     public float animaSpeedMultiplierMax = 1.5f; // Maximum speed multiplier
     [HideInInspector] public float animaSpeedMultiplier; // Individual speed multiplier
@@ -59,7 +58,6 @@ public class Anima : MonoBehaviour
     void OnEnable()
     {
         // Reset state when the object is enabled (reused from pool)
-        health = 100f;
         isDestroyed = false;
         isTargeted = false;
 
@@ -91,33 +89,13 @@ public class Anima : MonoBehaviour
         if (AnimaManager.Instance != null)
             AnimaManager.Instance.UnregisterAnima(this);
     }
-
-    void OnTriggerEnter(Collider other)
+    void OnDeath()
     {
-        if (other.CompareTag("Player"))
-        {
-            //Debug.Log("Player collided with an anima!");
-            TakeDamage(100f);
-        }
-        else if (other.CompareTag("Projectile"))
-        {
-            // Assume your projectile has a GetDamage() method.
-            float damage = other.GetComponent<Projectile>()?.GetDamage() ?? 0;
-            TakeDamage(damage);
-        }
+        if (isDestroyed) return;
+        isDestroyed = true;
+        Explode();
     }
 
-    public void TakeDamage(float damage)
-    {
-        health -= damage;
-        if (health <= 0)
-        {
-            // Disable collider before despawning
-            GetComponent<Collider>().enabled = false;
-            isDestroyed = true;
-            Explode();
-        }
-    }
 
     void Explode()
     {

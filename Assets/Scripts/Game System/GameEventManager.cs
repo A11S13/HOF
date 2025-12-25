@@ -3,7 +3,7 @@ using UnityEngine;
 public class GameEventManager : MonoBehaviour
 {
     [SerializeField] int neutralKillThreshold = 3;
-    [SerializeField] int wavesPerTrigger = 2;
+    [SerializeField] int wavesPerTrigger = 1;
 
     int neutralKills;
 

@@ -3,8 +3,24 @@ using UnityEngine;
 // GLOBAL EVENTS
 public struct GameStartEvent : IGlobalEvent { }
 public struct ClusterTransitionEvent : IGlobalEvent { }
+public struct AnimaWaveStartedEvent : IGlobalEvent { }
+public struct AnimaWaveClearedEvent : IGlobalEvent { }
+
 
 // LOCAL EVENTS
+public struct AnimaSpawnedEvent : ILocalEvent
+{
+    public Vector3 Location { get; }
+
+    public bool IsFriendly { get; }
+
+    public AnimaSpawnedEvent(Vector3 location, bool isFriendly)
+    {
+        Location = location;
+        IsFriendly = isFriendly;
+    }
+}
+
 public struct QuadrantTransitionEvent : IQuadrantEvent
 {
     public Vector2Int? OldLocation { get; }
@@ -40,6 +56,3 @@ public struct StartAnimaWaveEvent : ILocalEvent
         Waves = waves;
     }
 }
-
-
-

@@ -9,6 +9,21 @@ public class AudioManager : MonoBehaviour
     public AudioClip enterClip;
     public AudioClip leaveClip;
 
+    public AudioClip waveStartClip;
+    public AudioClip waveEndClip;
+
+    void OnEnable()
+    {
+        EventBus.Instance.Subscribe<ClusterTransitionEvent>(HandleCluster);
+
+        EventBus.Instance.Subscribe<AnimaWaveStartedEvent>(_ =>
+            audioSource.PlayOneShot(waveStartClip));
+
+        EventBus.Instance.Subscribe<AnimaWaveClearedEvent>(_ =>
+            audioSource.PlayOneShot(waveEndClip));
+    }
+
+
     private void Awake()
     {
         _stateManager = GameObject.Find("OBSERVER").GetComponent<WorldStateManager>();

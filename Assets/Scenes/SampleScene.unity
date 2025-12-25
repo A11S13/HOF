@@ -1354,7 +1354,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   world: {fileID: 741419630}
-  animaPrefab: {fileID: 2044892534391141163, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
   animasPerWave: 5
   waveInterval: 2
   spawnRadius: 20
@@ -2231,7 +2230,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   neutralKillThreshold: 3
-  wavesPerTrigger: 2
+  wavesPerTrigger: 1
 --- !u!1 &884419063
 GameObject:
   m_ObjectHideFlags: 0
@@ -9672,11 +9671,13 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 0770ed42ab8a3b042bd8452c3144b4d6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _stateManager: {fileID: 0}
-  musicAudioSource: {fileID: 0}
-  audioSource: {fileID: 0}
+  _stateManager: {fileID: 741419628}
+  musicAudioSource: {fileID: 496776449}
+  audioSource: {fileID: 2094032405}
   enterClip: {fileID: 0}
   leaveClip: {fileID: 0}
+  waveStartClip: {fileID: 8300000, guid: 92b190a1f555ee543ae3ef2324713e91, type: 3}
+  waveEndClip: {fileID: 8300000, guid: 90e2b0a7473fbda498ba4f193e862247, type: 3}
 --- !u!1 &2048803199
 GameObject:
   m_ObjectHideFlags: 0
