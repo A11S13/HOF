@@ -29,8 +29,23 @@ public class AnimaManager : MonoBehaviour
     public float minObstacleAvoidWeight = 1.5f;
     public float maxObstacleAvoidWeight = 2.5f;
 
+    [Header("Despawn Settings")]
+    [SerializeField] private float despawnCheckInterval = 0.2f; // More frequent checks
+    [SerializeField] private int animasPerCheck = 20; // More per check
+    [SerializeField] private bool debugDespawn = true; // Enable debug logs
+
     Transform playerTf;
     readonly List<Anima> animas = new();
+
+    // Despawn check state
+    private float _despawnCheckTimer = 0f;
+    private int _despawnCheckIndex = 0;
+    private WorldDataManager _dataManager;
+    private WorldProcessor _worldProcessor;
+
+    // Debug counters
+    private int _totalDespawnedThisSecond = 0;
+    private float _debugTimer = 0f;
 
     struct Settings
     {
@@ -53,6 +68,14 @@ public class AnimaManager : MonoBehaviour
         if (Instance) { Destroy(gameObject); return; }
         Instance = this;
         playerTf = GameObject.FindGameObjectWithTag("Player")?.transform;
+
+        _dataManager = FindFirstObjectByType<WorldDataManager>();
+        _worldProcessor = FindFirstObjectByType<WorldProcessor>();
+
+        if (_dataManager == null)
+            Debug.LogError("AnimaManager: WorldDataManager not found!");
+        if (_worldProcessor == null)
+            Debug.LogError("AnimaManager: WorldProcessor not found!");
     }
 
     void Start() => UpdateSettings();
@@ -86,14 +109,50 @@ public class AnimaManager : MonoBehaviour
         };
     }
 
-    public void RegisterAnima(Anima a) { if (!animas.Contains(a)) animas.Add(a); }
-    public void UnregisterAnima(Anima a) => animas.Remove(a);
+    public void RegisterAnima(Anima a)
+    {
+        if (!animas.Contains(a))
+        {
+            animas.Add(a);
+            if (debugDespawn)
+                Debug.Log($"Registered anima. Total: {animas.Count}");
+        }
+    }
+
+    public void UnregisterAnima(Anima a)
+    {
+        animas.Remove(a);
+        if (debugDespawn)
+            Debug.Log($"Unregistered anima. Total: {animas.Count}");
+    }
 
     void Update()
     {
         UpdateSettings();
+        ProcessAnimaAI();
+        ProcessDespawnChecks();
+
+        // Debug output
+        if (debugDespawn)
+        {
+            _debugTimer += Time.deltaTime;
+            if (_debugTimer >= 1f)
+            {
+                Debug.Log($"[AnimaManager] Active: {animas.Count(a => a && a.gameObject.activeSelf)} | " +
+                         $"Despawned/sec: {_totalDespawnedThisSecond} | " +
+                         $"Active Quadrants: {_worldProcessor?._currentActiveQuadrants.Count ?? 0}");
+                _totalDespawnedThisSecond = 0;
+                _debugTimer = 0f;
+            }
+        }
+    }
+
+    private void ProcessAnimaAI()
+    {
         var actives = animas.Where(a => a && a.gameObject.activeSelf).ToList();
-        int n = actives.Count; if (n == 0) return;
+        int n = actives.Count;
+        if (n == 0) return;
+
         var friendlyArr = new NativeArray<bool>(n, Allocator.TempJob);
         var ta = new TransformAccessArray(n);
         var posArr = new NativeArray<float3>(n, Allocator.TempJob);
@@ -113,7 +172,6 @@ public class AnimaManager : MonoBehaviour
             friendlyArr[i] = al && al.isFriendly;
         }
 
-
         var cols = Physics.OverlapSphere(G.playerPosition, 300f, obstacleLayerMask);
         var obsArr = new NativeArray<float4>(cols.Length, Allocator.TempJob);
         for (int i = 0; i < cols.Length; i++)
@@ -129,7 +187,6 @@ public class AnimaManager : MonoBehaviour
             animaJobData = dataArr,
             speedMultipliers = speedMultipliers,
             animaFriendly = friendlyArr,
-
             obstaclePositions = obsArr,
             obstacleCount = obsArr.Length,
             minObstacleScanRadius = G.minObstacleScanRadius,
@@ -137,7 +194,6 @@ public class AnimaManager : MonoBehaviour
             minObstacleAvoidWeight = G.minObstacleAvoidWeight,
             maxObstacleAvoidWeight = G.maxObstacleAvoidWeight,
             deltaTime = Time.deltaTime,
-
             fRadius = G.fRadius,
             cRadius = G.cRadius,
             arcAngle = G.arcAngle,
@@ -146,14 +202,12 @@ public class AnimaManager : MonoBehaviour
             wAlign = G.wAlign,
             wCohesion = G.wCohesion,
             wNoise = G.wNoise,
-
             swarm = G.swarm,
             tPlayer = G.tPlayer,
             align = G.align,
             cohesion = G.cohesion,
             crowd = G.crowd,
             noise = G.noise,
-
             baseMinSpeed = G.baseMinSpeed,
             baseMaxSpeed = G.baseMaxSpeed,
             maxRotationSpeed = G.maxRotationSpeed,
@@ -161,13 +215,76 @@ public class AnimaManager : MonoBehaviour
             seed = (uint)UnityEngine.Random.Range(1, int.MaxValue)
         }.Schedule(ta).Complete();
 
-
         for (int i = 0; i < n; i++) actives[i].data = dataArr[i];
 
         ta.Dispose(); posArr.Dispose(); rotArr.Dispose();
         dataArr.Dispose(); obsArr.Dispose(); speedMultipliers.Dispose();
         friendlyArr.Dispose();
+    }
 
+    /// <summary>
+    /// Centralized despawn checking - More aggressive version
+    /// </summary>
+    private void ProcessDespawnChecks()
+    {
+        if (_dataManager == null || _worldProcessor == null)
+        {
+            // Try to re-acquire references
+            if (_dataManager == null)
+                _dataManager = FindFirstObjectByType<WorldDataManager>();
+            if (_worldProcessor == null)
+                _worldProcessor = FindFirstObjectByType<WorldProcessor>();
+
+            if (_dataManager == null || _worldProcessor == null)
+                return; // Still null, can't proceed
+        }
+
+        var actives = animas.Where(a => a && a.gameObject.activeSelf).ToList();
+        if (actives.Count == 0)
+        {
+            _despawnCheckIndex = 0;
+            return;
+        }
+
+        _despawnCheckTimer += Time.deltaTime;
+
+        if (_despawnCheckTimer >= despawnCheckInterval)
+        {
+            _despawnCheckTimer = 0f;
+
+            int checkedThisFrame = 0;
+            int despawnedThisFrame = 0;
+            int totalAnimas = actives.Count;
+
+            // Check multiple animas per interval
+            while (checkedThisFrame < animasPerCheck && totalAnimas > 0)
+            {
+                if (_despawnCheckIndex >= totalAnimas)
+                    _despawnCheckIndex = 0;
+
+                if (_despawnCheckIndex < actives.Count)
+                {
+                    var anima = actives[_despawnCheckIndex];
+                    if (anima != null && anima.gameObject.activeSelf)
+                    {
+                        bool wasDespawned = anima.CheckDespawn(_dataManager, _worldProcessor);
+                        if (wasDespawned)
+                        {
+                            despawnedThisFrame++;
+                            _totalDespawnedThisSecond++;
+                        }
+                    }
+                }
+
+                _despawnCheckIndex++;
+                checkedThisFrame++;
+            }
+
+            if (debugDespawn && despawnedThisFrame > 0)
+            {
+                Debug.Log($"[Despawn Check] Checked: {checkedThisFrame} | Despawned: {despawnedThisFrame}");
+            }
+        }
     }
 
     [BurstCompile]
@@ -204,12 +321,10 @@ public class AnimaManager : MonoBehaviour
             var ed = animaJobData[i];
             var rnd = new Unity.Mathematics.Random(seed + (uint)i);
 
-            // Speed calculations
             float speedMultiplier = speedMultipliers[i];
             float minSpeed = baseMinSpeed * speedMultiplier;
             float maxSpeed = baseMaxSpeed * speedMultiplier;
 
-            // Obstacle avoidance
             float obsInf = 0;
             float3 obsSum = 0;
             for (int j = 0; j < obstacleCount; j++)
@@ -232,7 +347,6 @@ public class AnimaManager : MonoBehaviour
                 desired = math.lerp(desired, math.normalize(obsSum), avoidWeight * deltaTime);
             }
 
-            // Neighbor processing
             float3 alignSum = 0, cohSum = 0, sepSum = 0;
             int alignCount = 0, cohCount = 0;
             for (int j = 0; j < animaPositions.Length; j++)
@@ -256,52 +370,43 @@ public class AnimaManager : MonoBehaviour
                 }
             }
 
-            // Alignment
             if (align && alignCount > 0)
             {
                 float3 alignmentForce = math.normalize(alignSum / alignCount);
                 desired += alignmentForce * wAlign;
             }
 
-            // Cohesion
             if (cohesion && cohCount > 0)
             {
                 float3 cohesionForce = math.normalize((cohSum / cohCount) - pos);
                 desired += cohesionForce * wCohesion;
             }
 
-            // Separation
             if (crowd && math.length(sepSum) > 0)
             {
                 float3 separationForce = math.normalize(sepSum);
                 desired += separationForce * wCrowd;
             }
 
-            // Noise
             if (noise)
             {
                 float3 noiseForce = rnd.NextFloat3Direction() * wNoise;
                 desired += noiseForce;
             }
 
-            // Player attraction
             if (tPlayer && !animaFriendly[i])
             {
                 float3 toPlayer = math.normalize(playerPosition - pos);
                 desired += toPlayer * wPlayer;
             }
 
-
-            // Normalize and stabilize
             desired = math.normalizesafe(desired);
-            desired += new float3(0.01f, 0, 0.01f); // Stabilization factor
+            desired += new float3(0.01f, 0, 0.01f);
             desired = math.normalize(desired);
 
-            // Speed calculation
             float speed = obsInf > 0 ? maxSpeed : math.lerp(minSpeed, maxSpeed,
                 math.length(desired) * 0.5f + 0.5f);
 
-            // Rotation calculation
             float3 horizDir = math.normalizesafe(new float3(desired.x, 0, desired.z));
             quaternion targetRot = quaternion.LookRotation(horizDir, math.up());
             float angle = math.acos(math.clamp(math.dot(math.forward(rot), horizDir), -1f, 1f));

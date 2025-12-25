@@ -1341,6 +1341,9 @@ MonoBehaviour:
   maxObstacleScanRadius: 50
   minObstacleAvoidWeight: 300
   maxObstacleAvoidWeight: 1000
+  despawnCheckInterval: 0.2
+  animasPerCheck: 20
+  debugDespawn: 1
 --- !u!114 &463808929
 MonoBehaviour:
   m_ObjectHideFlags: 0
