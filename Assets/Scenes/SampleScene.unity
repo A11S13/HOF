@@ -2198,7 +2198,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 18b8e60c268a67f448d427761c8cb2c7, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  _WSM: {fileID: 0}
+  _WSM: {fileID: 741419628}
 --- !u!1 &884419063
 GameObject:
   m_ObjectHideFlags: 0
@@ -9642,8 +9642,8 @@ MonoBehaviour:
   _stateManager: {fileID: 0}
   musicAudioSource: {fileID: 496776449}
   audioSource: {fileID: 2094032405}
-  enterClip: {fileID: 8300000, guid: 68be9c3757c178d4ebad5b6268b67175, type: 3}
-  leaveClip: {fileID: 8300000, guid: 0d316b0c1e971244ab4e7b43792f3130, type: 3}
+  enterClip: {fileID: 0}
+  leaveClip: {fileID: 0}
 --- !u!1 &2048803199
 GameObject:
   m_ObjectHideFlags: 0
@@ -10013,7 +10013,7 @@ MonoBehaviour:
   m_PrefabInstance: {fileID: 0}
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1466269553703180057}
-  m_Enabled: 1
+  m_Enabled: 0
   m_EditorHideFlags: 0
   m_Script: {fileID: 11500000, guid: 2d9af697a493e914385e14e49cd74fa8, type: 3}
   m_Name: 

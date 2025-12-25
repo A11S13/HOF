@@ -59,7 +59,7 @@ public class WorldDataManager : MonoBehaviour
 
         _pixelToQuadrantRatio = _stateManager.clusterBounds.x / _textureSize;
         TexturesLoaded = true;
-        Debug.Log($"WORLD TEXTURE: {_textureSize}: px {_pixelToQuadrantRatio}: r");
+        //Debug.Log($"WORLD TEXTURE: {_textureSize}: px {_pixelToQuadrantRatio}: r");
     }
 
     private void InitializeObjectPools()
@@ -131,7 +131,7 @@ public class WorldDataManager : MonoBehaviour
 
     public void ProcessQuadrants(List<QuadrantProcessInfo> quadrantsToProcess)
     {
-        Debug.Log($"PROCESSING {quadrantsToProcess.Count} QUADRANTS...");
+        //Debug.Log($"PROCESSING {quadrantsToProcess.Count} QUADRANTS...");
         foreach (var info in quadrantsToProcess)
         {
             if (info.ShouldLoad)

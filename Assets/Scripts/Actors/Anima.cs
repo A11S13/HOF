@@ -96,7 +96,7 @@ public class Anima : MonoBehaviour
     {
         if (other.CompareTag("Player"))
         {
-            Debug.Log("Player collided with an anima!");
+            //Debug.Log("Player collided with an anima!");
             TakeDamage(100f);
         }
         else if (other.CompareTag("Projectile"))

@@ -31,7 +31,7 @@ public class WorldProcessor : MonoBehaviour
 
     private void HandleQuadrantChange(QuadrantTransitionEvent evt)
     {
-        Debug.Log($"Processing Area of Quadrant: {evt.NewLocation}");
+        //Debug.Log($"Processing Area of Quadrant: {evt.NewLocation}");
         StartCoroutine(AreaProcessor(evt.NewLocation));
     }
 

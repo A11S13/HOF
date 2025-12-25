@@ -55,7 +55,7 @@ public class WorldStateManager : MonoBehaviour
             if (IsInMappedWorld)
             {
                 EventBus.Instance.Publish(new ClusterTransitionEvent());
-                Debug.Log("WAKING AT CLUSTER");
+                //Debug.Log("WAKING AT CLUSTER");
                 WasInMappedWorld = true;
             }
             else
@@ -95,7 +95,7 @@ public class WorldStateManager : MonoBehaviour
 
         var oldQuadrant = CurrentQuadrant;
         CurrentQuadrant = newQuadrant;
-        Debug.Log("Dispatching QTE...");
+        //Debug.Log("Dispatching QTE...");
         EventBus.Instance.Publish(new QuadrantTransitionEvent(oldQuadrant, newQuadrant));
         //Debug.Log($"Quadrant transition: {oldQuadrant} -> {newQuadrant}");
     }

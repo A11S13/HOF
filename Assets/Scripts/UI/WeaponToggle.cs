@@ -15,7 +15,7 @@ public class WeaponToggle : MonoBehaviour
     private void OnToggleValueChanged(bool isOn)
     {
         associatedWeapon.ToggleAI();
-        Debug.Log("Toggle value changed: " + isOn);
+        //Debug.Log("Toggle value changed: " + isOn);
     }
 
     public void SetAssociatedWeapon(Weapon weapon)
