@@ -95,7 +95,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 7227428263767149554}
-  - component: {fileID: 4300599530254364890}
+  - component: {fileID: 7676512446066512707}
   - component: {fileID: 4653435357570583649}
   m_Layer: 0
   m_Name: HeavyTurret
@@ -124,7 +124,7 @@ Transform:
   - {fileID: 4663628281824728011}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &4300599530254364890
+--- !u!114 &7676512446066512707
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -133,24 +133,22 @@ MonoBehaviour:
   m_GameObject: {fileID: 8000410653846524232}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: ded785100e9ea574185c5c4e0d7521bb, type: 3}
+  m_Script: {fileID: 11500000, guid: bc5cae1d861d79340b8deac5d409a149, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  shipRb: {fileID: 0}
   ID: 0
-  target: {fileID: 0}
   prevTarget: {fileID: 0}
-  indicatorRed: {fileID: 9043623084846214810}
-  indicatorGreen: {fileID: 9078649843027189248}
-  indicatorBlue: {fileID: 380811660987726159}
   isAI: 0
   localRotationDeadZone: 0.1
   rotationSpeed: 20
-  initialFireRate: 2
+  initialFireRate: 40
   fireRate: 1
-  projectilePrefab: {fileID: 1875161418295932753, guid: 14875d327e26ec94bbc59743387c229b, type: 3}
+  isFiring: 0
+  firingRate: 0
   angularDistance: 0
   incrementSkipFrames: 0
+  projectilePrefab: {fileID: 1875161418295932753, guid: 14875d327e26ec94bbc59743387c229b, type: 3}
+  spreadAngle: 3
 --- !u!114 &4653435357570583649
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -165,6 +163,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   clip: {fileID: 8300000, guid: 9f5a9e7ac0a009f41b021caea50a98d9, type: 3}
   weaponsBus: {fileID: -3971088069843499658, guid: 49cd38965b49c0b45bc893d993408560, type: 2}
+  isolationThreshold: 0.08
 --- !u!1 &8932766615839101441
 GameObject:
   m_ObjectHideFlags: 0
@@ -278,11 +277,6 @@ Transform:
   m_CorrespondingSourceObject: {fileID: 7846758055845929821, guid: a472f16a6b2515d4da5a8c82b1e5c521, type: 3}
   m_PrefabInstance: {fileID: 3051306597463772135}
   m_PrefabAsset: {fileID: 0}
---- !u!1 &9078649843027189248 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 6315661591306622439, guid: a472f16a6b2515d4da5a8c82b1e5c521, type: 3}
-  m_PrefabInstance: {fileID: 3051306597463772135}
-  m_PrefabAsset: {fileID: 0}
 --- !u!1001 &3324101550398969097
 PrefabInstance:
   m_ObjectHideFlags: 0
@@ -360,11 +354,6 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 5bb14c04bd09b134db964bdce4bd04a6, type: 3}
---- !u!1 &380811660987726159 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 3128170571777764422, guid: 5bb14c04bd09b134db964bdce4bd04a6, type: 3}
-  m_PrefabInstance: {fileID: 3324101550398969097}
-  m_PrefabAsset: {fileID: 0}
 --- !u!4 &4663628281824728011 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 7969433490166630082, guid: 5bb14c04bd09b134db964bdce4bd04a6, type: 3}
@@ -454,10 +443,5 @@ PrefabInstance:
 --- !u!4 &8539015814903329669 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: 5045171521709075105, guid: 0c4333398dc73e24db9d16d82c40fb0c, type: 3}
-  m_PrefabInstance: {fileID: 3496096648271206692}
-  m_PrefabAsset: {fileID: 0}
---- !u!1 &9043623084846214810 stripped
-GameObject:
-  m_CorrespondingSourceObject: {fileID: 5550059987321255870, guid: 0c4333398dc73e24db9d16d82c40fb0c, type: 3}
   m_PrefabInstance: {fileID: 3496096648271206692}
   m_PrefabAsset: {fileID: 0}

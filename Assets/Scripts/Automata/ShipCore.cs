@@ -54,7 +54,10 @@ public class ShipCore : MonoBehaviour
         movementControl.UpdateMaxSpeed(enginesDistributedEnergy);
 
         foreach (var w in Weapons)
-            w.UpdateFirePower(weaponsDistributedEnergy);
+        {
+            if (w != null)
+                w.UpdateFirePower(weaponsDistributedEnergy);
+        }
     }
 
     void FixedUpdate()
@@ -76,7 +79,6 @@ public class ShipCore : MonoBehaviour
             Weapons[i].ID = id;
         }
     }
-
 
     public void ActualizeTargets()
     {
@@ -134,8 +136,15 @@ public class ShipCore : MonoBehaviour
     public void OnWeaponsSliderChanged(float v)
     {
         weaponsDistributedEnergy = shipData.overallEnergy * v;
+
         foreach (var w in Weapons)
-            w.UpdateFirePower(weaponsDistributedEnergy);
+        {
+            if (w != null)
+            {
+                float oldRate = w.fireRate;
+                w.UpdateFirePower(weaponsDistributedEnergy);
+            }
+        }
     }
 
     public struct TargetData
