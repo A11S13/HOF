@@ -2,41 +2,42 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
+/// <summary>
+/// Base weapon class - fully decoupled and reusable
+/// </summary>
 public abstract class Weapon : MonoBehaviour
 {
-    ShipCore _sC;
-
+    // Dependencies (injected)
+    protected ShipCore shipCore;
+    protected IShipController shipController;
+    protected ITargetProvider targetProvider;
     protected Rigidbody shipRb;
+    public ShipCore ShipCore => shipCore; // Public accessor for control modes
 
     public int ID;
 
-    float reactionDelay;
-    float nextReactionTime;
-    float targetLostUntil;
-    float fireAccumulator;
-    public float FirePhase => fireAccumulator;
+    // Control mode
+    private IWeaponControlMode controlMode;
+    public bool isAI { get; private set; }
 
+    // Targeting state
+    public float fireAccumulator { get; set; }
     float _phaseDriftTimer;
     const float PhaseDriftMinInterval = 0.2f;
     const float PhaseDriftMaxInterval = 1.2f;
     const float PhaseDriftAmount = 0.25f;
 
-    public ShipCore.TargetData[] CombinedTargets { get; private set; }
-    protected GameObject target;
+    public ShipTargetingSystem.TargetData[] CombinedTargets { get; private set; }
     public GameObject prevTarget;
-    public bool isAI;
+
+    [Header("Rotation Settings")]
     public float localRotationDeadZone = 0.1f;
     public float rotationSpeed = 5f;
-    private FixedJoystick turretJoystick;
+
     protected Transform weaponSpawnPoint;
 
-    Vector3 lastTargetPos;
-    protected Vector3 targetVel;
-    const float VelSampleDt = 0.05f;
-    float velSampleTimer;
-
+    [Header("Fire Rate")]
     public float initialFireRate;
-
     public float fireRate;
     public bool isFiring;
     public float firingRate;
@@ -50,71 +51,119 @@ public abstract class Weapon : MonoBehaviour
     private static Dictionary<GameObject, int> targetWeaponCount = new Dictionary<GameObject, int>();
     private static System.Object lockObject = new System.Object();
 
+    private bool isInitialized = false;
+
     void Awake()
     {
         fireAudio = GetComponent<AudioSource>();
+        audioDSP = GetComponent<WeaponAudioDSP>();
     }
 
-    void Start()
+    /// <summary>
+    /// Initialize weapon with ship dependencies
+    /// </summary>
+    public void Initialize(ShipCore core, IShipController controller, ITargetProvider targets, bool useAI)
     {
-        firingRate = 1;
+        if (isInitialized)
+        {
+            Debug.LogWarning($"Weapon {gameObject.name} already initialized!");
+            return;
+        }
 
+        // Validate dependencies
+        if (core == null || controller == null || targets == null)
+        {
+            Debug.LogError($"Weapon {gameObject.name}: Null dependency!");
+            return;
+        }
+
+        shipCore = core;
+        shipController = controller;
+        targetProvider = targets;
+        shipRb = controller.ShipRigidbody;
+
+        if (shipRb == null)
+        {
+            Debug.LogError($"Weapon {gameObject.name}: Ship Rigidbody is null!");
+            return;
+        }
+
+        // Setup control mode
+        isAI = useAI;
+        SetupControlMode();
+
+        // Setup weapon
+        firingRate = 1;
         if (initialFireRate <= 0f)
             initialFireRate = fireRate;
 
         fireAccumulator = Random.value;
-
         fireRate = fireRate * Random.Range(0.985f, 1.015f);
-
         _phaseDriftTimer = Random.Range(0f, PhaseDriftMaxInterval);
 
-        isAI = false;
-        target = null;
         incrementSkipFrames = 3;
-        audioDSP = GetComponent<WeaponAudioDSP>();
-        shipRb = GameObject.Find("PLAYER").GetComponent<Rigidbody>();
-        _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
-        _sC.SetWeaponsID();
         FindWeaponSpawnPoint();
-        turretJoystick = GameObject
-            .FindGameObjectWithTag("TurretJoystick")
-            .GetComponent<FixedJoystick>();
-
-        reactionDelay = Random.Range(0.0f, 0.75f);
-        nextReactionTime = 0f;
 
         InitializeWeapon();
+
+        isInitialized = true;
     }
 
+    void SetupControlMode()
+    {
+        if (isAI)
+        {
+            float reactionDelay = Random.Range(0.0f, 0.75f);
+            controlMode = new AIWeaponControl(reactionDelay);
+        }
+        else
+        {
+            var joystickObj = GameObject.FindGameObjectWithTag("TurretJoystick");
+            if (joystickObj != null)
+            {
+                var joystick = joystickObj.GetComponent<FixedJoystick>();
+                controlMode = new ManualWeaponControl(joystick, localRotationDeadZone);
+            }
+            else
+            {
+                Debug.LogWarning($"Weapon {gameObject.name}: TurretJoystick not found, defaulting to AI");
+                isAI = true;
+                controlMode = new AIWeaponControl(Random.Range(0.0f, 0.75f));
+            }
+        }
+    }
 
     void OnDestroy()
     {
-        if (target != null)
+        var aiControl = controlMode as AIWeaponControl;
+        if (aiControl != null && aiControl.GetCurrentTarget() != null)
         {
-            RemoveTargetAssignment(target);
+            RemoveTargetAssignment(aiControl.GetCurrentTarget());
         }
     }
 
     void Update()
     {
+        if (!isInitialized) return;
+
+        UpdatePhaseDrift();
+
+        float aimFactor = controlMode.UpdateControl(this);
+        TryFire(aimFactor);
+
+        audioDSP?.Drive();
+    }
+
+    void UpdatePhaseDrift()
+    {
         _phaseDriftTimer -= Time.deltaTime;
         if (_phaseDriftTimer <= 0f)
         {
             fireAccumulator += Random.Range(-PhaseDriftAmount, PhaseDriftAmount);
-
             if (fireAccumulator < 0f) fireAccumulator = 0f;
-
             _phaseDriftTimer = Random.Range(PhaseDriftMinInterval, PhaseDriftMaxInterval);
         }
-
-        isFiring = false;
-
-        if (isAI) AIControl();
-        else ManualControl();
-
-        audioDSP?.Drive();  
     }
-
 
     void TryFire(float aimFactor)
     {
@@ -143,125 +192,88 @@ public abstract class Weapon : MonoBehaviour
         }
     }
 
-
-
-    private void AIControl()
+    public void ToggleAI()
     {
-        if (target)
+        isAI = !isAI;
+        SetupControlMode();
+    }
+
+    // === PUBLIC HELPER METHODS FOR CONTROL MODES ===
+
+    public void RotateTowardsTarget(Vector3 targetPosition)
+    {
+        Vector3 direction = targetPosition - transform.position;
+        direction.y = 0f;
+
+        if (direction != Vector3.zero)
         {
-            var t = target.GetComponent<Targetable>();
-            if (t == null || !t.IsAlive)
+            Quaternion targetRotation = Quaternion.LookRotation(direction);
+            transform.rotation = Quaternion.Slerp(
+                transform.rotation,
+                targetRotation,
+                Time.deltaTime * rotationSpeed
+            );
+
+            if (Time.frameCount % incrementSkipFrames == 0)
             {
-                RemoveTargetAssignment(target);
-                target = null;
-                targetLostUntil = Time.time + reactionDelay;
-                return;
+                angularDistance = Quaternion.Angle(transform.rotation, targetRotation);
+                if (angularDistance < 0.01f)
+                    angularDistance = 0.01f;
             }
-        }
-
-        if (Time.time >= targetLostUntil)
-            PickTarget();
-
-        if (!target)
-            return;
-
-        velSampleTimer -= Time.deltaTime;
-        if (velSampleTimer <= 0f)
-        {
-            var pos = target.transform.position;
-            targetVel = (pos - lastTargetPos) / VelSampleDt;
-            lastTargetPos = pos;
-            velSampleTimer = VelSampleDt;
-        }
-
-        var aimPos = CalculateAimPosition();
-
-        RotateTowardsTarget(aimPos);
-
-        if (IsAimedAtTarget(aimPos))
-        {
-            float aim = 1f - angularDistance / _sC.firingThresholdAngle;
-            TryFire(aim);
         }
     }
 
-    protected virtual Vector3 CalculateAimPosition()
+    public bool IsAimedAtTarget(Vector3 targetPosition)
+    {
+        Vector3 directionToTarget = targetPosition - transform.position;
+        directionToTarget.y = 0f;
+        Vector3 turretForward = transform.forward;
+        float angleToTarget = Vector3.Angle(turretForward, directionToTarget);
+        return angleToTarget <= shipCore.firingThresholdAngle;
+    }
+
+    public virtual Vector3 CalculateAimPosition(GameObject target, Vector3 targetVelocity)
     {
         return target != null ? target.transform.position : transform.position + transform.forward * 100f;
     }
 
-    bool ShouldSwitch(GameObject cur, GameObject best)
+    // === TARGET MANAGEMENT ===
+
+    public void PrioritizeTargets()
     {
-        if (!cur) return true;
+        ShipTargetingSystem.TargetData[] closestTargets = FindClosest();
+        ShipTargetingSystem.TargetData[] angularClosestTargets = FindAngularClosest();
 
-        float dCur = (cur.transform.position - transform.position).sqrMagnitude;
-        float dBest = (best.transform.position - transform.position).sqrMagnitude;
+        Dictionary<GameObject, ShipTargetingSystem.TargetData> combinedDict = new Dictionary<GameObject, ShipTargetingSystem.TargetData>();
 
-        return dBest < dCur * 0.85f;
-    }
-
-    float TargetScore(GameObject t)
-    {
-        float d = (t.transform.position - transform.position).sqrMagnitude;
-        float pressure = GetTargetWeaponCount(t);
-
-        float baseScore = d * (1f + pressure * 0.15f);
-        return ModifyTargetScore(t, baseScore);
-    }
-
-    protected virtual float ModifyTargetScore(GameObject target, float baseScore)
-    {
-        return baseScore;
-    }
-
-    float WeaponBias(GameObject t)
-    {
-        return Mathf.Abs((t.GetInstanceID() ^ ID) % 17) * 0.001f;
-    }
-
-    private void PickTarget()
-    {
-        PrioritizeTargets();
-        if (CombinedTargets.Length == 0)
+        foreach (var targetData in closestTargets)
         {
-            target = null;
-            return;
+            if (targetData.TargetObject != null && !combinedDict.ContainsKey(targetData.TargetObject))
+            {
+                combinedDict[targetData.TargetObject] = targetData;
+            }
         }
 
-        GameObject best = FindBestAvailableTarget();
-        if (best == null)
+        foreach (var targetData in angularClosestTargets)
         {
-            target = CombinedTargets[0].TargetObject;
-            AddTargetAssignment(target);
-            return;
+            if (targetData.TargetObject != null)
+            {
+                if (!combinedDict.ContainsKey(targetData.TargetObject))
+                {
+                    combinedDict[targetData.TargetObject] = targetData;
+                }
+                else if (targetData.UnifiedDistance < combinedDict[targetData.TargetObject].UnifiedDistance)
+                {
+                    combinedDict[targetData.TargetObject] = targetData;
+                }
+            }
         }
 
-        float jitter = 0.15f;
-        float now = Time.time + Random.Range(-jitter, jitter);
-
-        bool urgent =
-            target &&
-            (best.transform.position - transform.position).sqrMagnitude <
-            (target.transform.position - transform.position).sqrMagnitude * 0.5f;
-
-        if (best != target && (urgent || (ShouldSwitch(target, best) && now >= nextReactionTime)))
-        {
-            if (target) RemoveTargetAssignment(target);
-
-            target = best;
-
-            fireAccumulator += Random.Range(0f, 0.3f);
-
-            lastTargetPos = target.transform.position;
-            targetVel = Vector3.zero;
-            AddTargetAssignment(target);
-
-            nextReactionTime = now + reactionDelay;
-
-        }
+        CombinedTargets = combinedDict.Values.ToArray();
+        System.Array.Sort(CombinedTargets, (a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance));
     }
 
-    private GameObject FindBestAvailableTarget()
+    public GameObject FindBestAvailableTarget()
     {
         GameObject best = null;
         float bestScore = float.MaxValue;
@@ -288,59 +300,46 @@ public abstract class Weapon : MonoBehaviour
         return best;
     }
 
-    private ShipCore.TargetData[] PrioritizeTargets()
+    float TargetScore(GameObject t)
     {
-        ShipCore.TargetData[] closestTargets = FindClosest();
-        ShipCore.TargetData[] angularClosestTargets = FindAngularClosest();
-
-        Dictionary<GameObject, ShipCore.TargetData> combinedDict = new Dictionary<GameObject, ShipCore.TargetData>();
-
-        foreach (var targetData in closestTargets)
-        {
-            if (targetData.TargetObject != null && !combinedDict.ContainsKey(targetData.TargetObject))
-            {
-                combinedDict[targetData.TargetObject] = targetData;
-            }
-        }
-
-        foreach (var targetData in angularClosestTargets)
-        {
-            if (targetData.TargetObject != null)
-            {
-                if (!combinedDict.ContainsKey(targetData.TargetObject))
-                {
-                    combinedDict[targetData.TargetObject] = targetData;
-                }
-                else if (targetData.UnifiedDistance < combinedDict[targetData.TargetObject].UnifiedDistance)
-                {
-                    combinedDict[targetData.TargetObject] = targetData;
-                }
-            }
-        }
-
-        CombinedTargets = combinedDict.Values.ToArray();
-
-        System.Array.Sort(CombinedTargets, (a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance));
-
-        return CombinedTargets;
+        float d = (t.transform.position - transform.position).sqrMagnitude;
+        float pressure = GetTargetWeaponCount(t);
+        float baseScore = d * (1f + pressure * 0.15f);
+        return ModifyTargetScore(t, baseScore);
     }
 
-    private void AddTargetAssignment(GameObject targetObj)
+    protected virtual float ModifyTargetScore(GameObject target, float baseScore)
+    {
+        return baseScore;
+    }
+
+    float WeaponBias(GameObject t)
+    {
+        return Mathf.Abs((t.GetInstanceID() ^ ID) % 17) * 0.001f;
+    }
+
+    public bool ShouldSwitch(GameObject cur, GameObject best)
+    {
+        if (!cur) return true;
+
+        float dCur = (cur.transform.position - transform.position).sqrMagnitude;
+        float dBest = (best.transform.position - transform.position).sqrMagnitude;
+
+        return dBest < dCur * 0.85f;
+    }
+
+    public void AddTargetAssignment(GameObject targetObj)
     {
         lock (lockObject)
         {
             if (targetWeaponCount.ContainsKey(targetObj))
-            {
                 targetWeaponCount[targetObj]++;
-            }
             else
-            {
                 targetWeaponCount[targetObj] = 1;
-            }
         }
     }
 
-    private void RemoveTargetAssignment(GameObject targetObj)
+    public void RemoveTargetAssignment(GameObject targetObj)
     {
         if (targetObj == null) return;
 
@@ -350,14 +349,12 @@ public abstract class Weapon : MonoBehaviour
             {
                 targetWeaponCount[targetObj]--;
                 if (targetWeaponCount[targetObj] <= 0)
-                {
                     targetWeaponCount.Remove(targetObj);
-                }
             }
         }
     }
 
-    private int GetTargetWeaponCount(GameObject targetObj)
+    int GetTargetWeaponCount(GameObject targetObj)
     {
         lock (lockObject)
         {
@@ -365,129 +362,31 @@ public abstract class Weapon : MonoBehaviour
         }
     }
 
-    private void RotateTowardsTarget(Vector3 targetPosition)
+    ShipTargetingSystem.TargetData[] FindClosest()
     {
-        Vector3 direction = targetPosition - transform.position;
-        direction.y = 0f;
-
-        if (direction != Vector3.zero)
-        {
-            Quaternion targetRotation = Quaternion.LookRotation(direction);
-            transform.rotation = Quaternion.Slerp(
-                transform.rotation,
-                targetRotation,
-                Time.deltaTime * rotationSpeed
-            );
-
-            if (Time.frameCount % incrementSkipFrames == 0)
-            {
-                angularDistance = Quaternion.Angle(transform.rotation, targetRotation);
-                if (angularDistance < 0.01f)
-                {
-                    angularDistance = 0.01f;
-                }
-            }
-        }
-    }
-
-    private bool IsAimedAtTarget(Vector3 targetPosition)
-    {
-        Vector3 directionToTarget = targetPosition - transform.position;
-        directionToTarget.y = 0f;
-        Vector3 turretForward = transform.forward;
-        float angleToTarget = Vector3.Angle(turretForward, directionToTarget);
-        return angleToTarget <= _sC.firingThresholdAngle;
-    }
-
-    public void ToggleAI()
-    {
-        isAI = !isAI;
-    }
-
-    protected virtual void FindWeaponSpawnPoint()
-    {
-        weaponSpawnPoint = transform.Find("projectileSpawnPoint")
-                        ?? transform.Find("weaponSpawnPoint")
-                        ?? transform.Find("beamSpawnPoint");
-
-        if (weaponSpawnPoint == null)
-        {
-            weaponSpawnPoint = transform;
-        }
-    }
-
-    public void UpdateFirePower(float weaponsDistributedEnergy)
-    {
-        float oldRate = fireRate;
-        fireRate = initialFireRate * weaponsDistributedEnergy * 0.001f + 2f;
-    }
-
-
-    private void ManualControl()
-    {
-        HandleTurretRotation();
-        HandleFire();
-    }
-
-    void HandleTurretRotation()
-    {
-        Vector3 turretDirection = new Vector3(
-            turretJoystick.Direction.x,
-            0,
-            turretJoystick.Direction.y
-        );
-
-        if (turretDirection.magnitude > localRotationDeadZone)
-        {
-            float angle = Vector3.SignedAngle(Vector3.forward, turretDirection, Vector3.up);
-            Quaternion targetRotation = Quaternion.Euler(0f, angle, 0f);
-            transform.rotation = Quaternion.Slerp(
-                transform.rotation,
-                targetRotation,
-                Time.deltaTime * rotationSpeed
-            );
-        }
-    }
-
-    void HandleFire()
-    {
-        Vector3 fireDir = new Vector3(
-            turretJoystick.Direction.x,
-            0,
-            turretJoystick.Direction.y
-        );
-
-        float mag = fireDir.magnitude;
-        if (mag <= turretJoystick.DeadZone) return;
-
-        TryFire(Mathf.Clamp01(mag));
-    }
-
-    private ShipCore.TargetData[] FindClosest()
-    {
-        var src = _sC.targetDataArray;
+        var src = targetProvider.GetTargetDataArray();
         if (src.Length == 0) return src;
 
-        var list = new List<ShipCore.TargetData>(src.Length);
+        var list = new List<ShipTargetingSystem.TargetData>(src.Length);
 
         foreach (var t in src)
         {
             if (!t.TargetObject) continue;
 
             float d = (t.TargetObject.transform.position - transform.position).sqrMagnitude;
-            list.Add(new ShipCore.TargetData(t.TargetObject, d * _sC.distanceThreshold));
+            list.Add(new ShipTargetingSystem.TargetData(t.TargetObject, d * shipCore.distanceThreshold));
         }
 
         list.Sort((a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance));
         return list.ToArray();
     }
 
-    private ShipCore.TargetData[] FindAngularClosest()
+    ShipTargetingSystem.TargetData[] FindAngularClosest()
     {
-        var src = _sC.targetDataArray;
+        var src = targetProvider.GetTargetDataArray();
         if (src.Length == 0) return src;
 
-        var list = new List<ShipCore.TargetData>(src.Length);
+        var list = new List<ShipTargetingSystem.TargetData>(src.Length);
         Vector3 fwd = transform.forward;
 
         foreach (var t in src)
@@ -498,14 +397,31 @@ public abstract class Weapon : MonoBehaviour
             dir.y = 0f;
 
             float a = Vector3.Angle(fwd, dir);
-            list.Add(new ShipCore.TargetData(
+            list.Add(new ShipTargetingSystem.TargetData(
                 t.TargetObject,
-                a * _sC.angularThreshold + _sC.angularMarging
+                a * shipCore.angularThreshold + shipCore.angularMarging
             ));
         }
 
         list.Sort((a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance));
         return list.ToArray();
+    }
+
+    // === ABSTRACT/VIRTUAL METHODS ===
+
+    protected virtual void FindWeaponSpawnPoint()
+    {
+        weaponSpawnPoint = transform.Find("projectileSpawnPoint")
+                        ?? transform.Find("weaponSpawnPoint")
+                        ?? transform.Find("beamSpawnPoint");
+
+        if (weaponSpawnPoint == null)
+            weaponSpawnPoint = transform;
+    }
+
+    public void UpdateFirePower(float weaponsDistributedEnergy)
+    {
+        fireRate = initialFireRate * weaponsDistributedEnergy * 0.001f + 2f;
     }
 
     protected virtual void InitializeWeapon() { }

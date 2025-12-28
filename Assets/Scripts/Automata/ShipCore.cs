@@ -1,73 +1,158 @@
-using System.Linq;
 using UnityEngine;
 using UnityEngine.UI;
 
+/// <summary>
+/// Core ship systems - manages weapons, energy, and targeting.
+/// Now decoupled and reusable for both player and NPC ships.
+/// </summary>
 public class ShipCore : MonoBehaviour
 {
+    [Header("Ship Configuration")]
     public string unitTech;
     public ShipData shipData;
 
-    Sonar _sonar;
-
+    [Header("Targeting")]
     public float sonarRadius = 100f;
     public TargetingConfig targetingConfig;
-
-    public Weapon[] Weapons;
-
     public float firingThresholdAngle = 5f;
-    public float distanceThreshold = 1;
-    public float angularThreshold = 1;
-    public float angularMarging = 10;
+    public float distanceThreshold = 1f;
+    public float angularThreshold = 1f;
+    public float angularMarging = 10f;
 
     [Header("Weapon AI Settings")]
-    public int maxWeaponsPerTarget => Weapons.Length;
+    public int maxWeaponsPerTarget => Weapons != null ? Weapons.Length : 0;
 
+    [Header("Energy Distribution UI (Player Only - Leave null for NPCs)")]
     public Slider shieldsSlider;
     public Slider enginesSlider;
     public Slider weaponsSlider;
     public Slider commandSlider;
 
-    float enginesDistributedEnergy;
-    float weaponsDistributedEnergy;
+    // Dependencies (injected)
+    private IShipController shipController;
+    private ITargetProvider targetProvider;
 
-    MovementControl movementControl;
+    // Weapon array
+    public Weapon[] Weapons { get; private set; }
 
-    TargetData[][] AllTargetsArrays;
-    public TargetData[] targetDataArray;
+    // Energy distribution
+    private float enginesDistributedEnergy;
+    private float weaponsDistributedEnergy;
 
-    void Awake()
+    // Initialization flag
+    private bool isInitialized = false;
+
+    /// <summary>
+    /// Initialize the ship core with dependencies.
+    /// Call this after setting up the ship hierarchy.
+    /// </summary>
+    public void Initialize(IShipController controller, ITargetProvider targetProvider)
     {
-        _sonar = GameObject.Find("Sonar").GetComponent<Sonar>();
-        Weapons = Object.FindObjectsByType<Weapon>(FindObjectsSortMode.None);
+        if (isInitialized)
+        {
+            Debug.LogWarning($"ShipCore on {gameObject.name} already initialized!");
+            return;
+        }
+
+        shipController = controller;
+        this.targetProvider = targetProvider;
+
+        // Find all weapons
+        Weapons = GetComponentsInChildren<Weapon>();
+
+        if (Weapons.Length == 0)
+        {
+            Debug.LogWarning($"ShipCore on {gameObject.name}: No weapons found in children!");
+        }
+        else
+        {
+            // Determine if this is a player ship
+            bool isPlayerShip = controller.GetType() == typeof(PlayerShipMovement);
+
+            // Initialize each weapon
+            foreach (var weapon in Weapons)
+            {
+                if (weapon != null)
+                {
+                    // NPCs always use AI, Players default to Manual (can toggle)
+                    bool useAI = !isPlayerShip;
+                    weapon.Initialize(this, controller, targetProvider, useAI);
+                }
+            }
+
+            Debug.Log($"ShipCore initialized on {gameObject.name} with {Weapons.Length} weapons");
+        }
+
+        // Setup UI listeners and apply initial energy distribution from slider values
+        SetupEnergyDistribution();
+
+        isInitialized = true;
     }
 
-    void Start()
+    /// <summary>
+    /// Setup UI listeners and apply initial energy distribution from slider starting values
+    /// </summary>
+    private void SetupEnergyDistribution()
     {
-        ActualizeTargets();
-        AllTargetsArrays = new TargetData[][] { };
-
-        movementControl = GetComponentInParent<MovementControl>();
-
-        enginesDistributedEnergy = shipData.overallEnergy * enginesSlider.value;
-        weaponsDistributedEnergy = shipData.overallEnergy * weaponsSlider.value;
-
-        movementControl.UpdateMaxSpeed(enginesDistributedEnergy);
-
-        foreach (var w in Weapons)
+        if (shipData == null)
         {
-            if (w != null)
-                w.UpdateFirePower(weaponsDistributedEnergy);
+            Debug.LogWarning($"ShipCore on {gameObject.name}: shipData is null, cannot setup energy distribution");
+            return;
+        }
+
+        // Apply initial energy from current slider values BEFORE adding listeners
+        ApplyInitialEnergyDistribution();
+
+        // Setup UI listeners if sliders exist (Player ship)
+        if (enginesSlider != null)
+        {
+            enginesSlider.onValueChanged.AddListener(OnEnginesSliderChanged);
+        }
+
+        if (weaponsSlider != null)
+        {
+            weaponsSlider.onValueChanged.AddListener(OnWeaponsSliderChanged);
+        }
+    }
+
+    /// <summary>
+    /// Apply initial energy distribution from slider starting values
+    /// </summary>
+    private void ApplyInitialEnergyDistribution()
+    {
+        // Read initial values from sliders (use their current value set in Inspector/Scene)
+        float enginesValue = enginesSlider != null ? enginesSlider.value : 0f;
+        float weaponsValue = weaponsSlider != null ? weaponsSlider.value : 0f;
+
+        // Apply engines energy
+        if (enginesSlider != null)
+        {
+            enginesDistributedEnergy = shipData.overallEnergy * enginesValue;
+            shipController?.SetMaxSpeed(enginesDistributedEnergy);
+            Debug.Log($"{gameObject.name} - Initial Engines Energy: {enginesDistributedEnergy:F2} (slider value: {enginesValue:F2})");
+        }
+
+        // Apply weapons energy
+        if (weaponsSlider != null)
+        {
+            weaponsDistributedEnergy = shipData.overallEnergy * weaponsValue;
+            UpdateWeaponsPower(weaponsDistributedEnergy);
+            Debug.Log($"{gameObject.name} - Initial Weapons Energy: {weaponsDistributedEnergy:F2} (slider value: {weaponsValue:F2})");
         }
     }
 
     void FixedUpdate()
     {
-        ActualizeTargets();
-        AllTargetsArrays = new TargetData[][] { };
+        if (!isInitialized) return;
+
+        // Update targeting system
+        targetProvider?.RefreshTargets();
     }
 
     public void SetWeaponsID()
     {
+        if (Weapons == null || Weapons.Length == 0) return;
+
         int middle = Weapons.Length / 2;
 
         for (int i = 0; i < Weapons.Length; i++)
@@ -80,82 +165,37 @@ public class ShipCore : MonoBehaviour
         }
     }
 
-    public void ActualizeTargets()
+    private void UpdateWeaponsPower(float distributedEnergy)
     {
-        _sonar.DriveSonar(50);
-        FormClosestTargetsArray();
-    }
-
-    void FormClosestTargetsArray()
-    {
-        var targets = _sonar.trackedTargets;
-
-        targetDataArray = new TargetData[targets.Count];
-
-        for (int i = 0; i < targets.Count; i++)
+        foreach (var weapon in Weapons)
         {
-            var t = targets[i];
-            float d = (t.transform.position - transform.position).sqrMagnitude;
-            targetDataArray[i] = new TargetData(t.gameObject, d);
+            if (weapon != null)
+                weapon.UpdateFirePower(distributedEnergy);
         }
     }
 
-    public TargetData[] ArrangeTargets(TargetData[] passedCombinedTargets)
+    public void OnEnginesSliderChanged(float value)
     {
-        if (AllTargetsArrays.Length == 0)
-        {
-            passedCombinedTargets = new[] { passedCombinedTargets[0] };
-            AllTargetsArrays = AllTargetsArrays.Concat(new[] { passedCombinedTargets }).ToArray();
-            return passedCombinedTargets;
-        }
+        if (!Application.isPlaying || shipData == null) return;
 
-        while (
-            passedCombinedTargets.Length != 0 &&
-            AllTargetsArrays.Any(a => passedCombinedTargets[0].TargetObject == a[0].TargetObject)
-        )
-        {
-            passedCombinedTargets = passedCombinedTargets.Skip(1).ToArray();
-        }
-
-        if (passedCombinedTargets.Length != 0)
-        {
-            passedCombinedTargets = new[] { passedCombinedTargets[0] };
-            AllTargetsArrays = AllTargetsArrays.Concat(new[] { passedCombinedTargets }).ToArray();
-        }
-
-        return passedCombinedTargets;
+        enginesDistributedEnergy = shipData.overallEnergy * value;
+        shipController?.SetMaxSpeed(enginesDistributedEnergy);
     }
 
-    public void OnEnginesSliderChanged(float v)
+    public void OnWeaponsSliderChanged(float value)
     {
-        if (!Application.isPlaying || !this) return;
-        enginesDistributedEnergy = shipData.overallEnergy * v;
-        movementControl.UpdateMaxSpeed(enginesDistributedEnergy);
+        if (!Application.isPlaying || shipData == null) return;
+
+        weaponsDistributedEnergy = shipData.overallEnergy * value;
+        UpdateWeaponsPower(weaponsDistributedEnergy);
     }
 
-    public void OnWeaponsSliderChanged(float v)
+    void OnDestroy()
     {
-        weaponsDistributedEnergy = shipData.overallEnergy * v;
-
-        foreach (var w in Weapons)
-        {
-            if (w != null)
-            {
-                float oldRate = w.fireRate;
-                w.UpdateFirePower(weaponsDistributedEnergy);
-            }
-        }
-    }
-
-    public struct TargetData
-    {
-        public GameObject TargetObject { get; }
-        public float UnifiedDistance { get; }
-
-        public TargetData(GameObject obj, float d)
-        {
-            TargetObject = obj;
-            UnifiedDistance = d;
-        }
+        // Cleanup UI listeners
+        if (enginesSlider != null)
+            enginesSlider.onValueChanged.RemoveListener(OnEnginesSliderChanged);
+        if (weaponsSlider != null)
+            weaponsSlider.onValueChanged.RemoveListener(OnWeaponsSliderChanged);
     }
 }

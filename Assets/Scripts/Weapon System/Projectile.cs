@@ -8,6 +8,9 @@ public class Projectile : MonoBehaviour
     Vector3 velocity;
     bool isInitialized;
 
+    // NEW: Store owner's layer to prevent self-damage
+    private int ownerLayer = -1;
+
     void Start()
     {
         if (!isInitialized)
@@ -20,6 +23,14 @@ public class Projectile : MonoBehaviour
         isInitialized = true;
     }
 
+    // NEW: Overload to accept owner layer
+    public void Initialize(Vector3 parentVelocity, int ownerLayer)
+    {
+        velocity = transform.forward * speed + parentVelocity;
+        this.ownerLayer = ownerLayer;
+        isInitialized = true;
+    }
+
     void FixedUpdate()
     {
         transform.position += velocity * Time.fixedDeltaTime;
@@ -27,6 +38,10 @@ public class Projectile : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
+        // NEW: Ignore collisions with objects on owner's layer
+        if (ownerLayer != -1 && other.gameObject.layer == ownerLayer)
+            return;
+
         var d = other.GetComponent<Damageable>();
         if (d != null)
         {

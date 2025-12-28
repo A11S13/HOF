@@ -1,22 +1,37 @@
 using UnityEngine;
 
+/// <summary>
+/// Player script - manages player-specific functionality
+/// </summary>
 public class Player : MonoBehaviour
 {
-    private MovementControl playerController;
+    private PlayerShipMovement playerMovement;
 
     private void Awake()
     {
-        playerController = GetComponent<MovementControl>();
+        playerMovement = GetComponent<PlayerShipMovement>();
+
+        if (playerMovement == null)
+        {
+            Debug.LogError("PlayerShipMovement component not found on Player GameObject!");
+        }
     }
+
     public void DisablePlayerControl()
     {
-            playerController.enabled = false; 
+        if (playerMovement != null)
+        {
+            playerMovement.enabled = false;
             Debug.LogWarning("Disabled player control.");
+        }
     }
 
     public void EnablePlayerControl()
     {
-            playerController.enabled = true; 
-            Debug.LogWarning("Enable player control.");
+        if (playerMovement != null)
+        {
+            playerMovement.enabled = true;
+            Debug.LogWarning("Enabled player control.");
+        }
     }
 }

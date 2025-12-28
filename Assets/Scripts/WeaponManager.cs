@@ -1,33 +1,75 @@
 using UnityEngine;
 
+/// <summary>
+/// Manages weapon UI toggles for player ship only
+/// </summary>
 public class WeaponManager : MonoBehaviour
 {
     public GameObject weaponTogglePrefab;
 
-    ShipCore _sC;
+    private ShipCore shipCore;
+    private Transform toggleParent;
 
     private void Awake()
     {
-        _sC = GameObject.Find("MOTHERSHIP").GetComponent<ShipCore>();
+        // Find MOTHERSHIP in children
+        var mothership = transform.GetComponentInChildren<ShipCore>();
+        if (mothership != null)
+        {
+            shipCore = mothership;
+        }
+        else
+        {
+            Debug.LogError("WeaponManager: Could not find ShipCore in children!");
+            enabled = false;
+            return;
+        }
+
+        // Find toggle parent
+        var canvas = GameObject.Find("Canvas/Weapons/Scroll/Panel");
+        if (canvas != null)
+        {
+            toggleParent = canvas.transform;
+        }
+        else
+        {
+            Debug.LogWarning("WeaponManager: Canvas/Weapons/Scroll/Panel not found. Weapon toggles will not be created.");
+        }
     }
 
     void Start()
     {
-        foreach (var weapon in _sC.Weapons)
+        if (shipCore == null || toggleParent == null || weaponTogglePrefab == null)
+            return;
+
+        // Wait one frame for weapons to be initialized
+        StartCoroutine(CreateWeaponToggles());
+    }
+
+    System.Collections.IEnumerator CreateWeaponToggles()
+    {
+        yield return null; // Wait for ShipCore initialization
+
+        if (shipCore.Weapons == null || shipCore.Weapons.Length == 0)
         {
-            // Instantiate the weaponTogglePrefab for each weapon
-            GameObject newToggle = Instantiate(
-                weaponTogglePrefab,
-                GameObject.Find("Canvas/Weapons/Scroll/Panel").transform
-            );
+            Debug.LogWarning("WeaponManager: No weapons found on ShipCore");
+            yield break;
+        }
 
-            // Access the ToggleLogic script on the instantiated Toggle
+        foreach (var weapon in shipCore.Weapons)
+        {
+            if (weapon == null) continue;
+
+            // Instantiate toggle
+            GameObject newToggle = Instantiate(weaponTogglePrefab, toggleParent);
+
+            // Setup toggle
             WeaponToggle weaponToggle = newToggle.GetComponent<WeaponToggle>();
-
-            weaponToggle.SetAssociatedWeapon(weapon);
-
-            // Assuming Weapon has a unique identifier, use it to customize the toggle
-            weaponToggle.SetWeaponInfo(weapon); // Customize the toggle based on the weapon info
+            if (weaponToggle != null)
+            {
+                weaponToggle.SetAssociatedWeapon(weapon);
+                weaponToggle.SetWeaponInfo(weapon);
+            }
         }
     }
 }

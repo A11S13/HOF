@@ -466,56 +466,6 @@ Projector:
   m_IgnoreLayers:
     serializedVersion: 2
     m_Bits: 0
---- !u!1 &6799248067914062718
-GameObject:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  serializedVersion: 6
-  m_Component:
-  - component: {fileID: 211790392318987591}
-  - component: {fileID: 6744305333914384785}
-  m_Layer: 0
-  m_Name: Sonar
-  m_TagString: Untagged
-  m_Icon: {fileID: 0}
-  m_NavMeshLayer: 0
-  m_StaticEditorFlags: 0
-  m_IsActive: 1
---- !u!4 &211790392318987591
-Transform:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6799248067914062718}
-  serializedVersion: 2
-  m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: 0, y: 0, z: 0}
-  m_LocalScale: {x: 1, y: 1, z: 1}
-  m_ConstrainProportionsScale: 0
-  m_Children: []
-  m_Father: {fileID: 2909137410659646838}
-  m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
---- !u!114 &6744305333914384785
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6799248067914062718}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: b3ed5c848c08bb84cbb1b57382d91e38, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  enemyColliders: []
-  maxTrackedCap: 0
-  sonarCurrentRadius: 0
-  sonarPrevMaxRadius: 0
-  sonarMaterial: {fileID: 2100000, guid: 6e1540356d65359419464260f4b3b08e, type: 2}
-  trackedColliders: []
 --- !u!1 &6996822757350681628
 GameObject:
   m_ObjectHideFlags: 0
@@ -874,7 +824,6 @@ Transform:
   m_Children:
   - {fileID: 8299226075175011450}
   - {fileID: 2643003623441114534}
-  - {fileID: 211790392318987591}
   m_Father: {fileID: 0}
   m_LocalEulerAnglesHint: {x: 0, y: 180, z: 0}
 --- !u!1 &8889042817344145447

@@ -1,5 +1,8 @@
 using UnityEngine;
 
+/// <summary>
+/// Beam-based weapon
+/// </summary>
 public class BeamWeapon : Weapon
 {
     [Header("Beam Settings")]
@@ -22,15 +25,20 @@ public class BeamWeapon : Weapon
         beamRenderer.enabled = false;
     }
 
-    protected override Vector3 CalculateAimPosition()
+    public override Vector3 CalculateAimPosition(GameObject target, Vector3 targetVelocity)
     {
         return target != null ? target.transform.position : transform.position + transform.forward * beamRange;
     }
 
     protected override void Fire(float aimQuality)
     {
-        EventBus.Instance.Publish(new PlayerShotEvent());
-        Debug.Log("Beam fire - TODO: Implement continuous damage and visuals");
+        // Publish event if EventBus exists
+        if (EventBus.Instance != null)
+        {
+            EventBus.Instance.Publish(new PlayerShotEvent());
+        }
+
+        Debug.Log($"Beam fire from {gameObject.name} - TODO: Implement continuous damage and visuals");
     }
 
     protected override float ModifyTargetScore(GameObject target, float baseScore)
