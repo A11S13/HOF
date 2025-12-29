@@ -1,7 +1,7 @@
-using UnityEngine;
+﻿using UnityEngine;
 
 /// <summary>
-/// NPC ship AI behavior controller
+/// NPC ship AI behavior controller with smooth state transitions
 /// </summary>
 public class NPCBehavior : MonoBehaviour
 {
@@ -11,30 +11,67 @@ public class NPCBehavior : MonoBehaviour
     private ShipTargetingSystem targeting;
 
     [Header("Behavior Settings")]
-    public AIBehaviorMode behaviorMode = AIBehaviorMode.Patrol;
+    public AIBehaviorMode behaviorMode = AIBehaviorMode.Wander;
+
+    [Header("Combat Range Settings")]
+    [Tooltip("Start engaging enemies within this range")]
     public float engagementRange = 100f;
+
+    [Tooltip("Ideal combat distance - ship will circle here")]
     public float optimalRange = 50f;
+
+    [Tooltip("If closer than this, ship will retreat")]
     public float retreatRange = 20f;
 
-    [Header("Patrol Settings")]
-    public Transform[] patrolPoints;
-    public float patrolSpeed = 5f;
-    private int currentPatrolIndex = 0;
+    [Tooltip("Hysteresis buffer to prevent state flickering")]
+    public float rangeHysteresis = 10f; // ← NEW
+
+    [Tooltip("Minimum time to stay in combat state before switching")]
+    public float stateCommitmentTime = 2f; // ← NEW
+
+    [Header("Wander Settings")]
+    public float wanderRadius = 400f;
+    public float minWanderDistance = 20f;
+    public float maxWanderDistance = 800f;
+    public float waypointReachDistance = 10f;
+    public float wanderWaitTime = 0f;
+    private Vector3 wanderCenter;
+    private Vector3 currentWanderTarget;
+    private float wanderWaitTimer = 0f;
+    private bool isWaiting = false;
 
     [Header("Combat Settings")]
-    public float circlingSpeed = 8f;
+    [Tooltip("How fast to orbit around target (degrees per second)")]
+    public float circlingSpeed = 45f; // ← Changed to degrees/sec
+
+    [Tooltip("Distance to maintain while circling")]
     public float circlingRadius = 40f;
+
+    [Tooltip("How often to update circle waypoint (seconds)")]
+    public float circleUpdateInterval = 0.5f; // ← NEW
+
+    [Tooltip("Predict target movement for smoother circling")]
+    public bool predictTargetMovement = true; // ← NEW
+
     private Vector3 circlingCenter;
     private float circlingAngle;
+    private float lastCircleUpdateTime;
 
     private GameObject currentEnemy;
     private AIBehaviorMode currentState;
+    private AIBehaviorMode previousState;
+    private float stateEnterTime; // ← NEW
 
     void Awake()
     {
         movement = GetComponent<NPCShipMovement>();
         shipCore = GetComponentInChildren<ShipCore>();
         targeting = GetComponentInChildren<ShipTargetingSystem>();
+
+        wanderCenter = transform.position;
+        currentState = behaviorMode;
+        previousState = behaviorMode;
+        stateEnterTime = Time.time;
     }
 
     void Update()
@@ -46,40 +83,31 @@ public class NPCBehavior : MonoBehaviour
 
     void UpdateBehavior()
     {
-        // Find nearest enemy
         currentEnemy = FindNearestEnemy();
 
-        if (currentEnemy != null)
-        {
-            float distance = Vector3.Distance(transform.position, currentEnemy.transform.position);
+        AIBehaviorMode desiredState = DetermineDesiredState();
 
-            if (distance < engagementRange)
+        // Only switch states if committed enough time OR critical change
+        bool canSwitchState = Time.time - stateEnterTime >= stateCommitmentTime;
+        bool criticalChange = (currentState == AIBehaviorMode.Wander && desiredState != AIBehaviorMode.Wander) ||
+                              (currentState != AIBehaviorMode.Wander && desiredState == AIBehaviorMode.Wander);
+
+        if (canSwitchState || criticalChange)
+        {
+            if (desiredState != currentState)
             {
-                // Switch to combat
-                if (distance > optimalRange)
-                    currentState = AIBehaviorMode.Approach;
-                else if (distance < retreatRange)
-                    currentState = AIBehaviorMode.Retreat;
-                else
-                    currentState = AIBehaviorMode.Circle;
-            }
-            else
-            {
-                // Too far, go back to patrol
-                currentState = behaviorMode;
+                previousState = currentState;
+                currentState = desiredState;
+                stateEnterTime = Time.time;
+                OnStateChanged();
             }
         }
-        else
-        {
-            // No enemies, use default behavior
-            currentState = behaviorMode;
-        }
 
-        // Execute behavior
+        // Execute current behavior
         switch (currentState)
         {
-            case AIBehaviorMode.Patrol:
-                DoPatrol();
+            case AIBehaviorMode.Wander:
+                DoWander();
                 break;
             case AIBehaviorMode.Approach:
                 DoApproach();
@@ -96,58 +124,192 @@ public class NPCBehavior : MonoBehaviour
         }
     }
 
-    void DoPatrol()
+    /// <summary>
+    /// ✅ NEW: Determine desired state with hysteresis to prevent flickering
+    /// </summary>
+    AIBehaviorMode DetermineDesiredState()
     {
-        if (patrolPoints == null || patrolPoints.Length == 0)
+        if (currentEnemy == null)
+            return behaviorMode;
+
+        float distance = Vector3.Distance(transform.position, currentEnemy.transform.position);
+
+        // Not in engagement range
+        if (distance > engagementRange + rangeHysteresis)
+            return behaviorMode;
+
+        // Apply hysteresis based on current state
+        switch (currentState)
         {
-            movement.ClearWaypoint();
-            return;
+            case AIBehaviorMode.Approach:
+                // Stay approaching until we're comfortably in optimal range
+                if (distance > optimalRange + rangeHysteresis)
+                    return AIBehaviorMode.Approach;
+                else if (distance < retreatRange)
+                    return AIBehaviorMode.Retreat;
+                else
+                    return AIBehaviorMode.Circle;
+
+            case AIBehaviorMode.Circle:
+                // Stay circling unless we drift too far from optimal
+                if (distance > optimalRange + rangeHysteresis * 2f)
+                    return AIBehaviorMode.Approach;
+                else if (distance < retreatRange - rangeHysteresis)
+                    return AIBehaviorMode.Retreat;
+                else
+                    return AIBehaviorMode.Circle;
+
+            case AIBehaviorMode.Retreat:
+                // Stay retreating until we're safely back to optimal
+                if (distance < retreatRange - rangeHysteresis)
+                    return AIBehaviorMode.Retreat;
+                else if (distance > optimalRange + rangeHysteresis)
+                    return AIBehaviorMode.Approach;
+                else
+                    return AIBehaviorMode.Circle;
+
+            default:
+                // First entry into combat
+                if (distance > optimalRange)
+                    return AIBehaviorMode.Approach;
+                else if (distance < retreatRange)
+                    return AIBehaviorMode.Retreat;
+                else
+                    return AIBehaviorMode.Circle;
+        }
+    }
+
+    /// <summary>
+    /// ✅ NEW: Called when state changes
+    /// </summary>
+    void OnStateChanged()
+    {
+        switch (currentState)
+        {
+            case AIBehaviorMode.Circle:
+                // Initialize circling position
+                InitializeCircling();
+                break;
+
+            case AIBehaviorMode.Wander:
+                // Reset wander target when returning to wander
+                currentWanderTarget = Vector3.zero;
+                break;
         }
 
-        Transform target = patrolPoints[currentPatrolIndex];
-        movement.SetWaypoint(target.position);
+        Debug.Log($"[{gameObject.name}] State: {previousState} → {currentState}");
+    }
 
-        // Check if reached waypoint
-        if (Vector3.Distance(transform.position, target.position) < 10f)
+    void DoWander()
+    {
+        if (isWaiting)
         {
-            currentPatrolIndex = (currentPatrolIndex + 1) % patrolPoints.Length;
+            wanderWaitTimer -= Time.deltaTime;
+            if (wanderWaitTimer <= 0f)
+            {
+                isWaiting = false;
+                currentWanderTarget = Vector3.zero;
+            }
+            else
+            {
+                movement.ClearWaypoint();
+                return;
+            }
         }
+
+        if (currentWanderTarget == Vector3.zero ||
+            Vector3.Distance(transform.position, currentWanderTarget) < waypointReachDistance)
+        {
+            if (wanderWaitTime > 0f && currentWanderTarget != Vector3.zero)
+            {
+                isWaiting = true;
+                wanderWaitTimer = wanderWaitTime;
+                movement.ClearWaypoint();
+                return;
+            }
+
+            currentWanderTarget = GetRandomWanderPoint();
+        }
+
+        movement.SetWaypoint(currentWanderTarget);
+    }
+
+    Vector3 GetRandomWanderPoint()
+    {
+        float distance = Random.Range(minWanderDistance, maxWanderDistance);
+        float angle = Random.Range(0f, Mathf.PI * 2f);
+
+        Vector3 offset = new Vector3(
+            Mathf.Cos(angle) * distance,
+            0f,
+            Mathf.Sin(angle) * distance
+        );
+
+        Vector3 newPoint = wanderCenter + offset;
+
+        Vector3 fromCenter = newPoint - wanderCenter;
+        if (fromCenter.magnitude > wanderRadius)
+        {
+            fromCenter = fromCenter.normalized * wanderRadius;
+            newPoint = wanderCenter + fromCenter;
+        }
+
+        return newPoint;
     }
 
     void DoApproach()
     {
         if (currentEnemy == null) return;
 
-        Vector3 targetPos = currentEnemy.transform.position;
+        Vector3 targetPos = GetPredictedEnemyPosition();
         Vector3 direction = (targetPos - transform.position).normalized;
         Vector3 approachPos = targetPos - direction * optimalRange;
 
         movement.SetWaypoint(approachPos);
     }
 
+    /// <summary>
+    /// ✅ FIXED: Initialize circling only once when entering state
+    /// </summary>
+    void InitializeCircling()
+    {
+        if (currentEnemy == null) return;
+
+        circlingCenter = currentEnemy.transform.position;
+        Vector3 toShip = transform.position - circlingCenter;
+        circlingAngle = Mathf.Atan2(toShip.z, toShip.x) * Mathf.Rad2Deg;
+        lastCircleUpdateTime = Time.time;
+    }
+
+    /// <summary>
+    /// ✅ FIXED: Update waypoint at intervals, not every frame
+    /// </summary>
     void DoCircle()
     {
         if (currentEnemy == null) return;
 
-        // Initialize circling
-        if (circlingCenter != currentEnemy.transform.position)
+        // Update circling angle
+        circlingAngle += circlingSpeed * Time.deltaTime;
+
+        // Only update waypoint at intervals (reduces jitter)
+        if (Time.time - lastCircleUpdateTime >= circleUpdateInterval)
         {
-            circlingCenter = currentEnemy.transform.position;
-            Vector3 toShip = transform.position - circlingCenter;
-            circlingAngle = Mathf.Atan2(toShip.z, toShip.x);
+            lastCircleUpdateTime = Time.time;
+
+            // Use predicted position for smoother circling
+            Vector3 targetPos = GetPredictedEnemyPosition();
+
+            // Calculate circle position
+            float angleRad = circlingAngle * Mathf.Deg2Rad;
+            Vector3 offset = new Vector3(
+                Mathf.Cos(angleRad) * circlingRadius,
+                0f,
+                Mathf.Sin(angleRad) * circlingRadius
+            );
+
+            Vector3 circlePos = targetPos + offset;
+            movement.SetWaypoint(circlePos);
         }
-
-        // Update circle position
-        circlingAngle += (circlingSpeed / circlingRadius) * Time.deltaTime;
-
-        Vector3 offset = new Vector3(
-            Mathf.Cos(circlingAngle) * circlingRadius,
-            0f,
-            Mathf.Sin(circlingAngle) * circlingRadius
-        );
-
-        Vector3 circlePos = currentEnemy.transform.position + offset;
-        movement.SetWaypoint(circlePos);
     }
 
     void DoRetreat()
@@ -163,6 +325,24 @@ public class NPCBehavior : MonoBehaviour
     void DoHold()
     {
         movement.ClearWaypoint();
+    }
+
+    /// <summary>
+    /// ✅ NEW: Predict where enemy will be for smoother combat
+    /// </summary>
+    Vector3 GetPredictedEnemyPosition()
+    {
+        if (currentEnemy == null || !predictTargetMovement)
+            return currentEnemy.transform.position;
+
+        Rigidbody enemyRb = currentEnemy.GetComponent<Rigidbody>();
+        if (enemyRb != null)
+        {
+            // Predict 0.5 seconds ahead
+            return currentEnemy.transform.position + enemyRb.linearVelocity * 0.5f;
+        }
+
+        return currentEnemy.transform.position;
     }
 
     GameObject FindNearestEnemy()
@@ -190,74 +370,46 @@ public class NPCBehavior : MonoBehaviour
         return nearest;
     }
 
-    void OnDrawGizmosSelected()
+    public void SetWanderCenter(Vector3 newCenter)
     {
-        // Draw engagement ranges
-        Gizmos.color = Color.yellow;
-        Gizmos.DrawWireSphere(transform.position, engagementRange);
-
-        Gizmos.color = Color.green;
-        Gizmos.DrawWireSphere(transform.position, optimalRange);
-
-        Gizmos.color = Color.red;
-        Gizmos.DrawWireSphere(transform.position, retreatRange);
-
-        // Draw patrol path
-        if (patrolPoints != null && patrolPoints.Length > 1)
-        {
-            Gizmos.color = Color.cyan;
-            for (int i = 0; i < patrolPoints.Length; i++)
-            {
-                if (patrolPoints[i] == null) continue;
-
-                Vector3 current = patrolPoints[i].position;
-                Vector3 next = patrolPoints[(i + 1) % patrolPoints.Length].position;
-
-                Gizmos.DrawLine(current, next);
-                Gizmos.DrawWireSphere(current, 5f);
-            }
-        }
+        wanderCenter = newCenter;
+        currentWanderTarget = Vector3.zero;
     }
 
+    /// <summary>
+    /// ✅ NEW: Debug visualization
+    /// </summary>
     void OnDrawGizmos()
     {
         if (!Application.isPlaying) return;
 
-        // Draw current state
-        Color stateColor = currentState switch
-        {
-            AIBehaviorMode.Patrol => Color.cyan,
-            AIBehaviorMode.Approach => Color.yellow,
-            AIBehaviorMode.Circle => Color.green,
-            AIBehaviorMode.Retreat => Color.red,
-            AIBehaviorMode.Hold => Color.gray,
-            _ => Color.white
-        };
+        // Draw engagement range
+        Gizmos.color = Color.yellow;
+        Gizmos.DrawWireSphere(transform.position, engagementRange);
 
-        Gizmos.color = stateColor;
-        Gizmos.DrawWireSphere(transform.position, 3f);
+        // Draw optimal range
+        Gizmos.color = Color.green;
+        Gizmos.DrawWireSphere(transform.position, optimalRange);
 
-        // Draw line to current enemy
+        // Draw retreat range
+        Gizmos.color = Color.red;
+        Gizmos.DrawWireSphere(transform.position, retreatRange);
+
+        // Draw current enemy line
         if (currentEnemy != null)
         {
             Gizmos.color = Color.red;
             Gizmos.DrawLine(transform.position, currentEnemy.transform.position);
         }
 
-        // Draw waypoint
-        if (movement != null && movement.HasWaypoint())
-        {
-            Gizmos.color = Color.magenta;
-            Gizmos.DrawLine(transform.position, movement.GetCurrentWaypoint());
-            Gizmos.DrawWireSphere(movement.GetCurrentWaypoint(), 2f);
-        }
+        // Draw current state
+        UnityEditor.Handles.Label(transform.position + Vector3.up * 10f, $"State: {currentState}");
     }
-
 }
 
 public enum AIBehaviorMode
 {
-    Patrol,
+    Wander,
     Approach,
     Circle,
     Retreat,

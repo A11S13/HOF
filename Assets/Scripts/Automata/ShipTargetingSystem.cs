@@ -5,8 +5,7 @@ using Unity.Mathematics;
 using UnityEngine;
 
 /// <summary>
-/// Per-ship targeting system. Each ship has its own targeting.
-/// Replaces the old global Sonar system.
+/// Per-ship targeting system with dynamic asteroid targeting control
 /// </summary>
 public class ShipTargetingSystem : MonoBehaviour, ITargetProvider
 {
@@ -24,6 +23,9 @@ public class ShipTargetingSystem : MonoBehaviour, ITargetProvider
     // Cache own layer to prevent self-targeting
     private int ownLayer;
 
+    // Track original asteroid setting
+    private bool originalAsteroidSetting;
+
     void Awake()
     {
         shipAlignment = GetComponentInParent<Alignment>();
@@ -32,6 +34,62 @@ public class ShipTargetingSystem : MonoBehaviour, ITargetProvider
         if (shipAlignment == null)
         {
             Debug.LogWarning($"ShipTargetingSystem on {gameObject.name} has no Alignment component in parent! Targeting may not work correctly.");
+        }
+
+        // ✅ FIXED: Only clone config for NPCs, player keeps inspector-assigned config
+        if (targetingConfig != null)
+        {
+            originalAsteroidSetting = targetingConfig.asteroids;
+
+            // Check if this is the player ship
+            bool isPlayerShip = gameObject.layer == LayerMask.NameToLayer("Player");
+
+            if (!isPlayerShip)
+            {
+                // NPCs: Clone the config for independent settings
+                targetingConfig = Instantiate(targetingConfig);
+                targetingConfig.name = $"{targetingConfig.name} (Clone for {gameObject.name})";
+                Debug.Log($"[NPC: {gameObject.name}] Cloned targeting config. Asteroids initially: {targetingConfig.asteroids}");
+            }
+            else
+            {
+                // Player: Keep the inspector-assigned config
+                Debug.Log($"[PLAYER: {gameObject.name}] Using inspector-assigned targeting config. Asteroids initially: {targetingConfig.asteroids}");
+            }
+        }
+    }
+
+
+    /// <summary>
+    /// Enable/disable asteroid targeting (for stuck-in-asteroids behavior)
+    /// </summary>
+    public void SetAsteroidTargeting(bool enabled)
+    {
+        if (targetingConfig == null) return;
+
+        if (targetingConfig.asteroids != enabled)
+        {
+            targetingConfig.asteroids = enabled;
+            Debug.Log($"[{gameObject.name}] Asteroid targeting: {(enabled ? "ENABLED" : "DISABLED")}");
+        }
+    }
+
+    /// <summary>
+    /// Check if asteroid targeting is currently enabled
+    /// </summary>
+    public bool IsAsteroidTargetingEnabled()
+    {
+        return targetingConfig != null && targetingConfig.asteroids;
+    }
+
+    /// <summary>
+    /// Reset to original asteroid setting
+    /// </summary>
+    public void ResetAsteroidTargeting()
+    {
+        if (targetingConfig != null)
+        {
+            targetingConfig.asteroids = originalAsteroidSetting;
         }
     }
 
