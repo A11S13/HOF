@@ -2306,7 +2306,7 @@ MonoBehaviour:
   _activeArtificaCount: 0
   worldTexture: {fileID: 2800000, guid: 3646454d6ca287d4b941cf1a1d4ff1cd, type: 3}
   azothPrefab: {fileID: 8634147425768112750, guid: 433a9cc5fc4cdb34f80f2eb9d9c7ede4, type: 3}
-  animaPrefab: {fileID: 2044892534391141163, guid: 4fa694c5067ca834b836a8c40fe3956b, type: 3}
+  animaPrefab: {fileID: 2366433761027119244, guid: f7cc35e4fa5a6fc4eb875e03995022bc, type: 3}
   artificaPrefab: {fileID: 8634147425768112750, guid: 9d45db77172d4924e865828d1c5786bb, type: 3}
 --- !u!114 &741419632
 MonoBehaviour:
