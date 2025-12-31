@@ -12,7 +12,7 @@ public abstract class Weapon : MonoBehaviour
     protected IShipController shipController;
     protected ITargetProvider targetProvider;
     protected Rigidbody shipRb;
-    public ShipCore ShipCore => shipCore; // Public accessor for control modes
+    public ShipCore ShipCore => shipCore;
 
     public int ID;
 
@@ -22,10 +22,8 @@ public abstract class Weapon : MonoBehaviour
 
     // Targeting state
     public float fireAccumulator { get; set; }
-    float _phaseDriftTimer;
-    const float PhaseDriftMinInterval = 0.2f;
-    const float PhaseDriftMaxInterval = 1.2f;
-    const float PhaseDriftAmount = 0.25f;
+
+    // NOTE: Removed legacy _phaseDrift variables (replaced by ShipCore Ripple System)
 
     public ShipTargetingSystem.TargetData[] CombinedTargets { get; private set; }
     public GameObject prevTarget;
@@ -97,9 +95,11 @@ public abstract class Weapon : MonoBehaviour
         if (initialFireRate <= 0f)
             initialFireRate = fireRate;
 
+        // Randomize initial accumulator slightly so they don't all request permission on Frame 1
         fireAccumulator = Random.value;
-        fireRate = fireRate * Random.Range(0.985f, 1.015f);
-        _phaseDriftTimer = Random.Range(0f, PhaseDriftMaxInterval);
+
+        // Note: We no longer jitter 'fireRate' here, to allow precise DPS calculations in Core
+        // fireRate = fireRate * Random.Range(0.985f, 1.015f); // Removed for deterministic ripple
 
         incrementSkipFrames = 3;
         FindWeaponSpawnPoint();
@@ -146,7 +146,7 @@ public abstract class Weapon : MonoBehaviour
     {
         if (!isInitialized) return;
 
-        UpdatePhaseDrift();
+        // Removed UpdatePhaseDrift(); logic entirely
 
         float aimFactor = controlMode.UpdateControl(this);
         TryFire(aimFactor);
@@ -154,23 +154,13 @@ public abstract class Weapon : MonoBehaviour
         audioDSP?.Drive();
     }
 
-    void UpdatePhaseDrift()
-    {
-        _phaseDriftTimer -= Time.deltaTime;
-        if (_phaseDriftTimer <= 0f)
-        {
-            fireAccumulator += Random.Range(-PhaseDriftAmount, PhaseDriftAmount);
-            if (fireAccumulator < 0f) fireAccumulator = 0f;
-            _phaseDriftTimer = Random.Range(PhaseDriftMinInterval, PhaseDriftMaxInterval);
-        }
-    }
-
     void TryFire(float aimFactor)
     {
         if (aimFactor <= 0f)
         {
             isFiring = false;
-            fireAccumulator = Mathf.Min(fireAccumulator, 1f);
+            // Cap to 1.0f so we don't start with a "super charge" after being idle
+            fireAccumulator = Mathf.Min(fireAccumulator, 1.0f);
             return;
         }
 
@@ -179,18 +169,30 @@ public abstract class Weapon : MonoBehaviour
 
         if (fireAccumulator >= 1f)
         {
-            isFiring = true;
-            fireAccumulator -= 1f;
-
-            audioDSP?.NotifyShot();
-
-            Fire(aimFactor);
+            // 1. Ask Core
+            if (shipCore.RequestFirePermission())
+            {
+                // 2. Fire!
+                isFiring = true;
+                fireAccumulator -= 1f;
+                audioDSP?.NotifyShot();
+                Fire(aimFactor);
+            }
+            else
+            {
+                // 3. Denied - Wait.
+                // Allow a small buffer (1.5f) so we don't lose charge while waiting 1-2 frames.
+                // This ensures "Oldest Ready Weapon" stays ready.
+                fireAccumulator = Mathf.Min(fireAccumulator, 1.5f);
+                isFiring = false;
+            }
         }
         else
         {
             isFiring = fireAccumulator >= 0.95f;
         }
     }
+
 
     public void ToggleAI()
     {

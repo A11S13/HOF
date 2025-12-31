@@ -10,21 +10,33 @@ public class NPCBehavior : MonoBehaviour
     [Header("Behavior Settings")]
     public AIBehaviorMode behaviorMode = AIBehaviorMode.Wander;
 
-    [Header("Combat Range Settings")]
-    [Tooltip("Long-range enemy detection for AI behavior (NOT weapon range)")]
-    public float engagementRange = 500f;
+    [Header("Combat Tactics")]
+    [Tooltip("Distance to start an attack run.")]
+    public float attackInitiateRange = 150f;
 
-    [Tooltip("Ideal combat distance - ship will circle here")]
-    public float optimalRange = 50f;
+    [Tooltip("Target point behind enemy. Set HIGH (120+) to ensure ship doesn't slow down at the end.")]
+    public float overshootDistance = 120f;
 
-    [Tooltip("If closer than this, ship will retreat")]
-    public float retreatRange = 20f;
+    [Tooltip("Distance past the enemy where we actually break off.")]
+    public float breakTriggerDistance = 80f;
 
-    [Tooltip("Hysteresis buffer to prevent state flickering")]
-    public float rangeHysteresis = 10f;
+    [Tooltip("Sideways spacing. 45 is safe for 5-unit ships.")]
+    public float strafeOffsetDistance = 45f;
 
-    [Tooltip("Minimum time to stay in combat state before switching")]
-    public float stateCommitmentTime = 2f;
+    [Tooltip("Time between attack runs.")]
+    public float attackCooldown = 5f;
+
+    [Tooltip("How long to stay in 'Break' mode after an attack.")]
+    public float breakDuration = 2.5f;
+
+    [Tooltip("General engagement radar range.")]
+    public float engagementRange = 600f;
+
+    [Header("Dogfight Settings (Circling)")]
+    public float baseCirclingRadius = 60f;
+    public float circlingSpeed = 50f;
+    public float radiusOscillation = 20f;
+    public float oscillationFreq = 1.5f;
 
     [Header("Wander Settings")]
     public float wanderRadius = 400f;
@@ -32,32 +44,29 @@ public class NPCBehavior : MonoBehaviour
     public float maxWanderDistance = 800f;
     public float waypointReachDistance = 10f;
     public float wanderWaitTime = 0f;
+
+    // Internal State
     private Vector3 wanderCenter;
     private Vector3 currentWanderTarget;
     private float wanderWaitTimer = 0f;
     private bool isWaiting = false;
 
-    [Header("Combat Settings")]
-    [Tooltip("How fast to orbit around target (degrees per second)")]
-    public float circlingSpeed = 45f;
-
-    [Tooltip("Distance to maintain while circling")]
-    public float circlingRadius = 40f;
-
-    [Tooltip("How often to update circle waypoint (seconds)")]
-    public float circleUpdateInterval = 0.5f;
-
-    [Tooltip("Predict target movement for smoother circling")]
-    public bool predictTargetMovement = true;
-
-    private Vector3 circlingCenter;
-    private float circlingAngle;
-    private float lastCircleUpdateTime;
-
+    // Combat State
     private GameObject currentEnemy;
     private AIBehaviorMode currentState;
     private AIBehaviorMode previousState;
     private float stateEnterTime;
+
+    // Attack Run Logic
+    private float lastAttackTime;
+    private bool committedToRun = false;
+    private Vector3 cachedAttackDir; // Locked direction
+    private Vector3 cachedStrafeOffset; // Locked offset
+
+    // Circle Logic
+    private Vector3 circlingCenter;
+    private float circlingAngle;
+    private float lastCircleUpdateTime;
 
     void Awake()
     {
@@ -69,118 +78,233 @@ public class NPCBehavior : MonoBehaviour
         currentState = behaviorMode;
         previousState = behaviorMode;
         stateEnterTime = Time.time;
+        lastAttackTime = Time.time;
     }
 
     void Update()
     {
         if (movement == null || shipCore == null) return;
-
         UpdateBehavior();
     }
 
     void UpdateBehavior()
     {
         currentEnemy = FindNearestEnemy();
+        AIBehaviorMode desiredState = DetermineTacticalState();
 
-        AIBehaviorMode desiredState = DetermineDesiredState();
-
-        bool canSwitchState = Time.time - stateEnterTime >= stateCommitmentTime;
-        bool criticalChange = (currentState == AIBehaviorMode.Wander && desiredState != AIBehaviorMode.Wander) ||
-                              (currentState != AIBehaviorMode.Wander && desiredState == AIBehaviorMode.Wander);
-
-        if (canSwitchState || criticalChange)
+        if (desiredState != currentState)
         {
-            if (desiredState != currentState)
+            // Lock AttackRun until we are actually far enough away
+            // or if it's taken too long (timeout)
+            bool locked = false;
+
+            if (currentState == AIBehaviorMode.AttackRun)
             {
-                previousState = currentState;
-                currentState = desiredState;
-                stateEnterTime = Time.time;
-                OnStateChanged();
+                // Only unlock if logic in DetermineTacticalState explicitly says to Break
+                // or if we lost the enemy
+                if (currentEnemy != null && desiredState == AIBehaviorMode.AttackRun)
+                    locked = true;
+            }
+            else if (currentState == AIBehaviorMode.EvasiveBreak)
+            {
+                if (Time.time - stateEnterTime < breakDuration) locked = true;
+            }
+
+            if (currentEnemy == null) locked = false;
+
+            if (!locked)
+            {
+                ChangeState(desiredState);
             }
         }
 
         switch (currentState)
         {
-            case AIBehaviorMode.Wander:
-                DoWander();
-                break;
-            case AIBehaviorMode.Approach:
-                DoApproach();
-                break;
-            case AIBehaviorMode.Circle:
-                DoCircle();
-                break;
-            case AIBehaviorMode.Retreat:
-                DoRetreat();
-                break;
-            case AIBehaviorMode.Hold:
-                DoHold();
-                break;
+            case AIBehaviorMode.Wander: DoWander(); break;
+            case AIBehaviorMode.Approach: DoApproach(); break;
+            case AIBehaviorMode.Dogfight: DoDogfight(); break;
+            case AIBehaviorMode.AttackRun: DoAttackRun(); break;
+            case AIBehaviorMode.EvasiveBreak: DoEvasiveBreak(); break;
+            case AIBehaviorMode.Retreat: DoRetreat(); break;
+            case AIBehaviorMode.Hold: DoHold(); break;
         }
     }
 
-    AIBehaviorMode DetermineDesiredState()
+    void ChangeState(AIBehaviorMode newState)
     {
-        if (currentEnemy == null)
-            return behaviorMode;
+        previousState = currentState;
+        currentState = newState;
+        stateEnterTime = Time.time;
 
-        float distance = Vector3.Distance(transform.position, currentEnemy.transform.position);
-
-        if (distance > engagementRange + rangeHysteresis)
-            return behaviorMode;
+        movement.ClearWaypoint(WaypointPriority.Critical);
 
         switch (currentState)
         {
-            case AIBehaviorMode.Approach:
-                if (distance > optimalRange + rangeHysteresis)
-                    return AIBehaviorMode.Approach;
-                else if (distance < retreatRange)
-                    return AIBehaviorMode.Retreat;
-                else
-                    return AIBehaviorMode.Circle;
-
-            case AIBehaviorMode.Circle:
-                if (distance > optimalRange + rangeHysteresis * 2f)
-                    return AIBehaviorMode.Approach;
-                else if (distance < retreatRange - rangeHysteresis)
-                    return AIBehaviorMode.Retreat;
-                else
-                    return AIBehaviorMode.Circle;
-
-            case AIBehaviorMode.Retreat:
-                if (distance < retreatRange - rangeHysteresis)
-                    return AIBehaviorMode.Retreat;
-                else if (distance > optimalRange + rangeHysteresis)
-                    return AIBehaviorMode.Approach;
-                else
-                    return AIBehaviorMode.Circle;
-
-            default:
-                if (distance > optimalRange)
-                    return AIBehaviorMode.Approach;
-                else if (distance < retreatRange)
-                    return AIBehaviorMode.Retreat;
-                else
-                    return AIBehaviorMode.Circle;
-        }
-    }
-
-    void OnStateChanged()
-    {
-        switch (currentState)
-        {
-            case AIBehaviorMode.Circle:
-                // Initialize circling position
+            case AIBehaviorMode.AttackRun:
+                committedToRun = false;
+                break;
+            case AIBehaviorMode.Dogfight:
                 InitializeCircling();
                 break;
-
             case AIBehaviorMode.Wander:
-                // Reset wander target when returning to wander
                 currentWanderTarget = Vector3.zero;
                 break;
         }
+    }
 
-        Debug.Log($"[{gameObject.name}] State: {previousState} → {currentState}");
+    AIBehaviorMode DetermineTacticalState()
+    {
+        if (currentEnemy == null) return behaviorMode;
+
+        float dist = Vector3.Distance(transform.position, currentEnemy.transform.position);
+
+        if (dist > engagementRange) return behaviorMode;
+
+        switch (currentState)
+        {
+            case AIBehaviorMode.Approach:
+                if (dist < attackInitiateRange)
+                {
+                    if (Time.time - lastAttackTime > attackCooldown)
+                        return AIBehaviorMode.AttackRun;
+                    else
+                        return AIBehaviorMode.Dogfight;
+                }
+                return AIBehaviorMode.Approach;
+
+            case AIBehaviorMode.Dogfight:
+                if (dist > attackInitiateRange * 1.5f) return AIBehaviorMode.Approach;
+
+                if (Time.time - lastAttackTime > attackCooldown && dist < attackInitiateRange)
+                    return AIBehaviorMode.AttackRun;
+
+                return AIBehaviorMode.Dogfight;
+
+            case AIBehaviorMode.AttackRun:
+                Vector3 toEnemy = currentEnemy.transform.position - transform.position;
+                float dot = Vector3.Dot(transform.forward, toEnemy.normalized);
+
+                // CRITICAL FIX:
+                // Only break if enemy is BEHIND us (dot < 0) 
+                // AND we are more than 'breakTriggerDistance' (80 units) away
+                if (dot < 0 && dist > breakTriggerDistance)
+                    return AIBehaviorMode.EvasiveBreak;
+
+                // Timeout safety (5 seconds max run)
+                if (Time.time - stateEnterTime > 5f)
+                    return AIBehaviorMode.EvasiveBreak;
+
+                return AIBehaviorMode.AttackRun;
+
+            case AIBehaviorMode.EvasiveBreak:
+                if (Time.time - stateEnterTime > breakDuration)
+                {
+                    lastAttackTime = Time.time;
+                    return AIBehaviorMode.Dogfight;
+                }
+                return AIBehaviorMode.EvasiveBreak;
+
+            default:
+                return AIBehaviorMode.Approach;
+        }
+    }
+
+    // --- MANEUVERS ---
+
+    void DoApproach()
+    {
+        if (currentEnemy == null) return;
+        Vector3 target = currentEnemy.transform.position;
+        // Aim slightly short so we don't ram before the state change
+        movement.SetWaypoint(target - (target - transform.position).normalized * 20f, WaypointPriority.High);
+    }
+
+    void DoAttackRun()
+    {
+        if (currentEnemy == null) return;
+
+        Vector3 currentTargetPos = GetPredictedEnemyPosition();
+
+        if (!committedToRun)
+        {
+            // LOCK THE VECTOR:
+            // We calculate the direction once. We do NOT update it during the run.
+            // This prevents the ship from spinning around when it passes the enemy.
+            cachedAttackDir = (currentTargetPos - transform.position).normalized;
+
+            // Calculate Strafe Offset (Left or Right)
+            Vector3 strafeDir = Vector3.Cross(cachedAttackDir, Vector3.up).normalized;
+            float sideSign = (Random.value > 0.5f) ? 1f : -1f;
+
+            cachedStrafeOffset = strafeDir * sideSign * strafeOffsetDistance;
+
+            committedToRun = true;
+        }
+
+        // Apply Logic:
+        // Waypoint = Moving Enemy Pos + (Locked Direction * 120) + (Locked Offset)
+        // This keeps the waypoint parallel to enemy movement but fixed in orientation.
+        Vector3 flyThroughPoint = currentTargetPos + (cachedAttackDir * overshootDistance) + cachedStrafeOffset;
+
+        // Flatten Y
+        flyThroughPoint.y = currentTargetPos.y;
+
+        movement.SetWaypoint(flyThroughPoint, WaypointPriority.Critical);
+    }
+
+    void DoEvasiveBreak()
+    {
+        if (currentEnemy == null) return;
+
+        // Break OUTWARD relative to where we are now
+        Vector3 toEnemy = (currentEnemy.transform.position - transform.position).normalized;
+        Vector3 right = Vector3.Cross(toEnemy, Vector3.up);
+
+        // Detect which side we are already on to continue momentum
+        // If we are to the 'right' of enemy, break right.
+        Vector3 myRelPos = transform.position - currentEnemy.transform.position;
+        float sideCheck = Vector3.Dot(myRelPos, right);
+        float sideSign = (sideCheck > 0) ? 1f : -1f;
+
+        Vector3 breakDir = (right * sideSign) + (transform.forward * 0.5f);
+        breakDir.y = 0f;
+        breakDir.Normalize();
+
+        Vector3 breakPoint = transform.position + (breakDir * 100f);
+        movement.SetWaypoint(breakPoint, WaypointPriority.Critical);
+    }
+
+    void InitializeCircling()
+    {
+        if (currentEnemy == null) return;
+        circlingCenter = currentEnemy.transform.position;
+        Vector3 toShip = transform.position - circlingCenter;
+        circlingAngle = Mathf.Atan2(toShip.z, toShip.x) * Mathf.Rad2Deg;
+        lastCircleUpdateTime = 0f; // Force immediate update
+    }
+
+    void DoDogfight()
+    {
+        if (currentEnemy == null) return;
+
+        circlingAngle += circlingSpeed * Time.deltaTime;
+
+        if (Time.time - lastCircleUpdateTime >= 0.2f)
+        {
+            lastCircleUpdateTime = Time.time;
+            Vector3 targetPos = GetPredictedEnemyPosition();
+
+            float dynamicRadius = baseCirclingRadius + Mathf.Sin(Time.time * oscillationFreq) * radiusOscillation;
+            float angleRad = circlingAngle * Mathf.Deg2Rad;
+
+            Vector3 offset = new Vector3(
+                Mathf.Cos(angleRad) * dynamicRadius,
+                0f,
+                Mathf.Sin(angleRad) * dynamicRadius
+            );
+
+            movement.SetWaypoint(targetPos + offset, WaypointPriority.High);
+        }
     }
 
     void DoWander()
@@ -188,32 +312,18 @@ public class NPCBehavior : MonoBehaviour
         if (isWaiting)
         {
             wanderWaitTimer -= Time.deltaTime;
-            if (wanderWaitTimer <= 0f)
-            {
-                isWaiting = false;
-                currentWanderTarget = Vector3.zero;
-            }
-            else
-            {
-                movement.ClearWaypoint(WaypointPriority.Low);
-                return;
-            }
+            if (wanderWaitTimer <= 0f) { isWaiting = false; currentWanderTarget = Vector3.zero; }
+            else { movement.ClearWaypoint(WaypointPriority.Low); return; }
         }
 
-        if (currentWanderTarget == Vector3.zero ||
-            Vector3.Distance(transform.position, currentWanderTarget) < waypointReachDistance)
+        if (currentWanderTarget == Vector3.zero || Vector3.Distance(transform.position, currentWanderTarget) < waypointReachDistance)
         {
             if (wanderWaitTime > 0f && currentWanderTarget != Vector3.zero)
             {
-                isWaiting = true;
-                wanderWaitTimer = wanderWaitTime;
-                movement.ClearWaypoint(WaypointPriority.Low);
-                return;
+                isWaiting = true; wanderWaitTimer = wanderWaitTime; movement.ClearWaypoint(WaypointPriority.Low); return;
             }
-
             currentWanderTarget = GetRandomWanderPoint();
         }
-
         movement.SetWaypoint(currentWanderTarget, WaypointPriority.Low);
     }
 
@@ -221,170 +331,50 @@ public class NPCBehavior : MonoBehaviour
     {
         float distance = Random.Range(minWanderDistance, maxWanderDistance);
         float angle = Random.Range(0f, Mathf.PI * 2f);
-
-        Vector3 offset = new Vector3(
-            Mathf.Cos(angle) * distance,
-            0f,
-            Mathf.Sin(angle) * distance
-        );
-
+        Vector3 offset = new Vector3(Mathf.Cos(angle) * distance, 0f, Mathf.Sin(angle) * distance);
         Vector3 newPoint = wanderCenter + offset;
-
-        Vector3 fromCenter = newPoint - wanderCenter;
-        if (fromCenter.magnitude > wanderRadius)
-        {
-            fromCenter = fromCenter.normalized * wanderRadius;
-            newPoint = wanderCenter + fromCenter;
-        }
-
+        if ((newPoint - wanderCenter).magnitude > wanderRadius) newPoint = wanderCenter + (newPoint - wanderCenter).normalized * wanderRadius;
         return newPoint;
-    }
-
-    void DoApproach()
-    {
-        if (currentEnemy == null) return;
-
-        Vector3 targetPos = GetPredictedEnemyPosition();
-        Vector3 direction = (targetPos - transform.position).normalized;
-        Vector3 approachPos = targetPos - direction * optimalRange;
-
-        movement.SetWaypoint(approachPos, WaypointPriority.High);
-    }
-
-    void InitializeCircling()
-    {
-        if (currentEnemy == null) return;
-
-        circlingCenter = currentEnemy.transform.position;
-        Vector3 toShip = transform.position - circlingCenter;
-        circlingAngle = Mathf.Atan2(toShip.z, toShip.x) * Mathf.Rad2Deg;
-        lastCircleUpdateTime = Time.time;
-    }
-
-    void DoCircle()
-    {
-        if (currentEnemy == null) return;
-
-        // Update circling angle
-        circlingAngle += circlingSpeed * Time.deltaTime;
-
-        if (Time.time - lastCircleUpdateTime >= circleUpdateInterval)
-        {
-            lastCircleUpdateTime = Time.time;
-
-            Vector3 targetPos = GetPredictedEnemyPosition();
-
-            float angleRad = circlingAngle * Mathf.Deg2Rad;
-            Vector3 offset = new Vector3(
-                Mathf.Cos(angleRad) * circlingRadius,
-                0f,
-                Mathf.Sin(angleRad) * circlingRadius
-            );
-
-            Vector3 circlePos = targetPos + offset;
-
-            movement.SetWaypoint(circlePos, WaypointPriority.High);
-        }
     }
 
     void DoRetreat()
     {
         if (currentEnemy == null) return;
-
-        Vector3 awayDirection = (transform.position - currentEnemy.transform.position).normalized;
-        Vector3 retreatPos = transform.position + awayDirection * 30f;
-
-        movement.SetWaypoint(retreatPos, WaypointPriority.Critical);
+        Vector3 away = (transform.position - currentEnemy.transform.position).normalized;
+        movement.SetWaypoint(transform.position + away * 60f, WaypointPriority.Critical);
     }
 
-    void DoHold()
-    {
-        movement.ClearWaypoint(WaypointPriority.Medium);
-    }
+    void DoHold() { movement.ClearWaypoint(WaypointPriority.Medium); }
 
     Vector3 GetPredictedEnemyPosition()
     {
-        if (currentEnemy == null || !predictTargetMovement)
-            return currentEnemy.transform.position;
-
-        Rigidbody enemyRb = currentEnemy.GetComponent<Rigidbody>();
-        if (enemyRb != null)
-        {
-            // Predict 0.5 seconds ahead
-            return currentEnemy.transform.position + enemyRb.linearVelocity * 0.5f;
-        }
-
-        return currentEnemy.transform.position;
+        if (currentEnemy == null) return transform.position;
+        Rigidbody rb = currentEnemy.GetComponent<Rigidbody>();
+        return rb != null ? currentEnemy.transform.position + rb.linearVelocity * 0.75f : currentEnemy.transform.position;
     }
 
     GameObject FindNearestEnemy()
     {
         Collider[] colliders = Physics.OverlapSphere(transform.position, engagementRange);
+        GameObject best = null;
+        float minDist = float.MaxValue;
 
-        GameObject nearestShip = null;
-        float minShipDist = float.MaxValue;
+        var myAlign = GetComponent<Alignment>();
+        bool iHaveAlign = myAlign != null;
 
         foreach (var col in colliders)
         {
-            // Check if it's a valid targetable
-            var targetable = col.GetComponent<Targetable>();
-            if (targetable == null || !targetable.IsAlive)
-                continue;
+            if (col.transform.root == transform.root) continue;
+            var targetAlign = col.GetComponent<Alignment>();
+            if (targetAlign == null) continue;
+            if (iHaveAlign && targetAlign.isFriendly == myAlign.isFriendly) continue;
 
-            // Skip self and children
-            if (col.gameObject == gameObject || col.transform.IsChildOf(transform))
-                continue;
-
-            var targetAlignment = col.GetComponent<Alignment>();
-            if (targetAlignment == null)
-            {
-                // No Alignment = asteroid/debris, IGNORE for AI behavior
-                continue;
-            }
-
-            // Check alignment filtering
-            var myAlignment = GetComponent<Alignment>();
-
-            if (myAlignment != null)
-            {
-                // Skip friendly targets
-                if (targetAlignment.isFriendly && myAlignment.isFriendly)
-                    continue;
-            }
-
-            // Track nearest hostile ship
-            float dist = Vector3.Distance(transform.position, col.transform.position);
-            if (dist < minShipDist)
-            {
-                minShipDist = dist;
-                nearestShip = col.gameObject;
-            }
+            float d = Vector3.Distance(transform.position, col.transform.position);
+            if (d < minDist) { minDist = d; best = col.gameObject; }
         }
-
-        return nearestShip;
-    }
-
-    public void SetWanderCenter(Vector3 newCenter)
-    {
-        wanderCenter = newCenter;
-        currentWanderTarget = Vector3.zero;
+        return best;
     }
 }
 
-public enum AIBehaviorMode
-{
-    Wander,
-    Approach,
-    Circle,
-    Retreat,
-    Hold
-}
-
-public enum WaypointPriority
-{
-    None = 0,
-    Low = 1,
-    Medium = 2,
-    High = 3,
-    Critical = 4
-}
+public enum AIBehaviorMode { Wander, Approach, Dogfight, AttackRun, EvasiveBreak, Retreat, Hold }
+public enum WaypointPriority { None = 0, Low = 1, Medium = 2, High = 3, Critical = 4 }

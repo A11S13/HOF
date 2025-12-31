@@ -6,14 +6,31 @@ using UnityEngine;
 public class Player : MonoBehaviour
 {
     private PlayerShipMovement playerMovement;
+    private Alignment alignment;
 
     private void Awake()
     {
         playerMovement = GetComponent<PlayerShipMovement>();
+        alignment = GetComponent<Alignment>();
 
         if (playerMovement == null)
         {
             Debug.LogError("PlayerShipMovement component not found on Player GameObject!");
+        }
+        
+        if (alignment == null)
+        {
+            Debug.LogError("Alignment component not found on Player GameObject!");
+        }
+    }
+
+    private void Start()
+    {
+        // We set this in Start because Alignment.OnEnable() sets isFriendly to true.
+        // Since Start() runs after OnEnable(), this overrides the default value.
+        if (alignment != null)
+        {
+            alignment.Set(false);
         }
     }
 
