@@ -1,7 +1,7 @@
 ﻿using UnityEngine;
 
 /// <summary>
-/// NPC ship AI behavior controller with smooth state transitions
+/// NPC ship AI behavior controller with smooth state transitions and waypoint priority
 /// </summary>
 public class NPCBehavior : MonoBehaviour
 {
@@ -14,8 +14,8 @@ public class NPCBehavior : MonoBehaviour
     public AIBehaviorMode behaviorMode = AIBehaviorMode.Wander;
 
     [Header("Combat Range Settings")]
-    [Tooltip("Start engaging enemies within this range")]
-    public float engagementRange = 100f;
+    [Tooltip("Long-range enemy detection for AI behavior (NOT weapon range)")]
+    public float engagementRange = 500f;
 
     [Tooltip("Ideal combat distance - ship will circle here")]
     public float optimalRange = 50f;
@@ -24,10 +24,10 @@ public class NPCBehavior : MonoBehaviour
     public float retreatRange = 20f;
 
     [Tooltip("Hysteresis buffer to prevent state flickering")]
-    public float rangeHysteresis = 10f; // ← NEW
+    public float rangeHysteresis = 10f;
 
     [Tooltip("Minimum time to stay in combat state before switching")]
-    public float stateCommitmentTime = 2f; // ← NEW
+    public float stateCommitmentTime = 2f;
 
     [Header("Wander Settings")]
     public float wanderRadius = 400f;
@@ -42,16 +42,16 @@ public class NPCBehavior : MonoBehaviour
 
     [Header("Combat Settings")]
     [Tooltip("How fast to orbit around target (degrees per second)")]
-    public float circlingSpeed = 45f; // ← Changed to degrees/sec
+    public float circlingSpeed = 45f;
 
     [Tooltip("Distance to maintain while circling")]
     public float circlingRadius = 40f;
 
     [Tooltip("How often to update circle waypoint (seconds)")]
-    public float circleUpdateInterval = 0.5f; // ← NEW
+    public float circleUpdateInterval = 0.5f;
 
     [Tooltip("Predict target movement for smoother circling")]
-    public bool predictTargetMovement = true; // ← NEW
+    public bool predictTargetMovement = true;
 
     private Vector3 circlingCenter;
     private float circlingAngle;
@@ -60,7 +60,7 @@ public class NPCBehavior : MonoBehaviour
     private GameObject currentEnemy;
     private AIBehaviorMode currentState;
     private AIBehaviorMode previousState;
-    private float stateEnterTime; // ← NEW
+    private float stateEnterTime;
 
     void Awake()
     {
@@ -125,7 +125,7 @@ public class NPCBehavior : MonoBehaviour
     }
 
     /// <summary>
-    /// ✅ NEW: Determine desired state with hysteresis to prevent flickering
+    /// Determine desired state with hysteresis to prevent flickering
     /// </summary>
     AIBehaviorMode DetermineDesiredState()
     {
@@ -180,7 +180,7 @@ public class NPCBehavior : MonoBehaviour
     }
 
     /// <summary>
-    /// ✅ NEW: Called when state changes
+    /// Called when state changes
     /// </summary>
     void OnStateChanged()
     {
@@ -200,6 +200,9 @@ public class NPCBehavior : MonoBehaviour
         Debug.Log($"[{gameObject.name}] State: {previousState} → {currentState}");
     }
 
+    /// <summary>
+    /// ✅ UPDATED: Wander behavior with LOW priority
+    /// </summary>
     void DoWander()
     {
         if (isWaiting)
@@ -212,7 +215,7 @@ public class NPCBehavior : MonoBehaviour
             }
             else
             {
-                movement.ClearWaypoint();
+                movement.ClearWaypoint(WaypointPriority.Low);
                 return;
             }
         }
@@ -224,14 +227,15 @@ public class NPCBehavior : MonoBehaviour
             {
                 isWaiting = true;
                 wanderWaitTimer = wanderWaitTime;
-                movement.ClearWaypoint();
+                movement.ClearWaypoint(WaypointPriority.Low);
                 return;
             }
 
             currentWanderTarget = GetRandomWanderPoint();
         }
 
-        movement.SetWaypoint(currentWanderTarget);
+        // ✅ LOW PRIORITY - Combat will override this
+        movement.SetWaypoint(currentWanderTarget, WaypointPriority.Low);
     }
 
     Vector3 GetRandomWanderPoint()
@@ -257,6 +261,9 @@ public class NPCBehavior : MonoBehaviour
         return newPoint;
     }
 
+    /// <summary>
+    /// ✅ UPDATED: Approach enemy with HIGH priority
+    /// </summary>
     void DoApproach()
     {
         if (currentEnemy == null) return;
@@ -265,11 +272,12 @@ public class NPCBehavior : MonoBehaviour
         Vector3 direction = (targetPos - transform.position).normalized;
         Vector3 approachPos = targetPos - direction * optimalRange;
 
-        movement.SetWaypoint(approachPos);
+        // ✅ HIGH PRIORITY - Overrides wander
+        movement.SetWaypoint(approachPos, WaypointPriority.High);
     }
 
     /// <summary>
-    /// ✅ FIXED: Initialize circling only once when entering state
+    /// Initialize circling only once when entering state
     /// </summary>
     void InitializeCircling()
     {
@@ -282,7 +290,7 @@ public class NPCBehavior : MonoBehaviour
     }
 
     /// <summary>
-    /// ✅ FIXED: Update waypoint at intervals, not every frame
+    /// ✅ UPDATED: Circle enemy with HIGH priority
     /// </summary>
     void DoCircle()
     {
@@ -308,10 +316,15 @@ public class NPCBehavior : MonoBehaviour
             );
 
             Vector3 circlePos = targetPos + offset;
-            movement.SetWaypoint(circlePos);
+
+            // ✅ HIGH PRIORITY - Overrides wander
+            movement.SetWaypoint(circlePos, WaypointPriority.High);
         }
     }
 
+    /// <summary>
+    /// ✅ UPDATED: Retreat from enemy with CRITICAL priority
+    /// </summary>
     void DoRetreat()
     {
         if (currentEnemy == null) return;
@@ -319,16 +332,20 @@ public class NPCBehavior : MonoBehaviour
         Vector3 awayDirection = (transform.position - currentEnemy.transform.position).normalized;
         Vector3 retreatPos = transform.position + awayDirection * 30f;
 
-        movement.SetWaypoint(retreatPos);
-    }
-
-    void DoHold()
-    {
-        movement.ClearWaypoint();
+        // ✅ CRITICAL PRIORITY - Highest priority
+        movement.SetWaypoint(retreatPos, WaypointPriority.Critical);
     }
 
     /// <summary>
-    /// ✅ NEW: Predict where enemy will be for smoother combat
+    /// ✅ UPDATED: Hold position with MEDIUM priority
+    /// </summary>
+    void DoHold()
+    {
+        movement.ClearWaypoint(WaypointPriority.Medium);
+    }
+
+    /// <summary>
+    /// Predict where enemy will be for smoother combat
     /// </summary>
     Vector3 GetPredictedEnemyPosition()
     {
@@ -345,30 +362,68 @@ public class NPCBehavior : MonoBehaviour
         return currentEnemy.transform.position;
     }
 
+    /// <summary>
+    /// Independent long-range detection for AI behavior
+    /// Uses engagementRange instead of sonar radius
+    /// </summary>
+    /// <summary>
+    /// ✅ FIXED: Prioritize ships over asteroids for enemy detection
+    /// Ensures NPCs always engage hostile ships first, even when stuck in asteroids
+    /// </summary>
+    /// <summary>
+    /// ✅ FIXED: ONLY detect ships with Alignment, NEVER asteroids
+    /// Asteroids are handled purely by weapon targeting system when stuck
+    /// </summary>
     GameObject FindNearestEnemy()
     {
-        if (targeting == null) return null;
+        Collider[] colliders = Physics.OverlapSphere(transform.position, engagementRange);
 
-        var targets = targeting.GetTargetDataArray();
-        if (targets.Length == 0) return null;
+        GameObject nearestShip = null;
+        float minShipDist = float.MaxValue;
 
-        GameObject nearest = null;
-        float minDist = float.MaxValue;
-
-        foreach (var target in targets)
+        foreach (var col in colliders)
         {
-            if (target.TargetObject == null) continue;
+            // Check if it's a valid targetable
+            var targetable = col.GetComponent<Targetable>();
+            if (targetable == null || !targetable.IsAlive)
+                continue;
 
-            float dist = Vector3.Distance(transform.position, target.TargetObject.transform.position);
-            if (dist < minDist)
+            // Skip self and children
+            if (col.gameObject == gameObject || col.transform.IsChildOf(transform))
+                continue;
+
+            // ✅ CRITICAL: Only consider objects with Alignment (ships, not asteroids!)
+            var targetAlignment = col.GetComponent<Alignment>();
+            if (targetAlignment == null)
             {
-                minDist = dist;
-                nearest = target.TargetObject;
+                // No Alignment = asteroid/debris, IGNORE for AI behavior
+                continue;
+            }
+
+            // Check alignment filtering
+            var myAlignment = GetComponent<Alignment>();
+
+            if (myAlignment != null)
+            {
+                // Skip friendly targets
+                if (targetAlignment.isFriendly && myAlignment.isFriendly)
+                    continue;
+            }
+
+            // Track nearest hostile ship
+            float dist = Vector3.Distance(transform.position, col.transform.position);
+            if (dist < minShipDist)
+            {
+                minShipDist = dist;
+                nearestShip = col.gameObject;
             }
         }
 
-        return nearest;
+        // ✅ ONLY return ships, NEVER asteroids
+        return nearestShip;
     }
+
+
 
     public void SetWanderCenter(Vector3 newCenter)
     {
@@ -377,33 +432,75 @@ public class NPCBehavior : MonoBehaviour
     }
 
     /// <summary>
-    /// ✅ NEW: Debug visualization
+    /// Enhanced debug visualization showing both detection and targeting ranges
     /// </summary>
     void OnDrawGizmos()
     {
         if (!Application.isPlaying) return;
 
-        // Draw engagement range
-        Gizmos.color = Color.yellow;
+        // AI Detection Range (yellow wireframe)
+        Gizmos.color = new Color(1f, 1f, 0f, 0.3f);
         Gizmos.DrawWireSphere(transform.position, engagementRange);
 
-        // Draw optimal range
+        // Weapon Sonar Range (cyan filled)
+        if (targeting != null)
+        {
+            Gizmos.color = new Color(0f, 1f, 1f, 0.2f);
+            Gizmos.DrawSphere(transform.position, targeting.sonarRadius);
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireSphere(transform.position, targeting.sonarRadius);
+        }
+
+        // Optimal range (green)
         Gizmos.color = Color.green;
         Gizmos.DrawWireSphere(transform.position, optimalRange);
 
-        // Draw retreat range
+        // Retreat range (red)
         Gizmos.color = Color.red;
         Gizmos.DrawWireSphere(transform.position, retreatRange);
 
-        // Draw current enemy line
+        // Enemy line and info
         if (currentEnemy != null)
         {
-            Gizmos.color = Color.red;
-            Gizmos.DrawLine(transform.position, currentEnemy.transform.position);
-        }
+            float dist = Vector3.Distance(transform.position, currentEnemy.transform.position);
 
-        // Draw current state
-        UnityEditor.Handles.Label(transform.position + Vector3.up * 10f, $"State: {currentState}");
+            // Color line based on if weapons can fire
+            bool canFire = targeting != null && dist <= targeting.sonarRadius;
+            Gizmos.color = canFire ? Color.green : Color.red;
+            Gizmos.DrawLine(transform.position, currentEnemy.transform.position);
+
+            // ✅ Show current waypoint priority color
+            if (movement != null && movement.HasWaypoint())
+            {
+                WaypointPriority priority = movement.GetCurrentPriority();
+                Gizmos.color = GetPriorityColor(priority);
+                Gizmos.DrawLine(transform.position, movement.GetCurrentWaypoint());
+            }
+
+            // Label
+#if UNITY_EDITOR
+            string priorityText = movement != null ? $"\nPriority: {movement.GetCurrentPriority()}" : "";
+            UnityEditor.Handles.Label(
+                transform.position + Vector3.up * 10f,
+                $"State: {currentState}\nDist: {dist:F1}\nCan Fire: {canFire}{priorityText}"
+            );
+#endif
+        }
+    }
+
+    /// <summary>
+    /// ✅ NEW: Get debug color based on waypoint priority
+    /// </summary>
+    private Color GetPriorityColor(WaypointPriority priority)
+    {
+        switch (priority)
+        {
+            case WaypointPriority.Critical: return Color.red;
+            case WaypointPriority.High: return new Color(1f, 0.5f, 0f); // Orange
+            case WaypointPriority.Medium: return Color.yellow;
+            case WaypointPriority.Low: return Color.blue;
+            default: return Color.gray;
+        }
     }
 }
 

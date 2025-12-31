@@ -1165,7 +1165,7 @@ Transform:
   m_GameObject: {fileID: 433032876}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -50441, y: -1, z: -81194}
+  m_LocalPosition: {x: -54739, y: -1, z: -78429}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -3000,9 +3000,13 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 0}
     m_Modifications:
+    - target: {fileID: 345682891043640592, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: sonarRadius
+      value: 300
+      objectReference: {fileID: 0}
     - target: {fileID: 2299305548143460133, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -51008
+      value: -55306
       objectReference: {fileID: 0}
     - target: {fileID: 2299305548143460133, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: m_LocalPosition.y
@@ -3010,7 +3014,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2299305548143460133, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -81352
+      value: -78587
       objectReference: {fileID: 0}
     - target: {fileID: 2299305548143460133, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: m_LocalRotation.w
@@ -3085,32 +3089,76 @@ PrefabInstance:
       value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: shipRadius
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: minGapWidth
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: clearThreshold
-      value: 0
+      value: 0.15
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: stuckThreshold
-      value: 0.05
+      value: 0.7
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: toggleCooldown
-      value: 0
+      value: 2.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: turnSmoothness
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: targetingSystem
       value: 
       objectReference: {fileID: 821065078}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: slowDownDistance
+      value: 12
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: pathCheckDistance
+      value: 35
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: steeringDampening
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: avoidanceConeAngle
+      value: 140
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: correctionStrength
+      value: 15
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: minSpeedMultiplier
+      value: 0.4
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: strongGoalDistance
       value: 100
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: influenceSmoothness
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: maxObstaclesToCheck
+      value: 12
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: obstacleCheckRadius
-      value: 150
+      value: 60
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: minObstaclesForStuck
-      value: 1
+      value: 4
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: obstacleLayer.m_Bits
@@ -3118,19 +3166,51 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: maxObstacleScanRadius
-      value: 50
+      value: 15
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: minObstacleScanRadius
-      value: 35
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: waypointReachDistance
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: directApproachDistance
+      value: 40
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: maxObstacleAvoidWeight
-      value: 1000
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: minObstacleAvoidWeight
-      value: 300
+      value: 1.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: obstaclePredictionTime
+      value: 1.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: directionCommitmentTime
+      value: 0.2
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: avoidanceVectorSmoothing
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: directionChangeThreshold
+      value: 3
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: waypointSlowdownDistance
+      value: 15
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: aggressiveCorrectionAngle
+      value: 30
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: obstacleAvoidanceDistance
@@ -3139,6 +3219,10 @@ PrefabInstance:
     - target: {fileID: 5423461505726691766, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: max
       value: 1e+9
+      objectReference: {fileID: 0}
+    - target: {fileID: 8503214667507702098, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: sonarRadius
+      value: 300
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
@@ -10289,8 +10373,6 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   unitTech: Terran Technocracy
   shipData: {fileID: 11400000, guid: 689ef4322c40e6649b950096d39b37c6, type: 2}
-  sonarRadius: 200
-  targetingConfig: {fileID: 11400000, guid: 6fa93fd596575f14a85cecb1f074359f, type: 2}
   firingThresholdAngle: 10
   distanceThreshold: 0.01
   angularThreshold: 1000
@@ -10418,7 +10500,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 55b3ba9b2a3935d46ac1bc6f6c312daa, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  sonarRadius: 200
+  sonarRadius: 300
   targetingConfig: {fileID: 11400000, guid: 6fa93fd596575f14a85cecb1f074359f, type: 2}
   maxTrackedTargets: 50
 --- !u!1001 &2678637358168556879

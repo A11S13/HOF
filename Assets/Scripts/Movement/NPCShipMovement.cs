@@ -1,26 +1,47 @@
 ﻿using UnityEngine;
 
-/// <summary>
-/// Ship movement with automatic asteroid targeting when stuck
-/// </summary>
 public class NPCShipMovement : ShipMovementBase
 {
     [Header("AI Behavior")]
-    public float waypointReachDistance = 5f;
+    public float waypointReachDistance = 10f;
+    public float waypointSlowdownDistance = 25f;
 
     [Header("Obstacle Avoidance")]
     public LayerMask obstacleLayer;
-    public float minObstacleScanRadius = 15f;
-    public float maxObstacleScanRadius = 25f;
-    public float minObstacleAvoidWeight = 1.5f;
-    public float maxObstacleAvoidWeight = 3f;
-    public float obstacleCheckRadius = 50f;
+    public float minObstacleScanRadius = 10f;
+    public float maxObstacleScanRadius = 20f;
+    public float minObstacleAvoidWeight = 2f;
+    public float maxObstacleAvoidWeight = 5f;
+    public float obstacleCheckRadius = 80f;
     public int maxObstaclesToCheck = 15;
+
+    [Header("Collision Prevention")]
+    public float emergencyBrakeDistance = 8f;
+    public float criticalDistance = 15f;
+    public bool useVelocityPrediction = true;
+    public float collisionLookAhead = 2f;
+
+    [Header("Gap Detection")]
+    public float avoidanceConeAngle = 160f;
+    public float pathCheckDistance = 30f;
+    public float shipRadius = 5f;
+    public float minGapWidth = 8f;
+    public float obstaclePredictionTime = 1.5f;
 
     [Header("Course Correction")]
     public float directApproachDistance = 30f;
     public float aggressiveCorrectionAngle = 45f;
     public float correctionStrength = 10f;
+
+    [Header("Steering Smoothness")] 
+    [Tooltip("How quickly desired direction can change (lower = smoother, higher = more responsive)")]
+    public float steeringDampening = 3f;
+    [Tooltip("Smooth obstacle avoidance vector over time")]
+    public float avoidanceVectorSmoothing = 8f;
+    [Tooltip("Minimum angle change before accepting new direction")]
+    public float directionChangeThreshold = 5f;
+    [Tooltip("How long to commit to a direction before changing (seconds)")]
+    public float directionCommitmentTime = 0.3f;
 
     [Header("Asteroid Combat")]
     public ShipTargetingSystem targetingSystem;
@@ -28,30 +49,37 @@ public class NPCShipMovement : ShipMovementBase
     public float clearThreshold = 0.2f;
     public float toggleCooldown = 3f;
     [Space]
-    public int minObstaclesForStuck = 3; // NEW: Need at least this many obstacles to be "stuck"
-    public float influenceSmoothness = 5f; // NEW: Higher = smoother (prevents spikes)
+    public int minObstaclesForStuck = 3;
+    public float influenceSmoothness = 5f;
 
     [Header("Movement")]
     public float turnSmoothness = 2f;
     public float slowDownDistance = 15f;
     public float minSpeedMultiplier = 0.3f;
 
-    [Header("Debug")]
-    public bool showDebugRays = true;
-
     private Vector3 currentGoal;
     private bool hasGoal = false;
+    private WaypointPriority currentPriority = WaypointPriority.None;
+
     private Collider[] nearbyObstacles = new Collider[30];
     private System.Random shipRandom;
 
-    // Asteroid targeting state
     private bool asteroidTargetingActive = false;
     private float lastToggleTime = -999f;
 
-    // NEW: Smoothed influence tracking
     private float smoothedObstacleInfluence = 0f;
     private int consecutiveHighInfluenceFrames = 0;
     private int consecutiveLowInfluenceFrames = 0;
+
+    private bool isThreadingGap = false;
+    private Vector3 lastGapDirection = Vector3.zero;
+    private bool isEmergencyBraking = false;
+    private float closestObstacleDistance = float.MaxValue;
+
+    private Vector3 smoothedDesiredDirection;
+    private Vector3 smoothedAvoidanceVector = Vector3.zero;
+    private float lastDirectionChangeTime = 0f;
+    private bool isInitialized = false;
 
     void Start()
     {
@@ -60,11 +88,20 @@ public class NPCShipMovement : ShipMovementBase
         if (targetingSystem == null)
         {
             targetingSystem = GetComponentInChildren<ShipTargetingSystem>();
-            if (targetingSystem == null)
+        }
+
+        if (shipRadius <= 0.1f)
+        {
+            var collider = GetComponent<Collider>();
+            if (collider != null)
             {
-                Debug.LogWarning($"[{gameObject.name}] No ShipTargetingSystem found! Asteroid targeting will not work.");
+                shipRadius = collider.bounds.extents.magnitude;
+                Debug.Log($"[{gameObject.name}] Auto-detected ship radius: {shipRadius}");
             }
         }
+
+        smoothedDesiredDirection = transform.forward;
+        isInitialized = true;
     }
 
     void FixedUpdate()
@@ -86,16 +123,23 @@ public class NPCShipMovement : ShipMovementBase
         Vector3 toGoal = currentGoal - rb.position;
         float distanceToGoal = toGoal.magnitude;
 
-        if (distanceToGoal < waypointReachDistance)
+        float effectiveReachDistance = waypointReachDistance + rb.linearVelocity.magnitude * 0.5f;
+
+        if (distanceToGoal < effectiveReachDistance)
         {
             hasGoal = false;
+            currentPriority = WaypointPriority.None;
             return;
         }
 
-        // === OBSTACLE DETECTION ===
         float rawObstacleInfluence = 0f;
-        Vector3 obstacleAvoidanceSum = Vector3.zero;
-        int relevantObstacleCount = 0; // NEW: Count obstacles actually affecting us
+        Vector3 rawObstacleAvoidanceSum = Vector3.zero; 
+        int relevantObstacleCount = 0;
+        closestObstacleDistance = float.MaxValue;
+        bool hasEmergencyObstacle = false;
+
+        Vector3 goalDirection = toGoal.normalized;
+        Vector3 currentDirection = transform.forward;
 
         int obstacleCount = Physics.OverlapSphereNonAlloc(
             rb.position,
@@ -112,16 +156,52 @@ public class NPCShipMovement : ShipMovementBase
             if (obstacle == null) continue;
 
             Vector3 obstacleCenter = obstacle.bounds.center;
-            float obstacleRadius = obstacle.bounds.extents.magnitude;
+            Rigidbody obstacleRb = obstacle.attachedRigidbody;
 
+            if (obstacleRb != null && obstacleRb.linearVelocity.sqrMagnitude > 0.01f)
+            {
+                obstacleCenter += obstacleRb.linearVelocity * obstaclePredictionTime;
+            }
+
+            float obstacleRadius = obstacle.bounds.extents.magnitude;
             Vector3 toObstacle = obstacleCenter - rb.position;
             float distance = toObstacle.magnitude;
 
-            // ✅ FIX: Use deterministic scan radius based on obstacle position
-            // This prevents influence from jumping when obstacles are destroyed
+            closestObstacleDistance = Mathf.Min(closestObstacleDistance, distance - obstacleRadius);
+
+            float emergencyRadius = shipRadius + emergencyBrakeDistance;
+            if (distance < emergencyRadius + obstacleRadius)
+            {
+                hasEmergencyObstacle = true;
+
+                float emergencyWeight = 10f * (1f - (distance / (emergencyRadius + obstacleRadius)));
+                rawObstacleAvoidanceSum -= toObstacle.normalized * emergencyWeight;
+                rawObstacleInfluence += emergencyWeight;
+                relevantObstacleCount++;
+                continue;
+            }
+
+            float criticalRadius = shipRadius + criticalDistance;
+            float angleToObstacle = Vector3.Angle(currentDirection, toObstacle);
+
+            if (distance < criticalRadius + obstacleRadius && angleToObstacle < 135f)
+            {
+                float criticalWeight = 5f * (1f - (distance / (criticalRadius + obstacleRadius)));
+                rawObstacleAvoidanceSum -= toObstacle.normalized * criticalWeight;
+                rawObstacleInfluence += criticalWeight;
+                relevantObstacleCount++;
+
+                continue;
+            }
+
+            if (angleToObstacle > avoidanceConeAngle * 0.5f)
+            {
+                continue;
+            }
+
             float randomValue = Mathf.PerlinNoise(
-                obstacleCenter.x * 0.1f,
-                obstacleCenter.z * 0.1f
+                obstacle.bounds.center.x * 0.1f,
+                obstacle.bounds.center.z * 0.1f
             );
 
             float scanRadius = Mathf.Lerp(
@@ -130,132 +210,164 @@ public class NPCShipMovement : ShipMovementBase
                 randomValue
             );
 
-            if (distance < scanRadius + obstacleRadius)
-            {
-                float weight = ((scanRadius + obstacleRadius) - distance) / (scanRadius + obstacleRadius);
-                obstacleAvoidanceSum -= toObstacle.normalized * weight;
-                rawObstacleInfluence += weight;
-                relevantObstacleCount++; // NEW: Count this obstacle
+            float effectiveScanRadius = scanRadius + shipRadius;
 
-                if (showDebugRays)
-                {
-                    Debug.DrawLine(rb.position, obstacleCenter, Color.red);
-                }
+            if (distance < effectiveScanRadius + obstacleRadius)
+            {
+                float goalBlockage = 1f - Vector3.Dot(toObstacle.normalized, goalDirection);
+                float proximityWeight = ((effectiveScanRadius + obstacleRadius) - distance) / (effectiveScanRadius + obstacleRadius);
+
+                float weight = proximityWeight * (0.5f + goalBlockage * 0.5f);
+
+                rawObstacleAvoidanceSum -= toObstacle.normalized * weight;
+                rawObstacleInfluence += weight;
+                relevantObstacleCount++;
             }
         }
 
-        // ✅ NEW: SMOOTH THE INFLUENCE (prevents spikes from single asteroid destruction)
+        smoothedAvoidanceVector = Vector3.Lerp(
+            smoothedAvoidanceVector,
+            rawObstacleAvoidanceSum,
+            Time.fixedDeltaTime * avoidanceVectorSmoothing
+        );
+
+        Vector3 obstacleAvoidanceSum = smoothedAvoidanceVector;
+
+        if (useVelocityPrediction && rb.linearVelocity.magnitude > 1f)
+        {
+            Vector3 futurePosition = rb.position + rb.linearVelocity * collisionLookAhead;
+
+            if (Physics.CheckSphere(futurePosition, shipRadius * 1.5f, obstacleLayer))
+            {
+                hasEmergencyObstacle = true;
+
+
+            }
+        }
+
+        isEmergencyBraking = hasEmergencyObstacle;
+
+        bool hasGapAhead = CheckGapAhead(goalDirection, out Vector3 gapDirection);
+        isThreadingGap = hasGapAhead;
+        if (hasGapAhead) lastGapDirection = gapDirection;
+
         smoothedObstacleInfluence = Mathf.Lerp(
             smoothedObstacleInfluence,
             rawObstacleInfluence,
             Time.fixedDeltaTime * influenceSmoothness
         );
 
-        // ✅ NEW: Use smoothed value + obstacle count for targeting decision
         float effectiveInfluence = smoothedObstacleInfluence;
 
-        // Boost influence if many obstacles nearby (density matters!)
         if (relevantObstacleCount >= minObstaclesForStuck)
         {
-            effectiveInfluence *= 1.2f; // 20% boost when crowded
+            effectiveInfluence *= 1.2f;
         }
 
-        // ✅ NEW: UPDATE ASTEROID TARGETING WITH STABLE INFLUENCE
         UpdateAsteroidTargeting(effectiveInfluence, relevantObstacleCount);
 
-        // === CALCULATE ANGLE TO GOAL ===
-        Vector3 goalDirection = toGoal.normalized;
-        Vector3 currentDirection = transform.forward;
         float angleToGoal = Vector3.Angle(currentDirection, goalDirection);
 
-        // === DECISION TREE: STEERING MODE ===
-        Vector3 desiredDirection;
-        bool isAvoiding = smoothedObstacleInfluence > 0.1f; // Use smoothed value
+        Vector3 rawDesiredDirection; // ✅ NEW: Calculate target direction first
+        bool isAvoiding = smoothedObstacleInfluence > 0.1f || hasEmergencyObstacle;
         bool isCloseToGoal = distanceToGoal < directApproachDistance;
         bool isOffCourse = angleToGoal > aggressiveCorrectionAngle;
 
-        if (isAvoiding)
+        if (hasEmergencyObstacle)
         {
-            // OBSTACLE AVOIDANCE MODE
-            float avoidWeight = Mathf.Lerp(
-                minObstacleAvoidWeight,
-                maxObstacleAvoidWeight,
-                (float)shipRandom.NextDouble()
-            );
-
-            Vector3 avoidanceDirection = obstacleAvoidanceSum.normalized;
-            desiredDirection = Vector3.Lerp(
-                currentDirection,
-                avoidanceDirection,
-                avoidWeight * Time.fixedDeltaTime
-            );
-
-            if (showDebugRays)
+            if (obstacleAvoidanceSum.sqrMagnitude > 0.001f)
             {
-                Debug.DrawRay(rb.position, avoidanceDirection * 10f, Color.yellow);
-                Debug.DrawRay(rb.position, Vector3.up * 10f, Color.red);
+                rawDesiredDirection = obstacleAvoidanceSum.normalized;
+            }
+            else
+            {
+                rawDesiredDirection = -currentDirection;
+            }
+        }
+        else if (isAvoiding)
+        {
+            if (hasGapAhead)
+            {
+                rawDesiredDirection = gapDirection;
+            }
+            else
+            {
+                Vector3 avoidanceDirection = obstacleAvoidanceSum.normalized;
+
+                rawDesiredDirection = Vector3.Lerp(
+                    avoidanceDirection,
+                    goalDirection,
+                    0.3f 
+                ).normalized;
             }
         }
         else if (isCloseToGoal || isOffCourse)
         {
-            // AGGRESSIVE CORRECTION MODE
-            desiredDirection = Vector3.Slerp(
-                currentDirection,
-                goalDirection,
-                correctionStrength * Time.fixedDeltaTime
-            );
-
-            if (showDebugRays)
-            {
-               // Debug.DrawRay(rb.position, Vector3.up * 12f, Color.green);
-            }
+            rawDesiredDirection = goalDirection;
         }
         else
         {
-            // NORMAL STEERING
-            desiredDirection = Vector3.Lerp(
-                currentDirection,
-                goalDirection,
-                3f * Time.fixedDeltaTime
-            );
-
-            if (showDebugRays)
-            {
-                Debug.DrawRay(rb.position, Vector3.up * 5f, Color.cyan);
-            }
+            rawDesiredDirection = goalDirection;
         }
 
-        desiredDirection = desiredDirection.normalized;
+        rawDesiredDirection = rawDesiredDirection.normalized;
 
-        // === SPEED CALCULATION ===
+        float dampening = hasEmergencyObstacle ? steeringDampening * 2f : steeringDampening;
+
+        float angleDelta = Vector3.Angle(smoothedDesiredDirection, rawDesiredDirection);
+        bool shouldChangeDirection = angleDelta > directionChangeThreshold;
+        bool commitmentExpired = (Time.time - lastDirectionChangeTime) > directionCommitmentTime;
+
+        if (shouldChangeDirection && commitmentExpired)
+        {
+            lastDirectionChangeTime = Time.time;
+        }
+
+        smoothedDesiredDirection = Vector3.Lerp(
+            smoothedDesiredDirection,
+            rawDesiredDirection,
+            Time.fixedDeltaTime * dampening
+        ).normalized;
+
+        Vector3 desiredDirection = smoothedDesiredDirection;
+
         float speedMultiplier = 1f;
 
-        if (distanceToGoal < slowDownDistance)
+        if (hasEmergencyObstacle)
         {
-            speedMultiplier = Mathf.Clamp01(distanceToGoal / slowDownDistance);
+            speedMultiplier = 0.1f;
+        }
+        else if (closestObstacleDistance < criticalDistance)
+        {
+            speedMultiplier = Mathf.Clamp01(closestObstacleDistance / criticalDistance) * 0.5f;
+        }
+        else if (distanceToGoal < waypointSlowdownDistance)
+        {
+            speedMultiplier = Mathf.Clamp01(distanceToGoal / waypointSlowdownDistance);
+            speedMultiplier = Mathf.Max(speedMultiplier, 0.3f);
         }
 
-        if (isAvoiding)
+        if (isAvoiding && !hasEmergencyObstacle)
         {
-            speedMultiplier = Mathf.Max(speedMultiplier, 0.8f);
-        }
-
-        if (!isAvoiding && (isCloseToGoal || isOffCourse))
-        {
-            speedMultiplier = Mathf.Max(speedMultiplier, 0.9f);
+            if (hasGapAhead)
+            {
+                speedMultiplier = Mathf.Max(speedMultiplier, 0.6f);
+            }
+            else
+            {
+                speedMultiplier = Mathf.Max(speedMultiplier, 0.4f);
+            }
         }
 
         speedMultiplier = Mathf.Max(speedMultiplier, minSpeedMultiplier);
 
-        // === ROTATION ===
-        // ✅ FIX: Prevent zero-vector error
         if (desiredDirection.sqrMagnitude < 0.001f)
         {
-            desiredDirection = transform.forward; // Fallback to current direction
+            desiredDirection = transform.forward;
         }
 
         Quaternion targetRotation = Quaternion.LookRotation(desiredDirection);
-        float rotationMultiplier = (!isAvoiding && (isCloseToGoal || isOffCourse)) ? 3f : 1f;
+        float rotationMultiplier = hasEmergencyObstacle ? 5f : ((!isAvoiding && (isCloseToGoal || isOffCourse)) ? 3f : 1f);
 
         rb.MoveRotation(Quaternion.Slerp(
             rb.rotation,
@@ -263,59 +375,69 @@ public class NPCShipMovement : ShipMovementBase
             rotationSpeed * turnSmoothness * rotationMultiplier * Time.fixedDeltaTime
         ));
 
-
-        // === MOVEMENT ===
         float targetSpeed = maxSpeed * speedMultiplier;
         Vector3 targetVelocity = desiredDirection * targetSpeed;
         ApplyForce(targetVelocity);
-
-        // === DEBUG VISUALIZATION ===
-        if (showDebugRays)
-        {
-            Debug.DrawRay(rb.position, desiredDirection * 15f, Color.cyan);
-            Debug.DrawLine(rb.position, currentGoal, Color.blue);
-
-            if (angleToGoal > aggressiveCorrectionAngle)
-            {
-                Debug.DrawRay(rb.position, Vector3.down * 5f, Color.magenta);
-            }
-
-            if (isAvoiding)
-            {
-                Debug.DrawRay(rb.position, Vector3.up * (5f + smoothedObstacleInfluence * 5f), Color.red);
-            }
-
-            if (asteroidTargetingActive)
-            {
-                Debug.DrawRay(rb.position, Vector3.right * 10f, Color.yellow);
-            }
-
-            // NEW: Show obstacle count
-            if (relevantObstacleCount > 0)
-            {
-                Debug.DrawRay(rb.position, Vector3.left * relevantObstacleCount, Color.black);
-            }
-        }
     }
 
-    /// <summary>
-    /// ✅ FIXED: Properly respect clearThreshold setting
-    /// </summary>
+    private bool CheckGapAhead(Vector3 goalDirection, out Vector3 gapDirection)
+    {
+        gapDirection = goalDirection;
+
+        int rayCount = 9;
+        float maxAngle = 60f;
+        float bestGapScore = 0f;
+        Vector3 bestGapDir = goalDirection;
+
+        for (int i = 0; i < rayCount; i++)
+        {
+            float angle = Mathf.Lerp(-maxAngle, maxAngle, i / (float)(rayCount - 1));
+            Vector3 rayDir = Quaternion.Euler(0f, angle, 0f) * goalDirection;
+
+            bool hitObstacle = Physics.SphereCast(
+                rb.position,
+                shipRadius * 1.2f,
+                rayDir,
+                out RaycastHit hit,
+                pathCheckDistance,
+                obstacleLayer
+            );
+
+            if (!hitObstacle)
+            {
+                float clearanceScore = 1f / (1f + Mathf.Abs(angle) * 0.01f);
+
+                if (clearanceScore > bestGapScore)
+                {
+                    bestGapScore = clearanceScore;
+                    bestGapDir = rayDir;
+                }
+
+
+            }
+        }
+
+        if (bestGapScore > 0f)
+        {
+            gapDirection = bestGapDir;
+            return true;
+        }
+
+        return false;
+    }
+
     private void UpdateAsteroidTargeting(float effectiveInfluence, int obstacleCount)
     {
         if (targetingSystem == null) return;
 
-        // ✅ FIX: Use AND instead of OR to respect clearThreshold
         bool isReallyStuck = effectiveInfluence > stuckThreshold && obstacleCount >= minObstaclesForStuck;
         bool isReallyClear = effectiveInfluence < clearThreshold && obstacleCount < 2;
 
-        // ⚠️ Special case: If clearThreshold is 0, ONLY check obstacle count
         if (clearThreshold <= 0.001f)
         {
-            isReallyClear = obstacleCount == 0; // Must be completely clear
+            isReallyClear = obstacleCount == 0;
         }
 
-        // Track consecutive frames to prevent single-frame spikes
         if (isReallyStuck)
         {
             consecutiveHighInfluenceFrames++;
@@ -328,12 +450,10 @@ public class NPCShipMovement : ShipMovementBase
         }
         else
         {
-            // In hysteresis zone - maintain current state
             consecutiveHighInfluenceFrames = 0;
             consecutiveLowInfluenceFrames = 0;
         }
 
-        // ENABLE when stuck for multiple frames
         if (consecutiveHighInfluenceFrames >= 3 && !asteroidTargetingActive)
         {
             if (Time.time - lastToggleTime < toggleCooldown)
@@ -342,13 +462,7 @@ public class NPCShipMovement : ShipMovementBase
             targetingSystem.SetAsteroidTargeting(true);
             asteroidTargetingActive = true;
             lastToggleTime = Time.time;
-
-            if (showDebugRays)
-            {
-                Debug.Log($"[{gameObject.name}] 🔴 STUCK! Influence: {effectiveInfluence:F2}, Obstacles: {obstacleCount} → Asteroid targeting ON");
-            }
         }
-        // DISABLE when clear for multiple frames
         else if (consecutiveLowInfluenceFrames >= 5 && asteroidTargetingActive)
         {
             if (Time.time - lastToggleTime < toggleCooldown)
@@ -357,90 +471,45 @@ public class NPCShipMovement : ShipMovementBase
             targetingSystem.SetAsteroidTargeting(false);
             asteroidTargetingActive = false;
             lastToggleTime = Time.time;
-
-            if (showDebugRays)
-            {
-                Debug.Log($"[{gameObject.name}] 🟢 CLEARED! Influence: {effectiveInfluence:F2}, Obstacles: {obstacleCount} → Asteroid targeting OFF");
-            }
-        }
-        // MAINTAIN current state
-        else if (asteroidTargetingActive && effectiveInfluence >= clearThreshold)
-        {
-            if (showDebugRays && Time.frameCount % 60 == 0)
-            {
-                Debug.Log($"[{gameObject.name}] ⚠️ STILL STUCK - Influence: {effectiveInfluence:F2}, Obstacles: {obstacleCount}");
-            }
         }
     }
 
-
-    public void SetWaypoint(Vector3 position)
+    public void SetWaypoint(Vector3 position, WaypointPriority priority = WaypointPriority.Low)
     {
-        currentGoal = position;
-        hasGoal = true;
+        if (priority >= currentPriority)
+        {
+            currentGoal = position;
+            hasGoal = true;
+            currentPriority = priority;
+        }
     }
 
-    public void ClearWaypoint()
+    public void ClearWaypoint(WaypointPriority priority = WaypointPriority.High)
+    {
+        if (priority >= currentPriority)
+        {
+            hasGoal = false;
+            currentPriority = WaypointPriority.None;
+        }
+    }
+
+    public void ForceClearWaypoint()
     {
         hasGoal = false;
+        currentPriority = WaypointPriority.None;
     }
 
     public Vector3 GetCurrentWaypoint() => currentGoal;
     public bool HasWaypoint() => hasGoal;
+    public WaypointPriority GetCurrentPriority() => currentPriority;
+   
+}
 
-    void OnDrawGizmos()
-    {
-        if (!Application.isPlaying) return;
-
-        Gizmos.color = new Color(1f, 0.5f, 0f, 0.2f);
-        Gizmos.DrawWireSphere(transform.position, obstacleCheckRadius);
-
-        if (hasGoal)
-        {
-            Gizmos.color = Color.blue;
-            Gizmos.DrawLine(transform.position, currentGoal);
-            Gizmos.DrawWireSphere(currentGoal, waypointReachDistance);
-
-            Gizmos.color = new Color(0f, 1f, 0f, 0.15f);
-            Gizmos.DrawWireSphere(currentGoal, directApproachDistance);
-
-            Vector3 toGoal = currentGoal - transform.position;
-            float angleToGoal = Vector3.Angle(transform.forward, toGoal.normalized);
-
-            if (angleToGoal > aggressiveCorrectionAngle)
-            {
-                Gizmos.color = Color.magenta;
-                Gizmos.DrawRay(transform.position, toGoal.normalized * 20f);
-            }
-        }
-
-        int count = Physics.OverlapSphereNonAlloc(
-            transform.position,
-            obstacleCheckRadius,
-            nearbyObstacles,
-            obstacleLayer
-        );
-
-        Gizmos.color = Color.red;
-        for (int i = 0; i < Mathf.Min(count, maxObstaclesToCheck); i++)
-        {
-            if (nearbyObstacles[i] != null)
-            {
-                Gizmos.DrawLine(transform.position, nearbyObstacles[i].bounds.center);
-            }
-        }
-
-        if (asteroidTargetingActive)
-        {
-            Gizmos.color = Color.yellow;
-            Gizmos.DrawWireCube(transform.position + Vector3.up * 5f, Vector3.one * 3f);
-        }
-
-        // NEW: Show smoothed influence level
-        if (Application.isPlaying)
-        {
-            Gizmos.color = Color.white;
-            Gizmos.DrawWireSphere(transform.position, smoothedObstacleInfluence * 10f);
-        }
-    }
+public enum WaypointPriority
+{
+    None = 0,
+    Low = 1,
+    Medium = 2,
+    High = 3,
+    Critical = 4
 }

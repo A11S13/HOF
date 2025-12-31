@@ -12,8 +12,6 @@ public class ShipCore : MonoBehaviour
     public ShipData shipData;
 
     [Header("Targeting")]
-    public float sonarRadius = 100f;
-    public TargetingConfig targetingConfig;
     public float firingThresholdAngle = 5f;
     public float distanceThreshold = 1f;
     public float angularThreshold = 1f;
