@@ -1,111 +1,90 @@
 ﻿using UnityEngine;
 
+[RequireComponent(typeof(Rigidbody))]
 public class NPCShipMovement : ShipMovementBase
 {
-    [Header("AI Behavior")]
-    public float waypointReachDistance = 10f;
-    public float waypointSlowdownDistance = 25f;
+    [Header("Moving Field Settings")]
+    [Tooltip("How far ahead (in seconds) to predict obstacle movement.")]
+    public float predictionTime = 1.5f;
+    [Tooltip("If the field moves fast, we need a larger safety margin.")]
+    public float dynamicClearance = 2.0f;
+    [Tooltip("Base distance to look ahead. Increases with speed.")]
+    public float baseLookAhead = 60f;
 
-    [Header("Obstacle Avoidance")]
-    public LayerMask obstacleLayer;
-    public float minObstacleScanRadius = 10f;
-    public float maxObstacleScanRadius = 20f;
-    public float minObstacleAvoidWeight = 2f;
-    public float maxObstacleAvoidWeight = 5f;
-    public float obstacleCheckRadius = 80f;
-    public int maxObstaclesToCheck = 15;
+    [Header("Physical Constraints")]
+    public float shipCollisionRadius = 5f;
+    public bool enableStrafing = true;
 
-    [Header("Collision Prevention")]
-    public float emergencyBrakeDistance = 8f;
-    public float criticalDistance = 15f;
-    public bool useVelocityPrediction = true;
-    public float collisionLookAhead = 2f;
-
-    [Header("Gap Detection")]
-    public float avoidanceConeAngle = 160f;
-    public float pathCheckDistance = 30f;
-    public float shipRadius = 5f;
-    public float minGapWidth = 8f;
-    public float obstaclePredictionTime = 1.5f;
-
-    [Header("Course Correction")]
-    public float directApproachDistance = 30f;
-    public float aggressiveCorrectionAngle = 45f;
-    public float correctionStrength = 10f;
-
-    [Header("Steering Smoothness")] 
-    [Tooltip("How quickly desired direction can change (lower = smoother, higher = more responsive)")]
-    public float steeringDampening = 3f;
-    [Tooltip("Smooth obstacle avoidance vector over time")]
-    public float avoidanceVectorSmoothing = 8f;
-    [Tooltip("Minimum angle change before accepting new direction")]
-    public float directionChangeThreshold = 5f;
-    [Tooltip("How long to commit to a direction before changing (seconds)")]
-    public float directionCommitmentTime = 0.3f;
-
-    [Header("Asteroid Combat")]
+    [Header("Combat & Stuck")]
     public ShipTargetingSystem targetingSystem;
-    public float stuckThreshold = 0.6f;
-    public float clearThreshold = 0.2f;
-    public float toggleCooldown = 3f;
-    [Space]
-    public int minObstaclesForStuck = 3;
-    public float influenceSmoothness = 5f;
+    public float stuckThreshold = 0.1f;
+    [Tooltip("Force applied when physically touching a rock to push off.")]
+    public float contactRepulsionForce = 50f;
 
-    [Header("Movement")]
-    public float turnSmoothness = 2f;
-    public float slowDownDistance = 15f;
-    public float minSpeedMultiplier = 0.3f;
+    [Header("Sensors")]
+    public LayerMask obstacleLayer;
+    public int resolution = 72; // High res for fast moving gaps
 
+    // Flow Field
+    public NPCFlowFieldNavigator flowFieldNavigator;
+    public bool useFlowFieldNavigation = true;
+
+    // Internal
     private Vector3 currentGoal;
     private bool hasGoal = false;
     private WaypointPriority currentPriority = WaypointPriority.None;
 
-    private Collider[] nearbyObstacles = new Collider[30];
-    private System.Random shipRandom;
+    // Smoothing & State
+    private Vector3 smoothedDir;
+    private Vector3 steerVelocity;
+    private float stuckTimer = 0f;
+    private bool isMining = false;
+    private bool isPhysicallyColliding = false;
 
-    private bool asteroidTargetingActive = false;
-    private float lastToggleTime = -999f;
+    // Arrays
+    private float[] interestMap;
+    private float[] dangerMap;
+    private Vector3[] rayDirections;
+    private Collider[] nearbyObstacles = new Collider[60];
 
-    private float smoothedObstacleInfluence = 0f;
-    private int consecutiveHighInfluenceFrames = 0;
-    private int consecutiveLowInfluenceFrames = 0;
+    protected override void Awake()
+    {
+        base.Awake();
 
-    private bool isThreadingGap = false;
-    private Vector3 lastGapDirection = Vector3.zero;
-    private bool isEmergencyBraking = false;
-    private float closestObstacleDistance = float.MaxValue;
+        // Auto-size radius
+        if (shipCollisionRadius <= 0.1f)
+        {
+            var col = GetComponent<Collider>();
+            if (col != null) shipCollisionRadius = col.bounds.extents.magnitude;
+            else shipCollisionRadius = 5f;
+        }
 
-    private Vector3 smoothedDesiredDirection;
-    private Vector3 smoothedAvoidanceVector = Vector3.zero;
-    private float lastDirectionChangeTime = 0f;
-    private bool isInitialized = false;
+        interestMap = new float[resolution];
+        dangerMap = new float[resolution];
+        rayDirections = new Vector3[resolution];
+
+        // Generate flattened XZ rays
+        for (int i = 0; i < resolution; i++)
+        {
+            float angle = i * 2 * Mathf.PI / resolution;
+            rayDirections[i] = new Vector3(Mathf.Cos(angle), 0, Mathf.Sin(angle));
+        }
+
+        smoothedDir = transform.forward;
+    }
 
     void Start()
     {
-        shipRandom = new System.Random(GetInstanceID());
+        if (flowFieldNavigator == null) flowFieldNavigator = GetComponent<NPCFlowFieldNavigator>();
 
-        if (targetingSystem == null)
-        {
-            targetingSystem = GetComponentInChildren<ShipTargetingSystem>();
-        }
-
-        if (shipRadius <= 0.1f)
-        {
-            var collider = GetComponent<Collider>();
-            if (collider != null)
-            {
-                shipRadius = collider.bounds.extents.magnitude;
-                Debug.Log($"[{gameObject.name}] Auto-detected ship radius: {shipRadius}");
-            }
-        }
-
-        smoothedDesiredDirection = transform.forward;
-        isInitialized = true;
+        // If the field moves at 40, we need speed to dodge
+        if (maxSpeed < 30) maxSpeed = 45f;
+        if (acceleration < 10) acceleration = 20f;
     }
 
     void FixedUpdate()
     {
+        isPhysicallyColliding = false; // Reset flag, OnCollisionStay will set it true if hitting
         UpdateMovement();
     }
 
@@ -113,403 +92,324 @@ public class NPCShipMovement : ShipMovementBase
     {
         if (!hasGoal)
         {
-            if (rb.linearVelocity.magnitude > 0.1f)
-            {
-                rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, Vector3.zero, Time.fixedDeltaTime * 0.9f);
-            }
+            ApplyForce(Vector3.MoveTowards(rb.linearVelocity, Vector3.zero, Time.fixedDeltaTime * 10f));
             return;
         }
 
-        Vector3 toGoal = currentGoal - rb.position;
-        float distanceToGoal = toGoal.magnitude;
+        // 1. Calculate Relative Velocity and LookAhead
+        // If we are moving 30 and rock is moving 40 towards us, closing speed is 70.
+        // We need to look far ahead.
+        float currentSpeed = rb.linearVelocity.magnitude;
+        float activeLookAhead = baseLookAhead + (currentSpeed * 0.5f);
 
-        float effectiveReachDistance = waypointReachDistance + rb.linearVelocity.magnitude * 0.5f;
+        // 2. Build Context Maps
+        Vector3 globalDir = GetGlobalNavigationDirection();
+        globalDir.y = 0; globalDir.Normalize();
 
-        if (distanceToGoal < effectiveReachDistance)
+        System.Array.Clear(interestMap, 0, resolution);
+        System.Array.Clear(dangerMap, 0, resolution);
+
+        // Interest
+        for (int i = 0; i < resolution; i++)
         {
-            hasGoal = false;
-            currentPriority = WaypointPriority.None;
-            return;
+            float dot = Vector3.Dot(rayDirections[i], globalDir);
+            interestMap[i] = Mathf.Max(0, dot);
         }
 
-        float rawObstacleInfluence = 0f;
-        Vector3 rawObstacleAvoidanceSum = Vector3.zero; 
-        int relevantObstacleCount = 0;
-        closestObstacleDistance = float.MaxValue;
-        bool hasEmergencyObstacle = false;
+        // Danger (Predictive)
+        PopulatePredictiveDangerMap(activeLookAhead);
 
-        Vector3 goalDirection = toGoal.normalized;
-        Vector3 currentDirection = transform.forward;
+        // 3. Evaluate Best Direction
+        Vector3 bestDir = transform.forward;
+        float bestScore = -1f;
 
-        int obstacleCount = Physics.OverlapSphereNonAlloc(
-            rb.position,
-            obstacleCheckRadius,
-            nearbyObstacles,
-            obstacleLayer
-        );
-
-        int checkCount = Mathf.Min(obstacleCount, maxObstaclesToCheck);
-
-        for (int i = 0; i < checkCount; i++)
+        for (int i = 0; i < resolution; i++)
         {
-            Collider obstacle = nearbyObstacles[i];
-            if (obstacle == null) continue;
+            // Hard Veto: If danger > 0.6, the path is DEAD.
+            if (dangerMap[i] > 0.6f) interestMap[i] = 0f;
+            else interestMap[i] *= (1.0f - dangerMap[i]);
 
-            Vector3 obstacleCenter = obstacle.bounds.center;
-            Rigidbody obstacleRb = obstacle.attachedRigidbody;
-
-            if (obstacleRb != null && obstacleRb.linearVelocity.sqrMagnitude > 0.01f)
+            if (interestMap[i] > bestScore)
             {
-                obstacleCenter += obstacleRb.linearVelocity * obstaclePredictionTime;
-            }
-
-            float obstacleRadius = obstacle.bounds.extents.magnitude;
-            Vector3 toObstacle = obstacleCenter - rb.position;
-            float distance = toObstacle.magnitude;
-
-            closestObstacleDistance = Mathf.Min(closestObstacleDistance, distance - obstacleRadius);
-
-            float emergencyRadius = shipRadius + emergencyBrakeDistance;
-            if (distance < emergencyRadius + obstacleRadius)
-            {
-                hasEmergencyObstacle = true;
-
-                float emergencyWeight = 10f * (1f - (distance / (emergencyRadius + obstacleRadius)));
-                rawObstacleAvoidanceSum -= toObstacle.normalized * emergencyWeight;
-                rawObstacleInfluence += emergencyWeight;
-                relevantObstacleCount++;
-                continue;
-            }
-
-            float criticalRadius = shipRadius + criticalDistance;
-            float angleToObstacle = Vector3.Angle(currentDirection, toObstacle);
-
-            if (distance < criticalRadius + obstacleRadius && angleToObstacle < 135f)
-            {
-                float criticalWeight = 5f * (1f - (distance / (criticalRadius + obstacleRadius)));
-                rawObstacleAvoidanceSum -= toObstacle.normalized * criticalWeight;
-                rawObstacleInfluence += criticalWeight;
-                relevantObstacleCount++;
-
-                continue;
-            }
-
-            if (angleToObstacle > avoidanceConeAngle * 0.5f)
-            {
-                continue;
-            }
-
-            float randomValue = Mathf.PerlinNoise(
-                obstacle.bounds.center.x * 0.1f,
-                obstacle.bounds.center.z * 0.1f
-            );
-
-            float scanRadius = Mathf.Lerp(
-                minObstacleScanRadius,
-                maxObstacleScanRadius,
-                randomValue
-            );
-
-            float effectiveScanRadius = scanRadius + shipRadius;
-
-            if (distance < effectiveScanRadius + obstacleRadius)
-            {
-                float goalBlockage = 1f - Vector3.Dot(toObstacle.normalized, goalDirection);
-                float proximityWeight = ((effectiveScanRadius + obstacleRadius) - distance) / (effectiveScanRadius + obstacleRadius);
-
-                float weight = proximityWeight * (0.5f + goalBlockage * 0.5f);
-
-                rawObstacleAvoidanceSum -= toObstacle.normalized * weight;
-                rawObstacleInfluence += weight;
-                relevantObstacleCount++;
+                bestScore = interestMap[i];
+                bestDir = rayDirections[i];
             }
         }
 
-        smoothedAvoidanceVector = Vector3.Lerp(
-            smoothedAvoidanceVector,
-            rawObstacleAvoidanceSum,
-            Time.fixedDeltaTime * avoidanceVectorSmoothing
-        );
+        // 4. Stuck / Combat Logic
+        HandleCombat(bestScore);
 
-        Vector3 obstacleAvoidanceSum = smoothedAvoidanceVector;
-
-        if (useVelocityPrediction && rb.linearVelocity.magnitude > 1f)
+        // 5. Final Safety Validation & Physics
+        // If we are touching a rock, ignore steering and push away
+        if (isPhysicallyColliding)
         {
-            Vector3 futurePosition = rb.position + rb.linearVelocity * collisionLookAhead;
-
-            if (Physics.CheckSphere(futurePosition, shipRadius * 1.5f, obstacleLayer))
-            {
-                hasEmergencyObstacle = true;
-
-
-            }
-        }
-
-        isEmergencyBraking = hasEmergencyObstacle;
-
-        bool hasGapAhead = CheckGapAhead(goalDirection, out Vector3 gapDirection);
-        isThreadingGap = hasGapAhead;
-        if (hasGapAhead) lastGapDirection = gapDirection;
-
-        smoothedObstacleInfluence = Mathf.Lerp(
-            smoothedObstacleInfluence,
-            rawObstacleInfluence,
-            Time.fixedDeltaTime * influenceSmoothness
-        );
-
-        float effectiveInfluence = smoothedObstacleInfluence;
-
-        if (relevantObstacleCount >= minObstaclesForStuck)
-        {
-            effectiveInfluence *= 1.2f;
-        }
-
-        UpdateAsteroidTargeting(effectiveInfluence, relevantObstacleCount);
-
-        float angleToGoal = Vector3.Angle(currentDirection, goalDirection);
-
-        Vector3 rawDesiredDirection; // ✅ NEW: Calculate target direction first
-        bool isAvoiding = smoothedObstacleInfluence > 0.1f || hasEmergencyObstacle;
-        bool isCloseToGoal = distanceToGoal < directApproachDistance;
-        bool isOffCourse = angleToGoal > aggressiveCorrectionAngle;
-
-        if (hasEmergencyObstacle)
-        {
-            if (obstacleAvoidanceSum.sqrMagnitude > 0.001f)
-            {
-                rawDesiredDirection = obstacleAvoidanceSum.normalized;
-            }
-            else
-            {
-                rawDesiredDirection = -currentDirection;
-            }
-        }
-        else if (isAvoiding)
-        {
-            if (hasGapAhead)
-            {
-                rawDesiredDirection = gapDirection;
-            }
-            else
-            {
-                Vector3 avoidanceDirection = obstacleAvoidanceSum.normalized;
-
-                rawDesiredDirection = Vector3.Lerp(
-                    avoidanceDirection,
-                    goalDirection,
-                    0.3f 
-                ).normalized;
-            }
-        }
-        else if (isCloseToGoal || isOffCourse)
-        {
-            rawDesiredDirection = goalDirection;
+            // Physics handled in OnCollisionStay, just dampen velocity here
+            smoothedDir = transform.forward; // Maintain heading
         }
         else
         {
-            rawDesiredDirection = goalDirection;
-        }
+            // Normal Flight
+            float throttle = 1.0f;
 
-        rawDesiredDirection = rawDesiredDirection.normalized;
-
-        float dampening = hasEmergencyObstacle ? steeringDampening * 2f : steeringDampening;
-
-        float angleDelta = Vector3.Angle(smoothedDesiredDirection, rawDesiredDirection);
-        bool shouldChangeDirection = angleDelta > directionChangeThreshold;
-        bool commitmentExpired = (Time.time - lastDirectionChangeTime) > directionCommitmentTime;
-
-        if (shouldChangeDirection && commitmentExpired)
-        {
-            lastDirectionChangeTime = Time.time;
-        }
-
-        smoothedDesiredDirection = Vector3.Lerp(
-            smoothedDesiredDirection,
-            rawDesiredDirection,
-            Time.fixedDeltaTime * dampening
-        ).normalized;
-
-        Vector3 desiredDirection = smoothedDesiredDirection;
-
-        float speedMultiplier = 1f;
-
-        if (hasEmergencyObstacle)
-        {
-            speedMultiplier = 0.1f;
-        }
-        else if (closestObstacleDistance < criticalDistance)
-        {
-            speedMultiplier = Mathf.Clamp01(closestObstacleDistance / criticalDistance) * 0.5f;
-        }
-        else if (distanceToGoal < waypointSlowdownDistance)
-        {
-            speedMultiplier = Mathf.Clamp01(distanceToGoal / waypointSlowdownDistance);
-            speedMultiplier = Mathf.Max(speedMultiplier, 0.3f);
-        }
-
-        if (isAvoiding && !hasEmergencyObstacle)
-        {
-            if (hasGapAhead)
+            // If the best path is blocked or we are trapped
+            if (bestScore < stuckThreshold)
             {
-                speedMultiplier = Mathf.Max(speedMultiplier, 0.6f);
+                // We are trapped. Don't stop. Strafing is life.
+                // Try to find ANY open direction (lowest danger)
+                throttle = 0.5f;
+                bestDir = FindEscapeDirection();
+            }
+
+            smoothedDir = Vector3.SmoothDamp(smoothedDir, bestDir, ref steerVelocity, 0.25f);
+            ApplyXZPhysics(smoothedDir, throttle);
+        }
+    }
+
+    // --- UPDATED PREDICTIVE AVOIDANCE ---
+    void PopulatePredictiveDangerMap(float lookAhead)
+    {
+        int count = Physics.OverlapSphereNonAlloc(transform.position, lookAhead, nearbyObstacles, obstacleLayer);
+        int checks = Mathf.Min(count, 60);
+
+        for (int k = 0; k < checks; k++)
+        {
+            Collider obs = nearbyObstacles[k];
+            if (obs == null || obs.transform.root == transform.root) continue;
+
+            Vector3 obsVel = Vector3.zero;
+            if (obs.attachedRigidbody != null) obsVel = obs.attachedRigidbody.linearVelocity;
+
+            Vector3 currentPos = obs.bounds.center;
+            float radius = obs.bounds.extents.magnitude;
+
+            // If moving, we process the whole "Tube" of time
+            if (obsVel.sqrMagnitude > 1.0f)
+            {
+                Vector3 futurePos = currentPos + (obsVel * predictionTime);
+                ProcessCapsuleObstacle(currentPos, futurePos, radius, lookAhead);
             }
             else
             {
-                speedMultiplier = Mathf.Max(speedMultiplier, 0.4f);
+                // Static object
+                ProcessCapsuleObstacle(currentPos, currentPos, radius, lookAhead);
             }
         }
-
-        speedMultiplier = Mathf.Max(speedMultiplier, minSpeedMultiplier);
-
-        if (desiredDirection.sqrMagnitude < 0.001f)
-        {
-            desiredDirection = transform.forward;
-        }
-
-        Quaternion targetRotation = Quaternion.LookRotation(desiredDirection);
-        float rotationMultiplier = hasEmergencyObstacle ? 5f : ((!isAvoiding && (isCloseToGoal || isOffCourse)) ? 3f : 1f);
-
-        rb.MoveRotation(Quaternion.Slerp(
-            rb.rotation,
-            targetRotation,
-            rotationSpeed * turnSmoothness * rotationMultiplier * Time.fixedDeltaTime
-        ));
-
-        float targetSpeed = maxSpeed * speedMultiplier;
-        Vector3 targetVelocity = desiredDirection * targetSpeed;
-        ApplyForce(targetVelocity);
     }
 
-    private bool CheckGapAhead(Vector3 goalDirection, out Vector3 gapDirection)
+    void ProcessCapsuleObstacle(Vector3 start, Vector3 end, float radius, float lookAhead)
     {
-        gapDirection = goalDirection;
+        // 1. Expanded Safety Radius
+        float safeRadius = radius + shipCollisionRadius + dynamicClearance;
+        float safeRadiusSq = safeRadius * safeRadius;
 
-        int rayCount = 9;
-        float maxAngle = 60f;
-        float bestGapScore = 0f;
-        Vector3 bestGapDir = goalDirection;
-
-        for (int i = 0; i < rayCount; i++)
+        // 2. Iterate over all Ray Directions
+        for (int i = 0; i < resolution; i++)
         {
-            float angle = Mathf.Lerp(-maxAngle, maxAngle, i / (float)(rayCount - 1));
-            Vector3 rayDir = Quaternion.Euler(0f, angle, 0f) * goalDirection;
+            Vector3 rayDir = rayDirections[i];
 
-            bool hitObstacle = Physics.SphereCast(
-                rb.position,
-                shipRadius * 1.2f,
-                rayDir,
-                out RaycastHit hit,
-                pathCheckDistance,
-                obstacleLayer
-            );
+            // MATH: Ray-Capsule Intersection Estimation
+            // We check if the ray passes close to the segment (start->end)
 
-            if (!hitObstacle)
+            // Simple approach: Check distance from Segment to Ray
+            // Because our rays start at 0,0, we project the segment onto the ray direction.
+
+            // Find the point on the obstacle path (start->end) that is closest to the ship
+            float t_seg = DistancePointToSegmentParam(transform.position, start, end);
+            Vector3 closestObstaclePoint = Vector3.Lerp(start, end, t_seg);
+
+            Vector3 toObs = closestObstaclePoint - transform.position;
+            toObs.y = 0;
+            float dist = toObs.magnitude;
+
+            if (dist > lookAhead) continue;
+
+            // Optimization: Skip rays pointing away from this specific point on the path
+            if (Vector3.Dot(rayDir, toObs.normalized) < 0.2f) continue;
+
+            // Check angular intersection
+            float angleRad = Mathf.Asin(Mathf.Clamp01(safeRadius / dist));
+            float angleDeg = angleRad * Mathf.Rad2Deg;
+
+            float angleToRay = Vector3.Angle(rayDir, toObs.normalized);
+
+            if (angleToRay < angleDeg)
             {
-                float clearanceScore = 1f / (1f + Mathf.Abs(angle) * 0.01f);
+                // We are looking at the "tube"
+                float weight = 1.0f;
+                // Cost increases if the intersection point is close
+                weight *= (1f - (dist / lookAhead) * 0.5f);
 
-                if (clearanceScore > bestGapScore)
-                {
-                    bestGapScore = clearanceScore;
-                    bestGapDir = rayDir;
-                }
-
-
+                if (weight > dangerMap[i]) dangerMap[i] = weight;
             }
         }
-
-        if (bestGapScore > 0f)
-        {
-            gapDirection = bestGapDir;
-            return true;
-        }
-
-        return false;
     }
 
-    private void UpdateAsteroidTargeting(float effectiveInfluence, int obstacleCount)
+    // Helper to find T on segment closest to point P
+    float DistancePointToSegmentParam(Vector3 p, Vector3 a, Vector3 b)
+    {
+        Vector3 ab = b - a;
+        float magSq = ab.sqrMagnitude;
+        if (magSq < 0.001f) return 0f;
+        return Mathf.Clamp01(Vector3.Dot(p - a, ab) / magSq);
+    }
+
+
+    void ProcessObstacle(Vector3 pos, float radius, float lookAhead)
+    {
+        Vector3 toObs = pos - transform.position;
+        toObs.y = 0; // Flatten
+        float dist = toObs.magnitude;
+
+        if (dist > lookAhead) return;
+
+        // Expanded radius for moving fields
+        float safeRadius = radius + shipCollisionRadius + dynamicClearance;
+
+        // If we are inside, Panic
+        if (dist < safeRadius)
+        {
+            for (int i = 0; i < resolution; i++) dangerMap[i] = 1.0f;
+            return;
+        }
+
+        // Angular calculations
+        float angleRad = Mathf.Asin(Mathf.Clamp01(safeRadius / dist));
+        float angleDeg = angleRad * Mathf.Rad2Deg;
+        Vector3 obsDir = toObs.normalized;
+
+        for (int i = 0; i < resolution; i++)
+        {
+            // Optimization
+            if (Vector3.Dot(rayDirections[i], obsDir) < 0.5f) continue;
+
+            float angleToRay = Vector3.Angle(rayDirections[i], obsDir);
+            if (angleToRay < angleDeg)
+            {
+                // Danger is extremely high for moving obstacles
+                float weight = 1.0f;
+                // Falloff slightly with distance
+                weight *= (1f - (dist / lookAhead) * 0.5f);
+
+                if (weight > dangerMap[i]) dangerMap[i] = weight;
+            }
+        }
+    }
+
+    // --- PHYSICS & COLLISION ---
+
+    void ApplyXZPhysics(Vector3 moveDir, float throttle)
+    {
+        base.RotateTowards(Quaternion.LookRotation(moveDir));
+        Vector3 targetVel = moveDir * (maxSpeed * throttle);
+
+        if (enableStrafing) base.ApplyForce(targetVel);
+        else
+        {
+            float align = Vector3.Dot(transform.forward, moveDir);
+            if (align > 0) base.ApplyForce(transform.forward * (maxSpeed * throttle * align));
+        }
+    }
+
+    // EMERGENCY OVERRIDE: If we physically touch, PUSH AWAY.
+    void OnCollisionStay(Collision collision)
+    {
+        // Check if it's an obstacle
+        if (((1 << collision.gameObject.layer) & obstacleLayer) != 0)
+        {
+            isPhysicallyColliding = true;
+
+            // Calculate push direction (Average of contacts)
+            Vector3 pushDir = Vector3.zero;
+            foreach (ContactPoint contact in collision.contacts)
+            {
+                pushDir += contact.normal;
+            }
+            pushDir.Normalize();
+            pushDir.y = 0; // Keep flat
+
+            // Apply immediate impulse to slide off
+            // We use AddForce directly on RB for instant reaction, bypassing the smoothing logic
+            rb.AddForce(pushDir * contactRepulsionForce, ForceMode.Acceleration);
+        }
+    }
+
+    // --- UTILS ---
+
+    Vector3 FindEscapeDirection()
+    {
+        // Find the direction with the absolute lowest danger
+        float minDanger = 1.0f;
+        Vector3 escapeDir = transform.forward;
+
+        for (int i = 0; i < resolution; i++)
+        {
+            if (dangerMap[i] < minDanger)
+            {
+                minDanger = dangerMap[i];
+                escapeDir = rayDirections[i];
+            }
+        }
+        return escapeDir;
+    }
+
+    Vector3 GetGlobalNavigationDirection()
+    {
+        // If dangerous, ignore flow field and go straight for goal (or away from danger)
+        // Flow fields often fail in moving environments
+        if (useFlowFieldNavigation && flowFieldNavigator != null)
+        {
+            flowFieldNavigator.SetGoal(currentGoal);
+            return flowFieldNavigator.GetNavigationDirection(transform.position);
+        }
+        return (currentGoal - transform.position).normalized;
+    }
+
+    void HandleCombat(float bestScore)
     {
         if (targetingSystem == null) return;
+        bool stuck = bestScore < stuckThreshold;
 
-        bool isReallyStuck = effectiveInfluence > stuckThreshold && obstacleCount >= minObstaclesForStuck;
-        bool isReallyClear = effectiveInfluence < clearThreshold && obstacleCount < 2;
-
-        if (clearThreshold <= 0.001f)
+        if (stuck)
         {
-            isReallyClear = obstacleCount == 0;
-        }
-
-        if (isReallyStuck)
-        {
-            consecutiveHighInfluenceFrames++;
-            consecutiveLowInfluenceFrames = 0;
-        }
-        else if (isReallyClear)
-        {
-            consecutiveLowInfluenceFrames++;
-            consecutiveHighInfluenceFrames = 0;
+            stuckTimer += Time.fixedDeltaTime;
+            if (stuckTimer > 0.5f && !isMining)
+            {
+                isMining = true;
+                targetingSystem.SetAsteroidTargeting(true);
+            }
         }
         else
         {
-            consecutiveHighInfluenceFrames = 0;
-            consecutiveLowInfluenceFrames = 0;
-        }
-
-        if (consecutiveHighInfluenceFrames >= 3 && !asteroidTargetingActive)
-        {
-            if (Time.time - lastToggleTime < toggleCooldown)
-                return;
-
-            targetingSystem.SetAsteroidTargeting(true);
-            asteroidTargetingActive = true;
-            lastToggleTime = Time.time;
-        }
-        else if (consecutiveLowInfluenceFrames >= 5 && asteroidTargetingActive)
-        {
-            if (Time.time - lastToggleTime < toggleCooldown)
-                return;
-
-            targetingSystem.SetAsteroidTargeting(false);
-            asteroidTargetingActive = false;
-            lastToggleTime = Time.time;
+            if (isMining)
+            {
+                stuckTimer -= Time.fixedDeltaTime;
+                if (stuckTimer < -1.0f)
+                {
+                    isMining = false;
+                    targetingSystem.SetAsteroidTargeting(false);
+                    stuckTimer = 0f;
+                }
+            }
+            else stuckTimer = 0f;
         }
     }
 
     public void SetWaypoint(Vector3 position, WaypointPriority priority = WaypointPriority.Low)
     {
-        if (priority >= currentPriority)
-        {
-            currentGoal = position;
-            hasGoal = true;
-            currentPriority = priority;
-        }
+        if (priority >= currentPriority) { currentGoal = position; hasGoal = true; currentPriority = priority; }
     }
 
     public void ClearWaypoint(WaypointPriority priority = WaypointPriority.High)
     {
-        if (priority >= currentPriority)
+        if (priority >= currentPriority) { hasGoal = false; currentPriority = WaypointPriority.None; }
+    }
+
+    void OnDrawGizmos()
+    {
+        if (Application.isPlaying)
         {
-            hasGoal = false;
-            currentPriority = WaypointPriority.None;
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawLine(transform.position, transform.position + smoothedDir * 10f);
         }
     }
-
-    public void ForceClearWaypoint()
-    {
-        hasGoal = false;
-        currentPriority = WaypointPriority.None;
-    }
-
-    public Vector3 GetCurrentWaypoint() => currentGoal;
-    public bool HasWaypoint() => hasGoal;
-    public WaypointPriority GetCurrentPriority() => currentPriority;
-   
-}
-
-public enum WaypointPriority
-{
-    None = 0,
-    Low = 1,
-    Medium = 2,
-    High = 3,
-    Critical = 4
 }

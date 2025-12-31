@@ -1146,7 +1146,7 @@ Rigidbody:
   m_UseGravity: 0
   m_IsKinematic: 0
   m_Interpolate: 0
-  m_Constraints: 84
+  m_Constraints: 116
   m_CollisionDetection: 0
 --- !u!33 &433032880
 MeshFilter:
@@ -1165,7 +1165,7 @@ Transform:
   m_GameObject: {fileID: 433032876}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -54739, y: -1, z: -78429}
+  m_LocalPosition: {x: -54913, y: -1, z: -77884}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2885,6 +2885,38 @@ CanvasRenderer:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 1012064523}
   m_CullTransparentMesh: 1
+--- !u!1 &1029347342 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 2397529165072097577, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+  m_PrefabInstance: {fileID: 1060263528}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &1029347353
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1029347342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 161c38a2e24938340a4e9afc7fae3a98, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  navigationRadius: 100
+  cellSize: 6
+  updateInterval: 0.15
+  updateDistanceThreshold: 30
+  obstacleLayer:
+    serializedVersion: 2
+    m_Bits: 512
+  obstacleSampleRadius: 4.5
+  gradientRangeMultiplier: 4.5
+  maxGradientCost: 70
+  asteroidPredictionTime: 0.1
+  directPathBlend: 0
+  directApproachDistance: 40
+  showDebugGrid: 1
+  showFlowVectors: 1
 --- !u!4 &1033356268 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
@@ -3048,6 +3080,18 @@ PrefabInstance:
       propertyPath: m_Name
       value: REMNANT_0
       objectReference: {fileID: 0}
+    - target: {fileID: 4875962830702642934, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: m_Mass
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4875962830702642934, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: m_AngularDrag
+      value: 0.8
+      objectReference: {fileID: 0}
+    - target: {fileID: 4875962830702642934, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: m_Constraints
+      value: 116
+      objectReference: {fileID: 0}
     - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: m_Enabled
       value: 1
@@ -3093,20 +3137,28 @@ PrefabInstance:
       value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: lateralDrag
+      value: 0.277
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: minGapWidth
       value: 6
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: clearThreshold
-      value: 0.15
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: predictionTime
+      value: 0.05
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: stuckThreshold
-      value: 0.7
+      value: 0.05
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: toggleCooldown
-      value: 2.5
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: turnSmoothness
@@ -3121,6 +3173,10 @@ PrefabInstance:
       value: 12
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: stuckTimeTrigger
+      value: 0.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: pathCheckDistance
       value: 35
       objectReference: {fileID: 0}
@@ -3131,6 +3187,10 @@ PrefabInstance:
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: avoidanceConeAngle
       value: 140
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: collisionLookAhead
+      value: 10
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: correctionStrength
@@ -3157,12 +3217,20 @@ PrefabInstance:
       value: 60
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: localAvoidanceWeight
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: minObstaclesForStuck
-      value: 4
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: obstacleLayer.m_Bits
       value: 512
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: stuckDangerThreshold
+      value: 0.06
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: maxObstacleScanRadius
@@ -3190,7 +3258,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: obstaclePredictionTime
-      value: 1.2
+      value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: directionCommitmentTime
@@ -3227,7 +3295,10 @@ PrefabInstance:
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 2397529165072097577, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      insertIndex: 8
+      addedObject: {fileID: 1029347353}
   m_SourcePrefab: {fileID: 100100000, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
 --- !u!1 &1092850299
 GameObject:
