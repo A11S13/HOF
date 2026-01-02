@@ -93,8 +93,6 @@ public class PlayerShipMovement : ShipMovementBase
         {
             ApplyEngineSpeedModification();
         }
-
-        Debug.Log($"{gameObject.name} - Cruise: {cruiseControlLevel:F2}, Accel: {acceleration:F2}, MaxSpeed: {effectiveMaxSpeed:F2}");
     }
 
     void HandleThrottle()

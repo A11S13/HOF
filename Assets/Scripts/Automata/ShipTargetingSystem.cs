@@ -49,12 +49,10 @@ public class ShipTargetingSystem : MonoBehaviour, ITargetProvider
                 // NPCs: Clone the config for independent settings
                 targetingConfig = Instantiate(targetingConfig);
                 targetingConfig.name = $"{targetingConfig.name} (Clone for {gameObject.name})";
-                Debug.Log($"[NPC: {gameObject.name}] Cloned targeting config. Asteroids initially: {targetingConfig.asteroids}");
             }
             else
             {
                 // Player: Keep the inspector-assigned config
-                Debug.Log($"[PLAYER: {gameObject.name}] Using inspector-assigned targeting config. Asteroids initially: {targetingConfig.asteroids}");
             }
         }
     }

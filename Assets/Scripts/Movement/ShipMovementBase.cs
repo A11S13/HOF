@@ -48,13 +48,19 @@ public abstract class ShipMovementBase : MonoBehaviour, IShipController
 
     protected void ApplyForce(Vector3 targetVelocity)
     {
+        if (rb == null) return;
         Vector3 velocityChange = targetVelocity - rb.linearVelocity;
+
+        // Clamp force to acceleration limit
         Vector3 force = velocityChange * acceleration;
+
+        // Apply
         rb.AddForce(force, ForceMode.Acceleration);
     }
 
     protected void RotateTowards(Quaternion targetRotation)
     {
+        if (rb == null) return;
         rb.MoveRotation(Quaternion.Slerp(rb.rotation, targetRotation, rotationSpeed * Time.fixedDeltaTime));
     }
 }

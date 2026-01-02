@@ -2908,15 +2908,15 @@ MonoBehaviour:
   updateDistanceThreshold: 30
   obstacleLayer:
     serializedVersion: 2
-    m_Bits: 512
+    m_Bits: 4736
   obstacleSampleRadius: 4.5
   gradientRangeMultiplier: 4.5
   maxGradientCost: 70
   asteroidPredictionTime: 0.1
   directPathBlend: 0
   directApproachDistance: 40
-  showDebugGrid: 1
-  showFlowVectors: 1
+  showDebugGrid: 0
+  showFlowVectors: 0
 --- !u!4 &1033356268 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
@@ -3121,6 +3121,10 @@ PrefabInstance:
       value: 100
       objectReference: {fileID: 0}
     - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: overshootDistance
+      value: 70
+      objectReference: {fileID: 0}
+    - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: circleUpdateInterval
       value: 0.1
       objectReference: {fileID: 0}
@@ -3226,7 +3230,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: obstacleLayer.m_Bits
-      value: 512
+      value: 640
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: stuckDangerThreshold
@@ -10444,6 +10448,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   unitTech: Terran Technocracy
   shipData: {fileID: 11400000, guid: 689ef4322c40e6649b950096d39b37c6, type: 2}
+  fireMode: 1
+  fixedRippleDelay: 0.1
   firingThresholdAngle: 10
   distanceThreshold: 0.01
   angularThreshold: 1000
