@@ -80,7 +80,6 @@ GameObject:
   - component: {fileID: 5423461505726691766}
   - component: {fileID: 4875962830702642934}
   - component: {fileID: 2677758039213790757}
-  - component: {fileID: 5027233546195423678}
   - component: {fileID: 3806721236209938826}
   - component: {fileID: 4903172914498814679}
   m_Layer: 13
@@ -206,27 +205,6 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 10, y: 5, z: 10}
   m_Center: {x: 0, y: 0, z: 0}
---- !u!114 &5027233546195423678
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 2397529165072097577}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: c87c9d6bfa6e9e64d84f9ddc0a32ae00, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
-  maxSpeed: 100
-  acceleration: 8
-  defaultAcceleration: 5
-  rotationSpeed: 3
-  waypointReachDistance: 5
-  obstacleAvoidanceDistance: 10
-  pathUpdateRate: 0.5
-  dampingFactor: 0.9
-  turnSmoothness: 2
 --- !u!114 &3806721236209938826
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -257,14 +235,31 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   behaviorMode: 0
   engagementRange: 600
-  optimalRange: 50
-  retreatRange: 20
-  patrolPoints:
-  - {fileID: 0}
-  - {fileID: 0}
-  patrolSpeed: 5
-  circlingSpeed: 8
-  circlingRadius: 40
+  disengageRange: 750
+  useBoomAndZoom: 1
+  interceptRange: 150
+  strikeStartRange: 150
+  extendDistance: 150
+  extendMinTime: 0.5
+  strikeMaxTime: 1
+  repositionRange: 100
+  knifeFightRange: 90
+  minAttackDot: 0.85
+  leadTime: 0.8
+  interceptLateralOffset: 140
+  repositionSideOffset: 320
+  repositionBackOffset: 220
+  allowFireInInterceptAlign: 1
+  interceptFireRangeMultiplier: 1
+  interceptBoostMultiplier: 1.25
+  strikeBoostMultiplier: 1.85
+  extendBoostMultiplier: 1.6
+  repositionBoostMultiplier: 1.25
+  wanderRadius: 400
+  minWanderDistance: 20
+  maxWanderDistance: 800
+  waypointReachDistance: 10
+  wanderWaitTime: 0
 --- !u!1 &3372044982332021594
 GameObject:
   m_ObjectHideFlags: 0
@@ -347,8 +342,8 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   unitTech: 
   shipData: {fileID: 0}
-  sonarRadius: 600
-  targetingConfig: {fileID: 0}
+  fireMode: 1
+  fixedRippleDelay: 0.1
   firingThresholdAngle: 15
   distanceThreshold: 1
   angularThreshold: 1

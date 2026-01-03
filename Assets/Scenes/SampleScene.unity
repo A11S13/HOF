@@ -1165,7 +1165,7 @@ Transform:
   m_GameObject: {fileID: 433032876}
   serializedVersion: 2
   m_LocalRotation: {x: 0, y: 0, z: 0, w: 1}
-  m_LocalPosition: {x: -54913, y: -1, z: -77884}
+  m_LocalPosition: {x: -55876, y: -1, z: -81355}
   m_LocalScale: {x: 1, y: 1, z: 1}
   m_ConstrainProportionsScale: 0
   m_Children:
@@ -2917,6 +2917,55 @@ MonoBehaviour:
   directApproachDistance: 40
   showDebugGrid: 0
   showFlowVectors: 0
+--- !u!114 &1029347364
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 1029347342}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: c87c9d6bfa6e9e64d84f9ddc0a32ae00, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  maxSpeed: 100
+  acceleration: 5
+  defaultAcceleration: 5
+  rotationSpeed: 10
+  predictionTime: 0.1
+  dynamicClearance: 2
+  baseLookAhead: 60
+  goalSmoothingTime: 0.2
+  passThroughRadius: 55
+  passThroughDistance: 220
+  minThrottleNearGoal: 0.8
+  aiAccelerationScale: 100
+  boostStrafeFactor: 1
+  normalStrafeFactor: 1
+  shipAvoidanceLayer:
+    serializedVersion: 2
+    m_Bits: 12416
+  separationRadius: 35
+  separationLookAhead: 65
+  separationForce: 1.2
+  boostRampUpRate: 1.2
+  boostRampDownRate: 1.8
+  dragLerpSpeed: 3.5
+  shipCollisionRadius: 5
+  enableStrafing: 1
+  standardDrag: 0.18
+  boostDrag: 0.06
+  targetingSystem: {fileID: 821065078}
+  stuckThreshold: 0.1
+  contactRepulsionForce: 50
+  obstacleLayer:
+    serializedVersion: 2
+    m_Bits: 4736
+  resolution: 72
+  lockFacingDuringFlank: 1
+  flowFieldNavigator: {fileID: 0}
+  useFlowFieldNavigation: 1
 --- !u!4 &1033356268 stripped
 Transform:
   m_CorrespondingSourceObject: {fileID: -8679921383154817045, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
@@ -3038,7 +3087,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2299305548143460133, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: m_LocalPosition.x
-      value: -55306
+      value: -56333
       objectReference: {fileID: 0}
     - target: {fileID: 2299305548143460133, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: m_LocalPosition.y
@@ -3046,7 +3095,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 2299305548143460133, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: m_LocalPosition.z
-      value: -78587
+      value: -81843
       objectReference: {fileID: 0}
     - target: {fileID: 2299305548143460133, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: m_LocalRotation.w
@@ -3105,12 +3154,36 @@ PrefabInstance:
       value: 100
       objectReference: {fileID: 0}
     - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: extendMinTime
+      value: 0.8
+      objectReference: {fileID: 0}
+    - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: strikeMaxTime
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: circlingRadius
       value: 120
       objectReference: {fileID: 0}
     - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: extendDistance
+      value: 80
+      objectReference: {fileID: 0}
+    - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: interceptRange
+      value: 80
+      objectReference: {fileID: 0}
+    - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: wanderWaitTime
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: repositionRange
+      value: 80
+      objectReference: {fileID: 0}
+    - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: strikeStartRange
+      value: 80
       objectReference: {fileID: 0}
     - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: maxWanderDistance
@@ -3129,8 +3202,28 @@ PrefabInstance:
       value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: repositionBackOffset
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: repositionSideOffset
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: waypointReachDistance
       value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: forsageRadiusExtension
+      value: 60
+      objectReference: {fileID: 0}
+    - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: interceptLateralOffset
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 4903172914498814679, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: tooCloseSafetyThreshold
+      value: 55
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: m_Enabled
@@ -3147,6 +3240,10 @@ PrefabInstance:
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: minGapWidth
       value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: dragLerpSpeed
+      value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: clearThreshold
@@ -3169,6 +3266,10 @@ PrefabInstance:
       value: 3
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: boostRampUpRate
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: targetingSystem
       value: 
       objectReference: {fileID: 821065078}
@@ -3179,6 +3280,10 @@ PrefabInstance:
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: stuckTimeTrigger
       value: 0.1
+      objectReference: {fileID: 0}
+    - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      propertyPath: boostRampDownRate
+      value: 2
       objectReference: {fileID: 0}
     - target: {fileID: 5027233546195423678, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
       propertyPath: pathCheckDistance
@@ -3301,8 +3406,11 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents:
     - targetCorrespondingSourceObject: {fileID: 2397529165072097577, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
-      insertIndex: 8
+      insertIndex: 7
       addedObject: {fileID: 1029347353}
+    - targetCorrespondingSourceObject: {fileID: 2397529165072097577, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
+      insertIndex: -1
+      addedObject: {fileID: 1029347364}
   m_SourcePrefab: {fileID: 100100000, guid: f2baaa9305927c04bbe1ae3f69496dd5, type: 3}
 --- !u!1 &1092850299
 GameObject:
