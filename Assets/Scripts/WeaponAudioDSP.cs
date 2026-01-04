@@ -3,8 +3,11 @@ using UnityEngine.Audio;
 
 public class WeaponAudioDSP : MonoBehaviour
 {
+    [SerializeField] AudioSource audioSource;  // Optional: Assign in Inspector
     [SerializeField] AudioClip clip;
     [SerializeField] AudioMixerGroup weaponsBus;
+
+    GameObject createdDspObject;  // Track if we created a child GameObject
 
     float phase;
     float gain;
@@ -21,13 +24,13 @@ public class WeaponAudioDSP : MonoBehaviour
 
     float recentFireInterval;
     const float RapidFireThreshold = 0.08f;
-    const float ChainsawThreshold = 0.05f;  // NEW: Ultra-rapid fire
+    const float ChainsawThreshold = 0.05f;
     float processingAmount;
-    bool chainsawMode;  // NEW: Flag for continuous mode
+    bool chainsawMode;
 
     float driftPhase;
     float lp;
-    float lpSlow;  // NEW: Second lowpass for sub-harmonics
+    float lpSlow;
     bool resetLpOnNextShot;
 
     float[] data;
@@ -35,11 +38,26 @@ public class WeaponAudioDSP : MonoBehaviour
 
     void Awake()
     {
-        var src = gameObject.AddComponent<AudioSource>();
-        src.playOnAwake = false;
-        src.loop = true;
-        src.outputAudioMixerGroup = weaponsBus;
+        // Only create AudioSource if not assigned in Inspector
+        if (audioSource == null)
+        {
+            // Create a dedicated child GameObject for DSP AudioSource
+            createdDspObject = new GameObject("WeaponDSP_AudioSource");
+            createdDspObject.transform.SetParent(transform);
+            createdDspObject.transform.localPosition = Vector3.zero;
 
+            // Add AudioSource to the child (isolated from other AudioSources)
+            audioSource = createdDspObject.AddComponent<AudioSource>();
+        }
+
+        // Configure the AudioSource (whether assigned or created)
+        audioSource.playOnAwake = false;
+        audioSource.loop = true;
+        audioSource.outputAudioMixerGroup = weaponsBus;
+        audioSource.spatialBlend = 1f;  // 3D sound
+        audioSource.Play();  // Start playing (DSP processes even with no clip)
+
+        // Load audio data
         data = new float[clip.samples];
         clip.GetData(data, 0);
 
@@ -89,20 +107,14 @@ public class WeaponAudioDSP : MonoBehaviour
 
         if (shotCount > lastProcessedShot)
         {
-            // NEW: Detect chainsaw mode (ultra-rapid fire)
             chainsawMode = recentFireInterval < ChainsawThreshold;
 
             if (chainsawMode)
             {
-                // Ultra-rapid fire: maximum processing, smooth envelope
                 processingAmount = 1f;
                 resetLpOnNextShot = false;
-
-                // NEW: Less phase randomization for rhythmic coherence
-                phase = Random.Range(0f, 0.5f);  // Reduced from 2f
-
-                // NEW: Maintain gain at high level (no dips)
-                gain = Mathf.Max(gain, 0.95f);  // Higher baseline
+                phase = Random.Range(0f, 0.5f);
+                gain = Mathf.Max(gain, 0.95f);
             }
             else if (recentFireInterval < RapidFireThreshold)
             {
@@ -168,20 +180,17 @@ public class WeaponAudioDSP : MonoBehaviour
                 if (resetLpOnNextShot && i == 0)
                 {
                     lp = raw;
-                    lpSlow = raw;  // NEW: Reset both LPs
+                    lpSlow = raw;
                     resetLpOnNextShot = false;
                 }
 
                 if (processingAmount > 0.05f)
                 {
-                    // NEW: More aggressive lowpass in chainsaw mode
                     float lpCoeff = chainsawMode
-                        ? 0.08f  // Very smooth for chainsaw
+                        ? 0.08f
                         : Mathf.Lerp(0.22f, 0.14f, processingAmount);
 
                     lp += (raw - lp) * lpCoeff;
-
-                    // NEW: Second lowpass for sub-harmonic rumble
                     lpSlow += (lp - lpSlow) * 0.04f;
 
                     float processed = lp;
@@ -193,10 +202,9 @@ public class WeaponAudioDSP : MonoBehaviour
                     sat += raw * 0.05f * processingAmount;
                     sat += (raw - processed) * 0.09f * processingAmount;
 
-                    // NEW: Add sub-harmonic in chainsaw mode
                     if (chainsawMode)
                     {
-                        sat += lpSlow * 0.3f;  // Low-end rumble
+                        sat += lpSlow * 0.3f;
                     }
 
                     float makeup = Mathf.Lerp(1f, DenseMakeup, processingAmount);
@@ -218,9 +226,8 @@ public class WeaponAudioDSP : MonoBehaviour
             }
             else
             {
-                // NEW: Slower release in chainsaw mode
                 float releaseMult = chainsawMode
-                    ? 0.3f  // Much slower for continuous sound
+                    ? 0.3f
                     : Mathf.Lerp(1f, 0.6f, processingAmount);
 
                 gain = Mathf.Max(0f, gain - releaseStep * releaseMult);
@@ -228,6 +235,15 @@ public class WeaponAudioDSP : MonoBehaviour
 
             for (int c = 0; c < channels; c++)
                 buffer[i + c] += outSample;
+        }
+    }
+
+    void OnDestroy()
+    {
+        // Clean up child GameObject only if we created it
+        if (createdDspObject != null)
+        {
+            Destroy(createdDspObject);
         }
     }
 }
