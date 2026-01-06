@@ -5,7 +5,7 @@ using Unity.Mathematics;
 using UnityEngine;
 
 /// <summary>
-/// Per-ship targeting system with dynamic asteroid targeting control
+/// Optimized ShipTargetingSystem using NonAlloc physics and refresh throttling.
 /// </summary>
 public class ShipTargetingSystem : MonoBehaviour, ITargetProvider
 {
@@ -14,17 +14,23 @@ public class ShipTargetingSystem : MonoBehaviour, ITargetProvider
     public TargetingConfig targetingConfig;
     public int maxTrackedTargets = 50;
 
+    [Header("Optimization Settings")]
+    [Tooltip("Layers to scan. IMPORTANT: Set this to Ships + Asteroids.")]
+    public LayerMask scanLayers = ~0;
+    [Tooltip("How often to scan for targets (Seconds). Prevents CPU spikes.")]
+    public float scanInterval = 0.5f;
+
     private List<Targetable> trackedTargets = new List<Targetable>();
     private TargetData[] targetDataArray = new TargetData[0];
 
-    // Alignment filtering
+    // Cache
     private Alignment shipAlignment;
-
-    // Cache own layer to prevent self-targeting
     private int ownLayer;
-
-    // Track original asteroid setting
     private bool originalAsteroidSetting;
+    private float lastScanTime;
+
+    // NonAlloc Buffer - Reduces Garbage Collection
+    private readonly Collider[] hitColliders = new Collider[150];
 
     void Awake()
     {
@@ -33,34 +39,21 @@ public class ShipTargetingSystem : MonoBehaviour, ITargetProvider
 
         if (shipAlignment == null)
         {
-            Debug.LogWarning($"ShipTargetingSystem on {gameObject.name} has no Alignment component in parent! Targeting may not work correctly.");
+            Debug.LogWarning($"ShipTargetingSystem on {gameObject.name} has no Alignment!");
         }
 
-        // ✅ FIXED: Only clone config for NPCs, player keeps inspector-assigned config
         if (targetingConfig != null)
         {
             originalAsteroidSetting = targetingConfig.asteroids;
-
-            // Check if this is the player ship
             bool isPlayerShip = gameObject.layer == LayerMask.NameToLayer("Player");
-
             if (!isPlayerShip)
             {
-                // NPCs: Clone the config for independent settings
                 targetingConfig = Instantiate(targetingConfig);
-                targetingConfig.name = $"{targetingConfig.name} (Clone for {gameObject.name})";
-            }
-            else
-            {
-                // Player: Keep the inspector-assigned config
+                targetingConfig.name = $"{targetingConfig.name} (Clone)";
             }
         }
     }
 
-
-    /// <summary>
-    /// Enable/disable asteroid targeting (for stuck-in-asteroids behavior)
-    /// </summary>
     public void SetAsteroidTargeting(bool enabled)
     {
         if (targetingConfig == null) return;
@@ -68,62 +61,59 @@ public class ShipTargetingSystem : MonoBehaviour, ITargetProvider
         if (targetingConfig.asteroids != enabled)
         {
             targetingConfig.asteroids = enabled;
-            Debug.Log($"[{gameObject.name}] Asteroid targeting: {(enabled ? "ENABLED" : "DISABLED")}");
+            // Force an immediate refresh if we are turning it ON so reaction is instant
+            if (enabled)
+            {
+                lastScanTime = 0f; // Reset timer to allow immediate scan
+                RefreshTargets();
+            }
         }
     }
 
-    /// <summary>
-    /// Check if asteroid targeting is currently enabled
-    /// </summary>
-    public bool IsAsteroidTargetingEnabled()
-    {
-        return targetingConfig != null && targetingConfig.asteroids;
-    }
+    public bool IsAsteroidTargetingEnabled() => targetingConfig != null && targetingConfig.asteroids;
 
-    /// <summary>
-    /// Reset to original asteroid setting
-    /// </summary>
     public void ResetAsteroidTargeting()
     {
-        if (targetingConfig != null)
-        {
-            targetingConfig.asteroids = originalAsteroidSetting;
-        }
+        if (targetingConfig != null) targetingConfig.asteroids = originalAsteroidSetting;
     }
 
     public void RefreshTargets()
     {
+        // Throttle scans to prevent lag when multiple NPCs are active
+        if (Time.time < lastScanTime + scanInterval) return;
+        lastScanTime = Time.time;
+
         ScanForTargets(maxTrackedTargets);
         FormTargetDataArray();
     }
 
     private void ScanForTargets(int maxCount)
     {
-        var colliders = Physics.OverlapSphere(transform.position, sonarRadius);
-        var potentialTargets = new List<Targetable>();
+        // 1. USE NON-ALLOC PHYSICS
+        int hitCount = Physics.OverlapSphereNonAlloc(transform.position, sonarRadius, hitColliders, scanLayers);
 
-        foreach (var col in colliders)
+        var potentialTargets = new List<Targetable>(hitCount);
+
+        for (int i = 0; i < hitCount; i++)
         {
+            Collider col = hitColliders[i];
+            if (col == null) continue;
+
+            // Fast layer check
+            if (col.gameObject.layer == ownLayer) continue;
+
+            // GetComponent is heavy, do it only after layer checks pass
             var targetable = col.GetComponent<Targetable>();
-            if (targetable == null || !targetable.IsAlive)
-                continue;
+            if (targetable == null || !targetable.IsAlive) continue;
 
-            // Prevent self-targeting by checking layer
-            if (col.gameObject.layer == ownLayer)
-                continue;
-
-            // Check targeting config - this handles ALL filtering now
             if (targetingConfig != null && !targetingConfig.Allows(targetable))
                 continue;
 
-            // ✅ SIMPLIFIED: Only check targetAll for friendly ships
-            // Let TargetingConfig.Allows() handle all other logic
             if (targetingConfig != null && !targetingConfig.targetAll)
             {
                 var targetAlignment = col.GetComponent<Alignment>();
                 if (targetAlignment != null && shipAlignment != null)
                 {
-                    // Skip friendly targets if targetAll is false
                     if (targetAlignment.isFriendly && shipAlignment.isFriendly)
                         continue;
                 }
@@ -139,7 +129,7 @@ public class ShipTargetingSystem : MonoBehaviour, ITargetProvider
             return;
         }
 
-        // Use Unity Jobs for performance
+        // 2. JOB SYSTEM
         var positions = new NativeArray<float3>(count, Allocator.TempJob);
         var indices = new NativeArray<int>(count, Allocator.TempJob);
         var distances = new NativeArray<float>(count, Allocator.TempJob);
@@ -179,7 +169,6 @@ public class ShipTargetingSystem : MonoBehaviour, ITargetProvider
     private void FormTargetDataArray()
     {
         targetDataArray = new TargetData[trackedTargets.Count];
-
         for (int i = 0; i < trackedTargets.Count; i++)
         {
             var target = trackedTargets[i];
@@ -188,12 +177,10 @@ public class ShipTargetingSystem : MonoBehaviour, ITargetProvider
         }
     }
 
-    // ITargetProvider implementation
     public List<Targetable> GetTrackedTargets() => trackedTargets;
     public TargetData[] GetTargetDataArray() => targetDataArray;
     public Vector3 ScanPosition => transform.position;
 
-    // Nested struct
     public struct TargetData
     {
         public GameObject TargetObject { get; }
@@ -206,3 +193,4 @@ public class ShipTargetingSystem : MonoBehaviour, ITargetProvider
         }
     }
 }
+
