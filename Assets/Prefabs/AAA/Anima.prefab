@@ -16,7 +16,7 @@ GameObject:
   - component: {fileID: 4279199380108571162}
   - component: {fileID: 5458238281897021360}
   - component: {fileID: 5624931517518814992}
-  m_Layer: 0
+  m_Layer: 11
   m_Name: Anima
   m_TagString: Untagged
   m_Icon: {fileID: 0}
@@ -248,6 +248,10 @@ PrefabInstance:
     - target: {fileID: 919132149155446097, guid: 233271fc3b1e40d43ae5094f03784bf4, type: 3}
       propertyPath: m_Name
       value: Body
+      objectReference: {fileID: 0}
+    - target: {fileID: 919132149155446097, guid: 233271fc3b1e40d43ae5094f03784bf4, type: 3}
+      propertyPath: m_Layer
+      value: 11
       objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
