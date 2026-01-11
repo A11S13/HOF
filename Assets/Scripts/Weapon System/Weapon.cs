@@ -2,6 +2,12 @@ using System.Collections.Generic;
 using System.Linq;
 using UnityEngine;
 
+public enum WeaponFireType
+{
+    Discrete,   // Projectiles, Cannons (Fire -> Wait -> Fire)
+    Continuous  // Beams, Lasers (Fire every frame while held)
+}
+
 /// <summary>
 /// Base weapon class - fully decoupled and reusable
 /// </summary>
@@ -20,21 +26,26 @@ public abstract class Weapon : MonoBehaviour
     private IWeaponControlMode controlMode;
     public bool isAI { get; private set; }
 
+    // Configuration
+    [Header("Weapon Configuration")]
+    public WeaponFireType fireType = WeaponFireType.Discrete;
+
+    [Header("Rotation Settings")]
+    public bool lockRotation = false; // If true, weapon never rotates (fixed mount)
+    [Range(0f, 360f)]
+    public float fireArc = 360f;      // Firing arc in degrees centered on forward
+    public float localRotationDeadZone = 0.1f;
+    public float rotationSpeed = 5f;
+
     // Targeting state
     public float fireAccumulator { get; set; }
-
-    // NOTE: Removed legacy _phaseDrift variables (replaced by ShipCore Ripple System)
 
     public ShipTargetingSystem.TargetData[] CombinedTargets { get; private set; }
     public GameObject prevTarget;
 
-    [Header("Rotation Settings")]
-    public float localRotationDeadZone = 0.1f;
-    public float rotationSpeed = 5f;
-
     protected Transform weaponSpawnPoint;
 
-    [Header("Fire Rate")]
+    [Header("Fire Rate / Damage")]
     public float initialFireRate;
     public float fireRate;
     public bool isFiring;
@@ -57,9 +68,6 @@ public abstract class Weapon : MonoBehaviour
         audioDSP = GetComponent<WeaponAudioDSP>();
     }
 
-    /// <summary>
-    /// Initialize weapon with ship dependencies
-    /// </summary>
     public void Initialize(ShipCore core, IShipController controller, ITargetProvider targets, bool useAI)
     {
         if (isInitialized)
@@ -68,7 +76,6 @@ public abstract class Weapon : MonoBehaviour
             return;
         }
 
-        // Validate dependencies
         if (core == null || controller == null || targets == null)
         {
             Debug.LogError($"Weapon {gameObject.name}: Null dependency!");
@@ -80,12 +87,6 @@ public abstract class Weapon : MonoBehaviour
         targetProvider = targets;
         shipRb = controller.ShipRigidbody;
 
-        if (shipRb == null)
-        {
-            Debug.LogError($"Weapon {gameObject.name}: Ship Rigidbody is null!");
-            return;
-        }
-
         // Setup control mode
         isAI = useAI;
         SetupControlMode();
@@ -95,12 +96,7 @@ public abstract class Weapon : MonoBehaviour
         if (initialFireRate <= 0f)
             initialFireRate = fireRate;
 
-        // Randomize initial accumulator slightly so they don't all request permission on Frame 1
         fireAccumulator = Random.value;
-
-        // Note: We no longer jitter 'fireRate' here, to allow precise DPS calculations in Core
-        // fireRate = fireRate * Random.Range(0.985f, 1.015f); // Removed for deterministic ripple
-
         incrementSkipFrames = 3;
         FindWeaponSpawnPoint();
 
@@ -126,7 +122,6 @@ public abstract class Weapon : MonoBehaviour
             }
             else
             {
-                Debug.LogWarning($"Weapon {gameObject.name}: TurretJoystick not found, defaulting to AI");
                 isAI = true;
                 controlMode = new AIWeaponControl(Random.Range(0.0f, 0.75f));
             }
@@ -146,43 +141,61 @@ public abstract class Weapon : MonoBehaviour
     {
         if (!isInitialized) return;
 
-        // Removed UpdatePhaseDrift(); logic entirely
-
         float aimFactor = controlMode.UpdateControl(this);
         TryFire(aimFactor);
 
         audioDSP?.Drive();
     }
 
+    /// <summary>
+    /// Unified firing logic handling both Discrete (Projectile) and Continuous (Beam) types
+    /// </summary>
     void TryFire(float aimFactor)
     {
+        // 1. Check aim quality/trigger release
         if (aimFactor <= 0f)
         {
             isFiring = false;
-            // Cap to 1.0f so we don't start with a "super charge" after being idle
-            fireAccumulator = Mathf.Min(fireAccumulator, 1.0f);
+            if (fireType == WeaponFireType.Discrete)
+            {
+                // Cap accumulator so we don't overcharge
+                fireAccumulator = Mathf.Min(fireAccumulator, 1.0f);
+            }
+            else
+            {
+                // Continuous weapons stop immediately
+                StopFiring();
+            }
             return;
         }
 
+        // 2. Logic Split based on Type
+        if (fireType == WeaponFireType.Discrete)
+        {
+            HandleDiscreteFire(aimFactor);
+        }
+        else // Continuous
+        {
+            HandleContinuousFire(aimFactor);
+        }
+    }
+
+    void HandleDiscreteFire(float aimFactor)
+    {
         fireAccumulator += Time.deltaTime * fireRate;
         firingRate = fireRate;
 
         if (fireAccumulator >= 1f)
         {
-            // 1. Ask Core
             if (shipCore.RequestFirePermission())
             {
-                // 2. Fire!
                 isFiring = true;
-                fireAccumulator -= 1f;
+                fireAccumulator -= 1f; // Consume charge
                 audioDSP?.NotifyShot();
                 Fire(aimFactor);
             }
             else
             {
-                // 3. Denied - Wait.
-                // Allow a small buffer (1.5f) so we don't lose charge while waiting 1-2 frames.
-                // This ensures "Oldest Ready Weapon" stays ready.
                 fireAccumulator = Mathf.Min(fireAccumulator, 1.5f);
                 isFiring = false;
             }
@@ -193,6 +206,49 @@ public abstract class Weapon : MonoBehaviour
         }
     }
 
+    // Inside Weapon.cs
+
+    void HandleContinuousFire(float aimFactor)
+    {
+        // DEBUG: Uncomment to see if Core is denying you
+        // Debug.Log($"Weapon {gameObject.name} Continuous Check. Core Perm: {shipCore.RequestFirePermission()}");
+
+        // FIX: Beams shouldn't ask for "New Shot" permission every frame if they are already firing.
+        // They only need permission to START.
+
+        bool hasPermission = false;
+
+        if (isFiring)
+        {
+            // If we are already firing, we assume we keep the "channel" open
+            // (Unless you have an Energy system, checking CanSustainFire() would go here)
+            hasPermission = true;
+        }
+        else
+        {
+            // We are trying to START firing, so we ask the Core
+            hasPermission = shipCore.RequestFirePermission();
+        }
+
+        if (hasPermission)
+        {
+            isFiring = true;
+            audioDSP?.NotifyShot(); // Note: You might want to change this to NotifyLoop() for beams later
+            Fire(aimFactor);
+        }
+        else
+        {
+            // Only stop if we were actually firing and lost permission/trigger
+            if (isFiring)
+            {
+                Debug.Log($"Weapon {gameObject.name}: Stopped. Permission Denied or Interrupt.");
+            }
+            isFiring = false;
+            StopFiring();
+        }
+    }
+
+
 
     public void ToggleAI()
     {
@@ -200,28 +256,59 @@ public abstract class Weapon : MonoBehaviour
         SetupControlMode();
     }
 
-    // === PUBLIC HELPER METHODS FOR CONTROL MODES ===
+    // === PUBLIC HELPER METHODS ===
 
     public void RotateTowardsTarget(Vector3 targetPosition)
     {
-        Vector3 direction = targetPosition - transform.position;
-        direction.y = 0f;
-
-        if (direction != Vector3.zero)
+        // 1. Fixed Weapon Check
+        if (lockRotation)
         {
-            Quaternion targetRotation = Quaternion.LookRotation(direction);
-            transform.rotation = Quaternion.Slerp(
-                transform.rotation,
-                targetRotation,
+            // Ensure we are reset to local forward if locked
+            transform.localRotation = Quaternion.RotateTowards(
+                transform.localRotation,
+                Quaternion.identity,
                 Time.deltaTime * rotationSpeed
             );
+            return;
+        }
 
-            if (Time.frameCount % incrementSkipFrames == 0)
-            {
-                angularDistance = Quaternion.Angle(transform.rotation, targetRotation);
-                if (angularDistance < 0.01f)
-                    angularDistance = 0.01f;
-            }
+        Vector3 targetDir = targetPosition - transform.position;
+        targetDir.y = 0f;
+
+        if (targetDir == Vector3.zero) return;
+
+        // 2. Calculate Angle for Arc Clamping
+        // Convert world target direction to local space to check against arc
+        Vector3 localDir = transform.parent.InverseTransformDirection(targetDir);
+        float angle = Vector3.SignedAngle(Vector3.forward, localDir, Vector3.up);
+
+        // 3. Clamp Angle within Fire Arc
+        float halfArc = fireArc * 0.5f;
+
+        // If target is outside arc, we clamp the aim vector to the edge of the arc
+        if (Mathf.Abs(angle) > halfArc)
+        {
+            float clampedAngle = Mathf.Sign(angle) * halfArc;
+            // Reconstruct local direction from clamped angle
+            Quaternion clampRot = Quaternion.Euler(0, clampedAngle, 0);
+            localDir = clampRot * Vector3.forward;
+            // Convert back to world for the final rotation logic
+            targetDir = transform.parent.TransformDirection(localDir);
+        }
+
+        // 4. Perform Rotation
+        Quaternion targetRotation = Quaternion.LookRotation(targetDir);
+        transform.rotation = Quaternion.Slerp(
+            transform.rotation,
+            targetRotation,
+            Time.deltaTime * rotationSpeed
+        );
+
+        // 5. Update Aim Stats
+        if (Time.frameCount % incrementSkipFrames == 0)
+        {
+            angularDistance = Quaternion.Angle(transform.rotation, targetRotation);
+            if (angularDistance < 0.01f) angularDistance = 0.01f;
         }
     }
 
@@ -229,6 +316,16 @@ public abstract class Weapon : MonoBehaviour
     {
         Vector3 directionToTarget = targetPosition - transform.position;
         directionToTarget.y = 0f;
+
+        // Check if target is physically within the fire arc limits relative to the SHIP (parent)
+        // This prevents the gun from firing if the target is behind the ship but the gun hasn't rotated yet
+        if (fireArc < 360f)
+        {
+            Vector3 localDir = transform.parent.InverseTransformDirection(directionToTarget);
+            float angle = Vector3.Angle(Vector3.forward, localDir);
+            if (angle > fireArc * 0.5f) return false;
+        }
+
         Vector3 turretForward = transform.forward;
         float angleToTarget = Vector3.Angle(turretForward, directionToTarget);
         return angleToTarget <= shipCore.firingThresholdAngle;
@@ -239,38 +336,23 @@ public abstract class Weapon : MonoBehaviour
         return target != null ? target.transform.position : transform.position + transform.forward * 100f;
     }
 
-    // === TARGET MANAGEMENT ===
+    // === TARGET MANAGEMENT (Unchanged from previous logic) ===
 
     public void PrioritizeTargets()
     {
         ShipTargetingSystem.TargetData[] closestTargets = FindClosest();
         ShipTargetingSystem.TargetData[] angularClosestTargets = FindAngularClosest();
-
         Dictionary<GameObject, ShipTargetingSystem.TargetData> combinedDict = new Dictionary<GameObject, ShipTargetingSystem.TargetData>();
 
-        foreach (var targetData in closestTargets)
+        foreach (var t in closestTargets) if (t.TargetObject) combinedDict[t.TargetObject] = t;
+        foreach (var t in angularClosestTargets)
         {
-            if (targetData.TargetObject != null && !combinedDict.ContainsKey(targetData.TargetObject))
+            if (t.TargetObject)
             {
-                combinedDict[targetData.TargetObject] = targetData;
+                if (!combinedDict.ContainsKey(t.TargetObject) || t.UnifiedDistance < combinedDict[t.TargetObject].UnifiedDistance)
+                    combinedDict[t.TargetObject] = t;
             }
         }
-
-        foreach (var targetData in angularClosestTargets)
-        {
-            if (targetData.TargetObject != null)
-            {
-                if (!combinedDict.ContainsKey(targetData.TargetObject))
-                {
-                    combinedDict[targetData.TargetObject] = targetData;
-                }
-                else if (targetData.UnifiedDistance < combinedDict[targetData.TargetObject].UnifiedDistance)
-                {
-                    combinedDict[targetData.TargetObject] = targetData;
-                }
-            }
-        }
-
         CombinedTargets = combinedDict.Values.ToArray();
         System.Array.Sort(CombinedTargets, (a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance));
     }
@@ -284,21 +366,11 @@ public abstract class Weapon : MonoBehaviour
         {
             var obj = t.TargetObject;
             if (!obj) continue;
-
             float d = (obj.transform.position - transform.position).sqrMagnitude;
-
-            if (d < 25f * 25f)
-                return obj;
-
+            if (d < 25f * 25f) return obj;
             float score = TargetScore(obj) + WeaponBias(obj);
-
-            if (score < bestScore)
-            {
-                bestScore = score;
-                best = obj;
-            }
+            if (score < bestScore) { bestScore = score; best = obj; }
         }
-
         return best;
     }
 
@@ -310,75 +382,51 @@ public abstract class Weapon : MonoBehaviour
         return ModifyTargetScore(t, baseScore);
     }
 
-    protected virtual float ModifyTargetScore(GameObject target, float baseScore)
-    {
-        return baseScore;
-    }
+    protected virtual float ModifyTargetScore(GameObject target, float baseScore) => baseScore;
 
-    float WeaponBias(GameObject t)
-    {
-        return Mathf.Abs((t.GetInstanceID() ^ ID) % 17) * 0.001f;
-    }
+    float WeaponBias(GameObject t) => Mathf.Abs((t.GetInstanceID() ^ ID) % 17) * 0.001f;
 
     public bool ShouldSwitch(GameObject cur, GameObject best)
     {
         if (!cur) return true;
-
         float dCur = (cur.transform.position - transform.position).sqrMagnitude;
         float dBest = (best.transform.position - transform.position).sqrMagnitude;
-
         return dBest < dCur * 0.85f;
     }
 
     public void AddTargetAssignment(GameObject targetObj)
     {
-        lock (lockObject)
-        {
-            if (targetWeaponCount.ContainsKey(targetObj))
-                targetWeaponCount[targetObj]++;
-            else
-                targetWeaponCount[targetObj] = 1;
-        }
+        lock (lockObject) { if (targetWeaponCount.ContainsKey(targetObj)) targetWeaponCount[targetObj]++; else targetWeaponCount[targetObj] = 1; }
     }
 
     public void RemoveTargetAssignment(GameObject targetObj)
     {
         if (targetObj == null) return;
-
-        lock (lockObject)
-        {
-            if (targetWeaponCount.ContainsKey(targetObj))
-            {
-                targetWeaponCount[targetObj]--;
-                if (targetWeaponCount[targetObj] <= 0)
-                    targetWeaponCount.Remove(targetObj);
-            }
-        }
+        lock (lockObject) { if (targetWeaponCount.ContainsKey(targetObj)) { targetWeaponCount[targetObj]--; if (targetWeaponCount[targetObj] <= 0) targetWeaponCount.Remove(targetObj); } }
     }
 
     int GetTargetWeaponCount(GameObject targetObj)
     {
-        lock (lockObject)
-        {
-            return targetWeaponCount.ContainsKey(targetObj) ? targetWeaponCount[targetObj] : 0;
-        }
+        lock (lockObject) { return targetWeaponCount.ContainsKey(targetObj) ? targetWeaponCount[targetObj] : 0; }
     }
 
     ShipTargetingSystem.TargetData[] FindClosest()
     {
         var src = targetProvider.GetTargetDataArray();
-        if (src.Length == 0) return src;
-
         var list = new List<ShipTargetingSystem.TargetData>(src.Length);
-
         foreach (var t in src)
         {
             if (!t.TargetObject) continue;
+            // Check arc visibility before adding to candidates
+            if (fireArc < 360f)
+            {
+                Vector3 localDir = transform.parent.InverseTransformDirection(t.TargetObject.transform.position - transform.position);
+                if (Vector3.Angle(Vector3.forward, localDir) > fireArc * 0.5f) continue;
+            }
 
             float d = (t.TargetObject.transform.position - transform.position).sqrMagnitude;
             list.Add(new ShipTargetingSystem.TargetData(t.TargetObject, d * shipCore.distanceThreshold));
         }
-
         list.Sort((a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance));
         return list.ToArray();
     }
@@ -386,47 +434,43 @@ public abstract class Weapon : MonoBehaviour
     ShipTargetingSystem.TargetData[] FindAngularClosest()
     {
         var src = targetProvider.GetTargetDataArray();
-        if (src.Length == 0) return src;
-
         var list = new List<ShipTargetingSystem.TargetData>(src.Length);
         Vector3 fwd = transform.forward;
-
         foreach (var t in src)
         {
             if (!t.TargetObject) continue;
-
             Vector3 dir = t.TargetObject.transform.position - transform.position;
             dir.y = 0f;
 
-            float a = Vector3.Angle(fwd, dir);
-            list.Add(new ShipTargetingSystem.TargetData(
-                t.TargetObject,
-                a * shipCore.angularThreshold + shipCore.angularMarging
-            ));
-        }
+            // Check arc visibility
+            if (fireArc < 360f)
+            {
+                Vector3 localDir = transform.parent.InverseTransformDirection(dir);
+                if (Vector3.Angle(Vector3.forward, localDir) > fireArc * 0.5f) continue;
+            }
 
+            float a = Vector3.Angle(fwd, dir);
+            list.Add(new ShipTargetingSystem.TargetData(t.TargetObject, a * shipCore.angularThreshold + shipCore.angularMarging));
+        }
         list.Sort((a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance));
         return list.ToArray();
     }
 
-    // === ABSTRACT/VIRTUAL METHODS ===
-
     protected virtual void FindWeaponSpawnPoint()
     {
-        weaponSpawnPoint = transform.Find("projectileSpawnPoint")
-                        ?? transform.Find("weaponSpawnPoint")
-                        ?? transform.Find("beamSpawnPoint");
-
-        if (weaponSpawnPoint == null)
-            weaponSpawnPoint = transform;
+        weaponSpawnPoint = transform.Find("projectileSpawnPoint") ?? transform.Find("weaponSpawnPoint") ?? transform.Find("beamSpawnPoint");
+        if (weaponSpawnPoint == null) weaponSpawnPoint = transform;
     }
 
     public void UpdateFirePower(float weaponsDistributedEnergy)
     {
-        fireRate = initialFireRate * weaponsDistributedEnergy * 0.001f + 2f;
+        // For Beam weapons, fireRate might represent intensity or tick rate
+        fireRate = initialFireRate * weaponsDistributedEnergy * 0.001f + (fireType == WeaponFireType.Continuous ? 0f : 2f);
     }
 
     protected virtual void InitializeWeapon() { }
-
     protected abstract void Fire(float aimQuality);
+
+    // NEW: Called when trigger is released or weapon can no longer fire
+    protected virtual void StopFiring() { }
 }

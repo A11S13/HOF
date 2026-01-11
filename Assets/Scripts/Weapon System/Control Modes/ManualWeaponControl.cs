@@ -1,8 +1,5 @@
 using UnityEngine;
 
-/// <summary>
-/// Manual weapon control mode - player joystick control
-/// </summary>
 public class ManualWeaponControl : IWeaponControlMode
 {
     private FixedJoystick turretJoystick;
@@ -16,8 +13,7 @@ public class ManualWeaponControl : IWeaponControlMode
 
     public float UpdateControl(Weapon weapon)
     {
-        if (turretJoystick == null)
-            return -1f;
+        if (turretJoystick == null) return -1f;
 
         HandleTurretRotation(weapon);
         return HandleFire();
@@ -30,16 +26,44 @@ public class ManualWeaponControl : IWeaponControlMode
 
     void HandleTurretRotation(Weapon weapon)
     {
-        Vector3 turretDirection = new Vector3(
-            turretJoystick.Direction.x,
-            0,
-            turretJoystick.Direction.y
-        );
-
-        if (turretDirection.magnitude > localRotationDeadZone)
+        // FIX 1: Respect Locked Rotation
+        if (weapon.lockRotation)
         {
-            float angle = Vector3.SignedAngle(Vector3.forward, turretDirection, Vector3.up);
-            Quaternion targetRotation = Quaternion.Euler(0f, angle, 0f);
+            // Optional: Reset to forward if you want it strictly fixed
+            weapon.transform.localRotation = Quaternion.RotateTowards(
+                weapon.transform.localRotation,
+                Quaternion.identity,
+                Time.deltaTime * weapon.rotationSpeed
+            );
+            return;
+        }
+
+        Vector3 joystickDir = new Vector3(turretJoystick.Direction.x, 0, turretJoystick.Direction.y);
+
+        if (joystickDir.magnitude > localRotationDeadZone)
+        {
+            // FIX 2: Respect Fire Arc (Clamping)
+            if (weapon.fireArc < 360f)
+            {
+                // Convert joystick direction (World) to Local space of the SHIP (parent)
+                // This assumes the joystick matches the ship's orientation context
+                Vector3 localDir = weapon.transform.parent.InverseTransformDirection(joystickDir);
+
+                float angle = Vector3.SignedAngle(Vector3.forward, localDir, Vector3.up);
+                float halfArc = weapon.fireArc * 0.5f;
+
+                if (Mathf.Abs(angle) > halfArc)
+                {
+                    float clampedAngle = Mathf.Sign(angle) * halfArc;
+                    // Reconstruct clamped direction
+                    Quaternion clampRot = Quaternion.Euler(0, clampedAngle, 0);
+                    Vector3 clampedLocal = clampRot * Vector3.forward;
+                    joystickDir = weapon.transform.parent.TransformDirection(clampedLocal);
+                }
+            }
+
+            // Apply Rotation
+            Quaternion targetRotation = Quaternion.LookRotation(joystickDir);
             weapon.transform.rotation = Quaternion.Slerp(
                 weapon.transform.rotation,
                 targetRotation,
@@ -50,15 +74,11 @@ public class ManualWeaponControl : IWeaponControlMode
 
     float HandleFire()
     {
-        Vector3 fireDir = new Vector3(
-            turretJoystick.Direction.x,
-            0,
-            turretJoystick.Direction.y
-        );
-
+        Vector3 fireDir = new Vector3(turretJoystick.Direction.x, 0, turretJoystick.Direction.y);
         float mag = fireDir.magnitude;
-        if (mag <= turretJoystick.DeadZone)
-            return -1f;
+
+        // If joystick is released (magnitude small), return -1
+        if (mag <= turretJoystick.DeadZone) return -1f;
 
         return Mathf.Clamp01(mag);
     }
