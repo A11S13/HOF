@@ -1058,7 +1058,7 @@ Rigidbody:
   m_PrefabAsset: {fileID: 0}
   m_GameObject: {fileID: 433032876}
   serializedVersion: 4
-  m_Mass: 15
+  m_Mass: 30
   m_Drag: 0
   m_AngularDrag: 0.01
   m_CenterOfMass: {x: 0, y: 0, z: 0}
@@ -1949,12 +1949,32 @@ PrefabInstance:
       value: 0
       objectReference: {fileID: 0}
     - target: {fileID: 3964973535989494942, guid: f4adccf5d5965a547a12e6f93403ec5b, type: 3}
-      propertyPath: damagePerSecond
-      value: 1000
+      propertyPath: maxBeamRange
+      value: 1500.5
       objectReference: {fileID: 0}
+    - target: {fileID: 3964973535989494942, guid: f4adccf5d5965a547a12e6f93403ec5b, type: 3}
+      propertyPath: beamCorePrefab
+      value: 
+      objectReference: {fileID: 2565327965863846021, guid: 0c24fd47edf17224bb6e4672de0a4ef6, type: 3}
+    - target: {fileID: 3964973535989494942, guid: f4adccf5d5965a547a12e6f93403ec5b, type: 3}
+      propertyPath: damagePerSecond
+      value: 30
+      objectReference: {fileID: 0}
+    - target: {fileID: 3964973535989494942, guid: f4adccf5d5965a547a12e6f93403ec5b, type: 3}
+      propertyPath: muzzleFlashPrefab
+      value: 
+      objectReference: {fileID: 7914907684440847915, guid: c7ff0233ace291343823a31c84d3db6e, type: 3}
     - target: {fileID: 3964973535989494942, guid: f4adccf5d5965a547a12e6f93403ec5b, type: 3}
       propertyPath: targetMask.m_Bits
       value: 10752
+      objectReference: {fileID: 0}
+    - target: {fileID: 3964973535989494942, guid: f4adccf5d5965a547a12e6f93403ec5b, type: 3}
+      propertyPath: impactEffectPrefab
+      value: 
+      objectReference: {fileID: 321563862196570099, guid: 5ffebd4f881dc274c8b9eebcf4da2a05, type: 3}
+    - target: {fileID: 3964973535989494942, guid: f4adccf5d5965a547a12e6f93403ec5b, type: 3}
+      propertyPath: impactLingerDuration
+      value: 4.24
       objectReference: {fileID: 0}
     - target: {fileID: 8316276944710836133, guid: f4adccf5d5965a547a12e6f93403ec5b, type: 3}
       propertyPath: m_Name
@@ -10640,6 +10660,10 @@ PrefabInstance:
     - target: {fileID: 3802113286594841465, guid: fe0f1810ca3e5294aa73e2c65e4bb670, type: 3}
       propertyPath: shipName
       value: MOTHERSHIP
+      objectReference: {fileID: 0}
+    - target: {fileID: 3802113286594841465, guid: fe0f1810ca3e5294aa73e2c65e4bb670, type: 3}
+      propertyPath: hullClass
+      value: 7
       objectReference: {fileID: 0}
     - target: {fileID: 3802113286594841465, guid: fe0f1810ca3e5294aa73e2c65e4bb670, type: 3}
       propertyPath: commandSlider

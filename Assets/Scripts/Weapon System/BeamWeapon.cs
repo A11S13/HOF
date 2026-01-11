@@ -1,4 +1,5 @@
-using UnityEngine;
+﻿using UnityEngine;
+using System.Collections;
 
 public class BeamWeapon : Weapon
 {
@@ -6,98 +7,199 @@ public class BeamWeapon : Weapon
     public float damagePerSecond = 30f;
     public float maxBeamRange = 50f;
     public bool invertFireDirection = false;
+
     [Header("AI Logic")]
-    [Tooltip("How long (in seconds) the beam keeps firing after losing a clear shot.")]
     public float fireLingerDuration = 0.5f;
-
-    private float lastValidShotTime = -10f; // Tracks the last time we hit something
-
+    private float lastValidShotTime = -10f;
 
     [Header("Smart Gimbal")]
-    [Tooltip("The arc within which the beam auto-locks.")]
     [Range(0f, 180f)]
     public float gimbalAngle = 30f;
-
-    [Tooltip("CRITICAL: Set this to Enemy/Player layers so the beam can see them.")]
     public LayerMask targetMask;
 
     [Header("Beam Visuals")]
     public float beamWidth = 0.5f;
     public Color beamColor = Color.cyan;
     public Material beamMaterial;
+    [Range(0f, 1f)]
+    public float beamIntensityPulse = 0.3f;
+    public float pulseSpeed = 5f;
+    [Tooltip("Duration of beam fade-out when firing stops")]
+    public float beamFadeOutDuration = 0.3f;
+
+    private bool isFading = false;
+    private Coroutine fadeCoroutine;
+
+    [Header("VFX - Muzzle (Fire Zone)")]
+    public GameObject muzzleFlashPrefab;
+    public float muzzleFlashLifetime = 0.1f;
+    public Vector3 muzzleFlashOffset = Vector3.zero;
+    public Vector3 muzzleFlashRotation = Vector3.zero;
+    private GameObject activeMuzzleFlash;
+    private ParticleSystem muzzleParticles;
+    private Transform muzzleFlashParent;
+
+    [Header("VFX - Impact (Hit Zone)")]
+    public GameObject impactEffectPrefab;
+    [Tooltip("How often to spawn new impact effects (in seconds). Lower = more effects.")]
+    public float impactSpawnInterval = 0.1f;
+    [Tooltip("Lifetime of each impact effect before auto-destroy")]
+    public float impactLifetime = 2f;
+    private float lastImpactSpawnTime;
+    private Vector3 lastHitPoint;
+    private Vector3 lastHitNormal;
+    private bool wasHittingSomething = false;
+
+    [Header("VFX - Beam Core")]
+    public GameObject beamCorePrefab;
+    private GameObject activeBeamCore;
+    private LineRenderer coreLineRenderer;
 
     private LineRenderer lineRenderer;
     private int ownerLayer = -1;
     private Transform lockedTarget;
     private float lastScanTime;
 
+    // Store beam end position for fade-out
+    private Vector3 lastBeamStart;
+    private Vector3 lastBeamEnd;
+
     protected override void InitializeWeapon()
     {
         fireType = WeaponFireType.Continuous;
 
-        // --- 1. SETUP SPAWN POINT (DEEP SEARCH) ---
-        // We scan all children, grandchildren, etc.
-        Transform[] allChildren = GetComponentsInChildren<Transform>(true); // 'true' includes inactive children
-        foreach (Transform child in allChildren)
+        Transform foundSpawnPoint = FindDeepChild(transform, "projectileSpawnPoint");
+
+        if (foundSpawnPoint == null)
         {
-            if (child.name == "projectileSpawnPoint")
+            Transform[] allChildren = GetComponentsInChildren<Transform>(true);
+            foreach (Transform child in allChildren)
             {
-                weaponSpawnPoint = child;
-                break;
+                if (child.name == "projectileSpawnPoint")
+                {
+                    foundSpawnPoint = child;
+                    Debug.Log($"✓ Found projectileSpawnPoint at path: {GetGameObjectPath(child.gameObject)}");
+                    break;
+                }
             }
         }
 
-        if (weaponSpawnPoint == null)
+        if (foundSpawnPoint != null)
         {
-            // Fallback if truly missing
+            weaponSpawnPoint = foundSpawnPoint;
+            muzzleFlashParent = foundSpawnPoint;
+            Debug.Log($"<color=green>✓ BeamWeapon initialized with spawn point: {GetGameObjectPath(weaponSpawnPoint.gameObject)}</color>");
+        }
+        else
+        {
             weaponSpawnPoint = transform;
-            Debug.LogWarning($"{name}: Could not find 'projectileSpawnPoint' anywhere in children. Using weapon root.");
+            muzzleFlashParent = transform;
+            Debug.LogWarning($"<color=yellow>⚠ Could not find 'projectileSpawnPoint' in {name}. Using weapon root.</color>");
         }
 
-        // --- 2. SETUP LINE RENDERER ---
         lineRenderer = GetComponent<LineRenderer>();
         if (lineRenderer == null) lineRenderer = gameObject.AddComponent<LineRenderer>();
 
         lineRenderer.positionCount = 2;
         lineRenderer.useWorldSpace = true;
+        lineRenderer.enabled = false;
         UpdateBeamVisuals();
 
-        // --- 3. IGNORE SELF ---
+        if (beamCorePrefab != null)
+        {
+            activeBeamCore = Instantiate(beamCorePrefab, transform);
+            coreLineRenderer = activeBeamCore.GetComponent<LineRenderer>();
+            if (coreLineRenderer != null)
+            {
+                coreLineRenderer.positionCount = 2;
+                coreLineRenderer.useWorldSpace = true;
+                coreLineRenderer.startWidth = beamWidth * 0.3f;
+                coreLineRenderer.endWidth = beamWidth * 0.3f;
+            }
+            activeBeamCore.SetActive(false);
+        }
+
         ownerLayer = transform.root.gameObject.layer;
     }
 
+    private Transform FindDeepChild(Transform parent, string childName)
+    {
+        foreach (Transform child in parent)
+        {
+            if (child.name == childName)
+                return child;
 
-    void UpdateBeamVisuals()
+            Transform result = FindDeepChild(child, childName);
+            if (result != null)
+                return result;
+        }
+        return null;
+    }
+
+    private string GetGameObjectPath(GameObject obj)
+    {
+        string path = obj.name;
+        Transform parent = obj.transform.parent;
+        while (parent != null)
+        {
+            path = parent.name + "/" + path;
+            parent = parent.parent;
+        }
+        return path;
+    }
+
+    void UpdateBeamVisuals(float fadeMultiplier = 1f)
     {
         if (lineRenderer == null) return;
-        lineRenderer.startWidth = beamWidth;
-        lineRenderer.endWidth = beamWidth;
-        lineRenderer.startColor = beamColor;
-        lineRenderer.endColor = new Color(beamColor.r, beamColor.g, beamColor.b, 0.5f);
+
+        float pulse = 1f + Mathf.Sin(Time.time * pulseSpeed) * beamIntensityPulse;
+        pulse *= fadeMultiplier; // Apply fade
+
+        lineRenderer.startWidth = beamWidth * pulse;
+        lineRenderer.endWidth = beamWidth * pulse * 0.7f;
+
+        Color startColor = beamColor * pulse;
+        Color endColor = new Color(beamColor.r, beamColor.g, beamColor.b, 0.5f) * pulse;
+
+        // Apply fade to alpha
+        startColor.a *= fadeMultiplier;
+        endColor.a *= fadeMultiplier;
+
+        lineRenderer.startColor = startColor;
+        lineRenderer.endColor = endColor;
+
         if (beamMaterial != null) lineRenderer.sharedMaterial = beamMaterial;
+
+        // Update core beam fade
+        if (coreLineRenderer != null)
+        {
+            coreLineRenderer.startWidth = beamWidth * 0.3f * pulse;
+            coreLineRenderer.endWidth = beamWidth * 0.3f * pulse;
+
+            Color coreColor = Color.white * pulse;
+            coreColor.a *= fadeMultiplier;
+            coreLineRenderer.startColor = coreColor;
+            coreLineRenderer.endColor = coreColor;
+        }
     }
 
     private void ScanForTarget(Vector3 startPos, Vector3 mountForward)
     {
-        // Optimization: Scan 5 times per second
         if (Time.time < lastScanTime + 0.2f) return;
         lastScanTime = Time.time;
 
-        // If we have a target, verify it is still valid
         if (lockedTarget != null)
         {
             Vector3 dir = (lockedTarget.position - startPos).normalized;
             float dot = Vector3.Dot(mountForward, dir);
             float minDot = Mathf.Cos(gimbalAngle * Mathf.Deg2Rad);
 
-            // If valid (in angle and range), keep it
             if (dot >= minDot && Vector3.Distance(startPos, lockedTarget.position) <= maxBeamRange)
             {
                 return;
             }
         }
 
-        // Otherwise find a new best target
         lockedTarget = null;
         float bestDot = -1f;
         Collider[] hits = Physics.OverlapSphere(startPos, maxBeamRange, targetMask);
@@ -110,14 +212,10 @@ public class BeamWeapon : Weapon
             Vector3 dirToEnemy = (hit.transform.position - startPos).normalized;
             float dot = Vector3.Dot(mountForward, dirToEnemy);
 
-            if (dot >= limitDot)
+            if (dot >= limitDot && dot > bestDot)
             {
-                // Prefer targets closer to the center of the crosshair
-                if (dot > bestDot)
-                {
-                    bestDot = dot;
-                    lockedTarget = hit.transform;
-                }
+                bestDot = dot;
+                lockedTarget = hit.transform;
             }
         }
     }
@@ -126,17 +224,25 @@ public class BeamWeapon : Weapon
     {
         if (weaponSpawnPoint == null) return;
 
+        // Cancel fade-out if we start firing again
+        if (isFading && fadeCoroutine != null)
+        {
+            StopCoroutine(fadeCoroutine);
+            isFading = false;
+        }
+
         if (!lineRenderer.enabled) lineRenderer.enabled = true;
-        UpdateBeamVisuals();
+        if (activeBeamCore != null && !activeBeamCore.activeSelf) activeBeamCore.SetActive(true);
+
+        UpdateBeamVisuals(); // Full brightness
+        ShowMuzzleFlash();
 
         Vector3 startPos = weaponSpawnPoint.position;
         Vector3 mountForward = weaponSpawnPoint.forward;
         if (invertFireDirection) mountForward = -mountForward;
 
-        // 1. Scan logic
         ScanForTarget(startPos, mountForward);
 
-        // 2. Determine Aim Direction
         Vector3 finalDirection = mountForward;
 
         if (lockedTarget != null)
@@ -147,24 +253,27 @@ public class BeamWeapon : Weapon
 
         Vector3 endPos = startPos + (finalDirection * maxBeamRange);
 
-        // 3. Fire Raycast
         int layerMask = ~(1 << ownerLayer);
         RaycastHit hit;
+        bool hitSomething = false;
 
         if (Physics.Raycast(startPos, finalDirection, out hit, maxBeamRange, layerMask))
         {
             endPos = hit.point;
+            hitSomething = true;
 
-            // FIX: Use GetComponentInParent to find the script even if we hit a child collider
+            lastHitPoint = hit.point;
+            lastHitNormal = hit.normal;
+
+            SpawnImpactEffect(hit.point, hit.normal);
+
             var damageable = hit.collider.GetComponentInParent<Damageable>();
-
             if (damageable != null)
             {
                 damageable.Damage(damagePerSecond * Time.deltaTime);
             }
             else
             {
-                // Fallback: Try looking for Health directly if Damageable is missing
                 var health = hit.collider.GetComponentInParent<Health>();
                 if (health != null)
                 {
@@ -173,18 +282,147 @@ public class BeamWeapon : Weapon
             }
         }
 
+        // Store beam positions for fade-out
+        lastBeamStart = startPos;
+        lastBeamEnd = endPos;
+
         lineRenderer.SetPosition(0, startPos);
         lineRenderer.SetPosition(1, endPos);
+
+        if (coreLineRenderer != null)
+        {
+            coreLineRenderer.SetPosition(0, startPos);
+            coreLineRenderer.SetPosition(1, endPos);
+        }
+
+        if (!hitSomething && wasHittingSomething)
+        {
+            SpawnImpactEffect(lastHitPoint, lastHitNormal);
+        }
+
+        wasHittingSomething = hitSomething;
     }
 
+    void ShowMuzzleFlash()
+    {
+        if (muzzleFlashPrefab == null || muzzleFlashParent == null) return;
+
+        if (activeMuzzleFlash == null)
+        {
+            activeMuzzleFlash = Instantiate(muzzleFlashPrefab, muzzleFlashParent);
+            activeMuzzleFlash.transform.localPosition = muzzleFlashOffset;
+            activeMuzzleFlash.transform.localRotation = Quaternion.Euler(muzzleFlashRotation);
+
+            muzzleParticles = activeMuzzleFlash.GetComponent<ParticleSystem>();
+            if (muzzleParticles == null)
+            {
+                muzzleParticles = activeMuzzleFlash.GetComponentInChildren<ParticleSystem>();
+            }
+
+            Debug.Log($"<color=cyan>✓ Muzzle flash created at: {GetGameObjectPath(activeMuzzleFlash)}</color>");
+        }
+
+        if (!activeMuzzleFlash.activeSelf)
+        {
+            activeMuzzleFlash.SetActive(true);
+        }
+
+        if (muzzleParticles != null && !muzzleParticles.isPlaying)
+        {
+            muzzleParticles.Play();
+        }
+    }
+
+    void SpawnImpactEffect(Vector3 position, Vector3 normal)
+    {
+        if (impactEffectPrefab == null) return;
+
+        if (Time.time - lastImpactSpawnTime < impactSpawnInterval)
+            return;
+
+        lastImpactSpawnTime = Time.time;
+
+        GameObject impact = Instantiate(impactEffectPrefab, position, Quaternion.LookRotation(normal));
+
+        ParticleSystem[] particles = impact.GetComponentsInChildren<ParticleSystem>();
+
+        foreach (var ps in particles)
+        {
+            var main = ps.main;
+            main.loop = false;
+            main.stopAction = ParticleSystemStopAction.Destroy;
+            ps.Play();
+        }
+
+        Destroy(impact, impactLifetime);
+    }
 
     protected override void StopFiring()
     {
-        if (lineRenderer != null) lineRenderer.enabled = false;
+        // Start fade-out instead of instant disable
+        if (!isFading && lineRenderer != null && lineRenderer.enabled)
+        {
+            fadeCoroutine = StartCoroutine(FadeOutBeam());
+        }
+
+        HideMuzzleFlash();
+
         lockedTarget = null;
+        wasHittingSomething = false;
     }
 
-    // --- AI LOGIC: RAYCAST TRIGGER ---
+    IEnumerator FadeOutBeam()
+    {
+        isFading = true;
+        float elapsed = 0f;
+
+        // Keep beam position frozen during fade
+        if (lineRenderer != null)
+        {
+            lineRenderer.SetPosition(0, lastBeamStart);
+            lineRenderer.SetPosition(1, lastBeamEnd);
+        }
+
+        if (coreLineRenderer != null)
+        {
+            coreLineRenderer.SetPosition(0, lastBeamStart);
+            coreLineRenderer.SetPosition(1, lastBeamEnd);
+        }
+
+        while (elapsed < beamFadeOutDuration)
+        {
+            elapsed += Time.deltaTime;
+            float fadeAmount = 1f - (elapsed / beamFadeOutDuration); // 1.0 → 0.0
+
+            // Apply smooth fade curve (ease-out)
+            fadeAmount = Mathf.SmoothStep(1f, 0f, elapsed / beamFadeOutDuration);
+
+            UpdateBeamVisuals(fadeAmount);
+
+            yield return null;
+        }
+
+        // Fully disable after fade
+        if (lineRenderer != null) lineRenderer.enabled = false;
+        if (activeBeamCore != null) activeBeamCore.SetActive(false);
+
+        isFading = false;
+    }
+
+    void HideMuzzleFlash()
+    {
+        if (activeMuzzleFlash != null)
+        {
+            activeMuzzleFlash.SetActive(false);
+        }
+    }
+
+    void OnDestroy()
+    {
+        if (activeMuzzleFlash != null) Destroy(activeMuzzleFlash);
+        if (activeBeamCore != null) Destroy(activeBeamCore);
+    }
+
     public override Vector3 CalculateAimPosition(GameObject target, Vector3 targetVelocity)
     {
         if (target == null) return transform.position + transform.forward * 100f;
@@ -193,7 +431,6 @@ public class BeamWeapon : Weapon
         Vector3 mountForward = weaponSpawnPoint != null ? weaponSpawnPoint.forward : transform.forward;
         if (invertFireDirection) mountForward = -mountForward;
 
-        // 1. Calculate the projected beam direction
         Vector3 dirToTarget = (target.transform.position - startPos).normalized;
         Vector3 projectedBeamDir = Vector3.RotateTowards(
             mountForward,
@@ -202,31 +439,34 @@ public class BeamWeapon : Weapon
             0.0f
         );
 
-        // 2. Raycast Check
         int layerMask = ~(1 << ownerLayer);
         RaycastHit hit;
         bool validHit = false;
 
         if (Physics.Raycast(startPos, projectedBeamDir, out hit, maxBeamRange, layerMask))
         {
-            // Did we hit a valid target in the mask?
             if (((1 << hit.collider.gameObject.layer) & targetMask) != 0)
             {
                 validHit = true;
-                lastValidShotTime = Time.time; // Update our timestamp
+                lastValidShotTime = Time.time;
             }
         }
 
-        // 3. DECISION LOGIC: 
-        // Keep firing if we have a Valid Hit OR if we are inside the "Linger Time"
         if (validHit || (Time.time < lastValidShotTime + fireLingerDuration))
         {
-            // Force the AI to pull the trigger by returning a fake "perfect aim" position
             return transform.position + mountForward * 100f;
         }
 
-        // Otherwise, return real target position (AI will rotate ship or stop firing)
         return target.transform.position;
     }
 
+    void OnDrawGizmosSelected()
+    {
+        if (weaponSpawnPoint != null)
+        {
+            Gizmos.color = Color.cyan;
+            Gizmos.DrawWireSphere(weaponSpawnPoint.position, 0.2f);
+            Gizmos.DrawRay(weaponSpawnPoint.position, weaponSpawnPoint.forward * 2f);
+        }
+    }
 }
