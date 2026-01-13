@@ -8,6 +8,14 @@ public class BeamWeapon : Weapon
     public float maxBeamRange = 50f;
     public bool invertFireDirection = false;
 
+    [Header("Beam Collision Volume")]
+    [Tooltip("Width of the beam collision box (X-axis)")]
+    public float beamCollisionWidth = 1f;
+    [Tooltip("Height of the beam collision box (Y-axis) - for top-down coverage")]
+    public float beamCollisionHeight = 30f;
+    [Tooltip("Depth of the beam collision box (Z-axis along beam direction)")]
+    public float beamCollisionDepth = 1f;
+
     [Header("AI Logic")]
     public float fireLingerDuration = 0.5f;
     private float lastValidShotTime = -10f;
@@ -257,7 +265,16 @@ public class BeamWeapon : Weapon
         RaycastHit hit;
         bool hitSomething = false;
 
-        if (Physics.Raycast(startPos, finalDirection, out hit, maxBeamRange, layerMask))
+        // ⭐ BoxCast for 30-unit vertical coverage
+        Vector3 boxHalfExtents = new Vector3(
+            beamCollisionWidth * 0.5f,
+            beamCollisionHeight * 0.5f,   // 30 / 2 = 15 units up and down
+            beamCollisionDepth * 0.5f
+        );
+
+        Quaternion boxOrientation = Quaternion.LookRotation(finalDirection);
+
+        if (Physics.BoxCast(startPos, boxHalfExtents, finalDirection, out hit, boxOrientation, maxBeamRange, layerMask))
         {
             endPos = hit.point;
             hitSomething = true;
@@ -464,9 +481,37 @@ public class BeamWeapon : Weapon
     {
         if (weaponSpawnPoint != null)
         {
+            // Spawn point marker
             Gizmos.color = Color.cyan;
             Gizmos.DrawWireSphere(weaponSpawnPoint.position, 0.2f);
-            Gizmos.DrawRay(weaponSpawnPoint.position, weaponSpawnPoint.forward * 2f);
+
+            Vector3 forward = weaponSpawnPoint.forward;
+            if (invertFireDirection) forward = -forward;
+
+            Gizmos.DrawRay(weaponSpawnPoint.position, forward * 2f);
+
+            // ⭐ Draw BoxCast volume
+            Gizmos.color = new Color(1f, 0f, 0f, 0.3f);
+            Matrix4x4 rotationMatrix = Matrix4x4.TRS(
+                weaponSpawnPoint.position,
+                Quaternion.LookRotation(forward),
+                Vector3.one
+            );
+            Gizmos.matrix = rotationMatrix;
+
+            // Draw box at multiple points along the beam path
+            Vector3 boxSize = new Vector3(beamCollisionWidth, beamCollisionHeight, beamCollisionDepth);
+
+            for (float d = 0; d < maxBeamRange; d += 10f)
+            {
+                Gizmos.DrawWireCube(Vector3.forward * d, boxSize);
+            }
+
+            // Draw final box at max range
+            Gizmos.color = new Color(1f, 1f, 0f, 0.5f);
+            Gizmos.DrawWireCube(Vector3.forward * maxBeamRange, boxSize);
+
+            Gizmos.matrix = Matrix4x4.identity;
         }
     }
 }
