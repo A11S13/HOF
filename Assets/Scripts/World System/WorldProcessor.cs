@@ -17,7 +17,7 @@ public class WorldProcessor : MonoBehaviour
     {
         _stateManager = GetComponent<WorldStateManager>();
         _dataManager = GetComponent<WorldDataManager>();
-        areaOfInterestRadius = _stateManager.quadrantSize * 5;
+        areaOfInterestRadius = _stateManager.quadrantSize * 10;
         //Debug.Log($"Area of Interest Radius is: {areaOfInterestRadius}");
     }
 

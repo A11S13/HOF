@@ -1365,8 +1365,8 @@ MonoBehaviour:
   obstacleUpdateInterval: 0.1
   spatialCellSize: 40
   useSpatialGrid: 1
-  despawnCheckInterval: 0.2
-  animasPerCheck: 20
+  despawnCheckInterval: 0.1
+  animasPerCheck: 30
   debugDespawn: 0
 --- !u!114 &463808929
 MonoBehaviour:

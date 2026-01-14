@@ -33,21 +33,19 @@ public class Anima : MonoBehaviour
         _dataManager = dataManager;
         _objectId = objectId;
 
+        // Ensure the object ID is applied to the name so WriteQuadrantData works correctly
+        gameObject.name = _objectId;
+
         if (_playerTransform == null)
         {
             var stateManager = dataManager?.GetComponent<WorldStateManager>();
             _playerTransform = stateManager?.Player;
         }
 
-        // Cache alignment component but DON'T read isFriendly yet
-        // (it might be set after Initialize for wave spawns)
         if (_alignmentCache == null)
             _alignmentCache = GetComponent<Alignment>();
     }
 
-    /// <summary>
-    /// PUBLIC METHOD: Call this after setting alignment to update cache
-    /// </summary>
     public void RefreshAlignment()
     {
         if (_alignmentCache == null)
@@ -76,13 +74,10 @@ public class Anima : MonoBehaviour
         data.rotationCounter = 0;
         data.targetRotation = transform.rotation;
 
-        // Refresh alignment cache from component
-        // This reads the CURRENT value from Alignment component
         RefreshAlignment();
 
         AnimaManager.Instance?.RegisterAnima(this);
     }
-
 
     void OnDestroy()
     {
@@ -114,16 +109,9 @@ public class Anima : MonoBehaviour
             SelfDespawn();
         }
 
-        GameObject explosion = Instantiate(
-            explosionPrefab,
-            transform.position,
-            Quaternion.identity
-        );
-        GameObject soundHolder = Instantiate(
-            explosionSoundHolderPrefab,
-            this.transform.position,
-            Quaternion.identity
-        );
+        GameObject explosion = Instantiate(explosionPrefab, transform.position, Quaternion.identity);
+        GameObject soundHolder = Instantiate(explosionSoundHolderPrefab, this.transform.position, Quaternion.identity);
+
         AudioSource soundHolderAudioSource = soundHolder.GetComponent<AudioSource>();
         if (soundHolderAudioSource != null)
         {
@@ -152,14 +140,30 @@ public class Anima : MonoBehaviour
 
         if (!withinActiveQuadrant)
         {
+            // FIX: Ensure name is correct before writing data (crucial for ID mapping)
+            if (string.IsNullOrEmpty(gameObject.name) || gameObject.name != _objectId)
+                gameObject.name = _objectId;
+
+            // 1. Remove from OLD persistence location
+            // If we moved quadrants, we remove from the old one.
+            // If we are in the same quadrant, we overwrite anyway, so explicit removal helps cleanup duplicates.
+            dataManager.RemoveObjectFromPersistentData(_currentQuadrant, _objectId);
+
+            // 2. Write to NEW (or Current) persistence location
+            // This saves the current position/rotation before the object vanishes
+            dataManager.WriteQuadrantData(currentObjectQuadrant, gameObject);
+
+            // 3. Remove from Active Lists
+            dataManager.RemoveObjectFromQuadrant(_currentQuadrant, gameObject);
             if (currentObjectQuadrant != _currentQuadrant)
             {
-                dataManager.RemoveObjectFromPersistentData(_currentQuadrant, _objectId);
-                dataManager.WriteQuadrantData(currentObjectQuadrant, gameObject);
-                dataManager.RemoveObjectFromQuadrant(_currentQuadrant, gameObject);
-                _currentQuadrant = currentObjectQuadrant;
+                dataManager.RemoveObjectFromQuadrant(currentObjectQuadrant, gameObject);
             }
 
+            // Update internal state
+            _currentQuadrant = currentObjectQuadrant;
+
+            // 4. Despawn
             dataManager.ReturnToPool(gameObject);
             return true;
         }
@@ -185,6 +189,7 @@ public class Anima : MonoBehaviour
             _dataManager = FindFirstObjectByType<WorldDataManager>();
         }
 
+        // Safety fallback
         if (_dataManager == null || _dataManager.GetComponent<WorldStateManager>() == null)
         {
             return _currentQuadrant;

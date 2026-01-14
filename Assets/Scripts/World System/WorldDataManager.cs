@@ -250,22 +250,33 @@ public class WorldDataManager : MonoBehaviour
     {
         if (channelValue == 0) return;
 
-        // pick your per‐prefab maximums in one line
-        int maxCount = prefab == azothPrefab ? 30   // red channel
-                     : prefab == animaPrefab ? 120   // green channel
-                     : prefab == artificaPrefab ? 15   // blue channel
+        // Define max counts per quadrant
+        int maxCount = prefab == azothPrefab ? 1    // Azoth (Red)
+                     : prefab == animaPrefab ? 70   // Anima (Green)
+                     : prefab == artificaPrefab ? 15 // Artifica (Blue)
                      : 30;
 
-        // scale from 0–255 into 0–maxCount
-        int count = Mathf.CeilToInt((channelValue / 255f) * maxCount);
+        // 1. Calculate the raw float density
+        float rawCount = (channelValue / 255f) * maxCount;
 
+        // 2. Get the guaranteed count (Floor instead of Ceil)
+        int count = Mathf.FloorToInt(rawCount);
+
+        // 3. Roll the dice for the remainder
+        // Example: If rawCount is 0.2, count is 0, but there is a 20% chance to add 1.
+        if (UnityEngine.Random.value < (rawCount - count))
+        {
+            count++;
+        }
+
+        // 4. Spawn loop
         float halfQ = _stateManager.quadrantSize * 0.5f;
         for (int i = 0; i < count; i++)
         {
             var localOffset = new Vector3(
-                Random.Range(-halfQ, halfQ),
+                UnityEngine.Random.Range(-halfQ, halfQ),
                 0,
-                Random.Range(-halfQ, halfQ)
+                UnityEngine.Random.Range(-halfQ, halfQ)
             );
             var worldPos = quadrantCenter + localOffset;
             var id = GenerateUniqueName(prefab.name, worldPos);
@@ -273,12 +284,13 @@ public class WorldDataManager : MonoBehaviour
             data.Add(new GameObjectData
             {
                 Position = worldPos,
-                Rotation = Quaternion.Euler(0, Random.Range(0, 360), 0),
+                Rotation = Quaternion.Euler(0, UnityEngine.Random.Range(0, 360), 0),
                 PrefabID = prefab.name,
                 ObjectID = id
             });
         }
     }
+
 
     private void SpawnExistingQuadrantContent(Vector2Int quadrantPos)
     {

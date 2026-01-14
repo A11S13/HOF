@@ -39,28 +39,25 @@ public class AnimaManager : MonoBehaviour
     [SerializeField] private bool debugDespawn = false;
 
     Transform playerTf;
+    // The Master List: Contains both Active and Inactive (Pooled) objects
     readonly List<Anima> animas = new();
 
     // Reusable collections
     private readonly List<Anima> _activeAnimasCache = new List<Anima>(200);
 
-    // Despawn check state
     private float _despawnCheckTimer = 0f;
     private int _despawnCheckIndex = 0;
     private WorldDataManager _dataManager;
     private WorldProcessor _worldProcessor;
 
-    // Obstacle update throttling
     private float _obstacleUpdateTimer = 0f;
     private NativeArray<float4> _cachedObstacles;
     private bool _obstaclesInitialized = false;
 
-    // Spatial grid storage
     private NativeParallelMultiHashMap<int, int> _spatialGrid;
     private bool _spatialGridInitialized = false;
     private int _lastGridCapacity = 0;
 
-    // Debug counters
     private int _totalDespawnedThisSecond = 0;
     private float _debugTimer = 0f;
 
@@ -89,12 +86,9 @@ public class AnimaManager : MonoBehaviour
         _dataManager = FindFirstObjectByType<WorldDataManager>();
         _worldProcessor = FindFirstObjectByType<WorldProcessor>();
 
-        if (_dataManager == null)
-            Debug.LogError("AnimaManager: WorldDataManager not found!");
-        if (_worldProcessor == null)
-            Debug.LogError("AnimaManager: WorldProcessor not found!");
+        if (_dataManager == null) Debug.LogError("AnimaManager: WorldDataManager not found!");
+        if (_worldProcessor == null) Debug.LogError("AnimaManager: WorldProcessor not found!");
 
-        // Initialize spatial grid with reasonable capacity
         _spatialGrid = new NativeParallelMultiHashMap<int, int>(200, Allocator.Persistent);
         _spatialGridInitialized = true;
         _lastGridCapacity = 200;
@@ -136,16 +130,14 @@ public class AnimaManager : MonoBehaviour
         if (!animas.Contains(a))
         {
             animas.Add(a);
-            if (debugDespawn)
-                Debug.Log($"Registered anima. Total: {animas.Count}");
+            if (debugDespawn) Debug.Log($"Registered anima. Total: {animas.Count}");
         }
     }
 
     public void UnregisterAnima(Anima a)
     {
         animas.Remove(a);
-        if (debugDespawn)
-            Debug.Log($"Unregistered anima. Total: {animas.Count}");
+        if (debugDespawn) Debug.Log($"Unregistered anima. Total: {animas.Count}");
     }
 
     void Update()
@@ -166,7 +158,7 @@ public class AnimaManager : MonoBehaviour
                         activeCount++;
                 }
 
-                Debug.Log($"[AnimaManager] Active: {activeCount} | " +
+                Debug.Log($"[AnimaManager] MasterList: {animas.Count} | Active: {activeCount} | " +
                          $"Despawned/sec: {_totalDespawnedThisSecond} | " +
                          $"Active Quadrants: {_worldProcessor?._currentActiveQuadrants.Count ?? 0}");
                 _totalDespawnedThisSecond = 0;
@@ -177,6 +169,7 @@ public class AnimaManager : MonoBehaviour
 
     private void ProcessAnimaAI()
     {
+        // Rebuild the active cache for the Job System
         _activeAnimasCache.Clear();
         for (int i = 0; i < animas.Count; i++)
         {
@@ -187,6 +180,7 @@ public class AnimaManager : MonoBehaviour
         int n = _activeAnimasCache.Count;
         if (n == 0) return;
 
+        // ... (Job Setup logic remains unchanged) ...
         var friendlyArr = new NativeArray<bool>(n, Allocator.TempJob);
         var ta = new TransformAccessArray(n);
         var posArr = new NativeArray<float3>(n, Allocator.TempJob);
@@ -206,8 +200,6 @@ public class AnimaManager : MonoBehaviour
         }
 
         UpdateObstacles();
-
-        // Build spatial grid BEFORE scheduling job
         BuildSpatialGrid(posArr);
 
         new AnimaAIJob
@@ -259,57 +251,38 @@ public class AnimaManager : MonoBehaviour
         friendlyArr.Dispose();
     }
 
-    /// <summary>
-    /// Throttled obstacle detection - only updates every X seconds
-    /// </summary>
     private void UpdateObstacles()
     {
         _obstacleUpdateTimer += Time.deltaTime;
-
         if (_obstacleUpdateTimer >= obstacleUpdateInterval || !_obstaclesInitialized)
         {
             _obstacleUpdateTimer = 0f;
-
-            if (_cachedObstacles.IsCreated)
-                _cachedObstacles.Dispose();
+            if (_cachedObstacles.IsCreated) _cachedObstacles.Dispose();
 
             Collider[] tempBuffer = new Collider[100];
             int count = Physics.OverlapSphereNonAlloc(G.playerPosition, 300f, tempBuffer, obstacleLayerMask);
 
             _cachedObstacles = new NativeArray<float4>(count, Allocator.Persistent);
-
             for (int i = 0; i < count; i++)
             {
                 var b = tempBuffer[i].bounds;
                 _cachedObstacles[i] = new float4(b.center, b.extents.magnitude);
             }
-
             _obstaclesInitialized = true;
         }
     }
 
-    /// <summary>
-    /// Build spatial hash grid on main thread - simple and fast!
-    /// </summary>
     private void BuildSpatialGrid(NativeArray<float3> positions)
     {
         if (!useSpatialGrid) return;
-
         int count = positions.Length;
-
-        // Expand grid capacity if needed
         if (count > _lastGridCapacity)
         {
-            if (_spatialGrid.IsCreated)
-                _spatialGrid.Dispose();
-
+            if (_spatialGrid.IsCreated) _spatialGrid.Dispose();
             _lastGridCapacity = Mathf.NextPowerOfTwo(count);
             _spatialGrid = new NativeParallelMultiHashMap<int, int>(_lastGridCapacity, Allocator.Persistent);
         }
-
         _spatialGrid.Clear();
-
-        // Insert all animas into grid
         for (int i = 0; i < count; i++)
         {
             int cellKey = GetCellKey(positions[i], spatialCellSize);
@@ -317,36 +290,27 @@ public class AnimaManager : MonoBehaviour
         }
     }
 
-    /// <summary>
-    /// Convert world position to grid cell key
-    /// </summary>
     private int GetCellKey(float3 position, float cellSize)
     {
         int x = (int)math.floor(position.x / cellSize);
         int z = (int)math.floor(position.z / cellSize);
-
-        // Simple hash: combine x and z
         return (x * 73856093) ^ (z * 19349663);
     }
 
     private void ProcessDespawnChecks()
     {
+        // Safety check for dependencies
         if (_dataManager == null || _worldProcessor == null)
         {
-            if (_dataManager == null)
-                _dataManager = FindFirstObjectByType<WorldDataManager>();
-            if (_worldProcessor == null)
-                _worldProcessor = FindFirstObjectByType<WorldProcessor>();
-
-            if (_dataManager == null || _worldProcessor == null)
-                return;
+            if (_dataManager == null) _dataManager = FindFirstObjectByType<WorldDataManager>();
+            if (_worldProcessor == null) _worldProcessor = FindFirstObjectByType<WorldProcessor>();
+            if (_dataManager == null || _worldProcessor == null) return;
         }
 
-        if (_activeAnimasCache.Count == 0)
-        {
-            _despawnCheckIndex = 0;
-            return;
-        }
+        // Use the Master List 'animas' instead of '_activeAnimasCache'.
+        // This list is stable (indices don't shift when objects disable).
+        int totalAnimas = animas.Count;
+        if (totalAnimas == 0) return;
 
         _despawnCheckTimer += Time.deltaTime;
 
@@ -356,16 +320,22 @@ public class AnimaManager : MonoBehaviour
 
             int checkedThisFrame = 0;
             int despawnedThisFrame = 0;
-            int totalAnimas = _activeAnimasCache.Count;
 
-            while (checkedThisFrame < animasPerCheck && totalAnimas > 0)
+            // Loop through the allotted number of checks
+            while (checkedThisFrame < animasPerCheck)
             {
+                // Wrap around logic
                 if (_despawnCheckIndex >= totalAnimas)
                     _despawnCheckIndex = 0;
 
-                if (_despawnCheckIndex < _activeAnimasCache.Count)
+                // Validate index
+                if (_despawnCheckIndex < animas.Count)
                 {
-                    var anima = _activeAnimasCache[_despawnCheckIndex];
+                    var anima = animas[_despawnCheckIndex];
+
+                    // CRITICAL FIX: Only check if Active. 
+                    // If Inactive, we just skip increment the counter but NOT the checkedThisFrame counter?
+                    // No, for performance, we should increment checkedThisFrame to prevent infinite loops if all are inactive.
                     if (anima != null && anima.gameObject.activeSelf)
                     {
                         bool wasDespawned = anima.CheckDespawn(_dataManager, _worldProcessor);
@@ -376,9 +346,17 @@ public class AnimaManager : MonoBehaviour
                         }
                     }
                 }
+                else
+                {
+                    // Index out of sync (rare case of removal during loop), reset
+                    _despawnCheckIndex = 0;
+                }
 
                 _despawnCheckIndex++;
                 checkedThisFrame++;
+
+                // Break if we've looped through everyone (prevents infinite loop if animasPerCheck > total)
+                if (checkedThisFrame >= totalAnimas) break;
             }
 
             if (debugDespawn && despawnedThisFrame > 0)
@@ -390,16 +368,14 @@ public class AnimaManager : MonoBehaviour
 
     void OnDestroy()
     {
-        if (_cachedObstacles.IsCreated)
-            _cachedObstacles.Dispose();
-
-        if (_spatialGridInitialized && _spatialGrid.IsCreated)
-            _spatialGrid.Dispose();
+        if (_cachedObstacles.IsCreated) _cachedObstacles.Dispose();
+        if (_spatialGridInitialized && _spatialGrid.IsCreated) _spatialGrid.Dispose();
     }
 
     [BurstCompile]
     struct AnimaAIJob : IJobParallelForTransform
     {
+        // ... (Job Implementation identical to your provided code) ...
         [ReadOnly] public NativeArray<bool> animaFriendly;
         [ReadOnly] public NativeArray<float3> animaPositions;
         [ReadOnly] public NativeArray<quaternion> animaRotations;
@@ -462,13 +438,12 @@ public class AnimaManager : MonoBehaviour
                 desired = math.lerp(desired, math.normalize(obsSum), avoidWeight * deltaTime);
             }
 
-            // Flocking behavior with spatial grid optimization
+            // Flocking behavior
             float3 alignSum = 0, cohSum = 0, sepSum = 0;
             int alignCount = 0, cohCount = 0;
 
             if (useSpatialGrid)
             {
-                // Query 9 neighboring cells (3x3 grid)
                 for (int dx = -1; dx <= 1; dx++)
                 {
                     for (int dz = -1; dz <= 1; dz++)
@@ -481,21 +456,15 @@ public class AnimaManager : MonoBehaviour
                             do
                             {
                                 if (neighborIdx == i) continue;
-
                                 float d = math.distance(pos, animaPositions[neighborIdx]);
                                 if (d < fRadius)
                                 {
                                     float3 neighborForward = math.mul(animaRotations[neighborIdx], new float3(0, 0, 1));
                                     alignSum += neighborForward;
                                     alignCount++;
-
                                     cohSum += animaPositions[neighborIdx];
                                     cohCount++;
-
-                                    if (d < cRadius)
-                                    {
-                                        sepSum += (pos - animaPositions[neighborIdx]) / math.max(d, 0.0001f);
-                                    }
+                                    if (d < cRadius) sepSum += (pos - animaPositions[neighborIdx]) / math.max(d, 0.0001f);
                                 }
                             }
                             while (spatialGrid.TryGetNextValue(out neighborIdx, ref iterator));
@@ -505,65 +474,33 @@ public class AnimaManager : MonoBehaviour
             }
             else
             {
-                // Fallback: check all animas (O(n) - slower but works)
                 for (int j = 0; j < animaPositions.Length; j++)
                 {
                     if (j == i) continue;
-
                     float d = math.distance(pos, animaPositions[j]);
                     if (d < fRadius)
                     {
                         float3 neighborForward = math.mul(animaRotations[j], new float3(0, 0, 1));
                         alignSum += neighborForward;
                         alignCount++;
-
                         cohSum += animaPositions[j];
                         cohCount++;
-
-                        if (d < cRadius)
-                        {
-                            sepSum += (pos - animaPositions[j]) / math.max(d, 0.0001f);
-                        }
+                        if (d < cRadius) sepSum += (pos - animaPositions[j]) / math.max(d, 0.0001f);
                     }
                 }
             }
 
-            if (align && alignCount > 0)
-            {
-                float3 alignmentForce = math.normalize(alignSum / alignCount);
-                desired += alignmentForce * wAlign;
-            }
-
-            if (cohesion && cohCount > 0)
-            {
-                float3 cohesionForce = math.normalize((cohSum / cohCount) - pos);
-                desired += cohesionForce * wCohesion;
-            }
-
-            if (crowd && math.length(sepSum) > 0)
-            {
-                float3 separationForce = math.normalize(sepSum);
-                desired += separationForce * wCrowd;
-            }
-
-            if (noise)
-            {
-                float3 noiseForce = rnd.NextFloat3Direction() * wNoise;
-                desired += noiseForce;
-            }
-
-            if (tPlayer && !animaFriendly[i])
-            {
-                float3 toPlayer = math.normalize(playerPosition - pos);
-                desired += toPlayer * wPlayer;
-            }
+            if (align && alignCount > 0) desired += math.normalize(alignSum / alignCount) * wAlign;
+            if (cohesion && cohCount > 0) desired += math.normalize((cohSum / cohCount) - pos) * wCohesion;
+            if (crowd && math.length(sepSum) > 0) desired += math.normalize(sepSum) * wCrowd;
+            if (noise) desired += rnd.NextFloat3Direction() * wNoise;
+            if (tPlayer && !animaFriendly[i]) desired += math.normalize(playerPosition - pos) * wPlayer;
 
             desired = math.normalizesafe(desired);
             desired += new float3(0.01f, 0, 0.01f);
             desired = math.normalize(desired);
 
-            float speed = obsInf > 0 ? maxSpeed : math.lerp(minSpeed, maxSpeed,
-                math.length(desired) * 0.5f + 0.5f);
+            float speed = obsInf > 0 ? maxSpeed : math.lerp(minSpeed, maxSpeed, math.length(desired) * 0.5f + 0.5f);
 
             float3 horizDir = math.normalizesafe(new float3(desired.x, 0, desired.z));
             quaternion targetRot = quaternion.LookRotation(horizDir, math.up());
