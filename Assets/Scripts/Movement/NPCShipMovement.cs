@@ -1,101 +1,98 @@
 ﻿using UnityEngine;
+using System.Collections.Generic;
 
 [RequireComponent(typeof(Rigidbody))]
 public class NPCShipMovement : ShipMovementBase
 {
     [Header("Moving Field Settings")]
-    public float predictionTime = 2.5f;
+    public float predictionTime = 3.0f;
     public float dynamicClearance = 8.0f;
-    public float baseLookAhead = 120f;
+    public float baseLookAhead = 150f;
 
-    [Header("Ship Avoidance (Collision Fix)")]
-    [Tooltip("Select layers for Player and other Enemies here.")]
+    [Header("Ship Avoidance (Separation)")]
     public LayerMask shipAvoidanceLayer;
-    public float separationRadius = 60f;
-    public float separationForce = 2.0f; // Increased default slightly
+    public float separationRadius = 80f;
+    public float separationForce = 3.5f;
 
     [Header("Waypoint Smoothing")]
-    public float goalSmoothingTime = 0.20f;
-
-    public float passThroughRadius = 55f;
-    public float passThroughDistance = 220f;
+    public float goalSmoothingTime = 0.3f;
+    public float passThroughRadius = 40f;
+    public float passThroughDistance = 150f;
     [Range(0.1f, 1.0f)]
-    public float minThrottleNearGoal = 0.80f;
+    public float minThrottleNearGoal = 0.5f;
 
-    [Header("Inertia Feel")]
-    public float aiAccelerationScale = 8.3f;
+    [Header("Inertia & Physics")]
+    public float aiAccelerationScale = 8.0f;
+    [Tooltip("Drag when moving normally.")]
+    public float standardDrag = 0.5f;
+    [Tooltip("Drag when boosting.")]
+    public float boostDrag = 0.1f;
 
-    [Range(0.1f, 1.0f)]
-    public float boostStrafeFactor = 0.35f;
-
-    [Range(0.1f, 1.0f)]
-    public float normalStrafeFactor = 1.0f;
+    [Header("Strafing Settings")]
+    public bool enableStrafing = true;
+    [Range(0.0f, 1.0f)]
+    public float normalStrafeFactor = 1.0f; // High value = responsive strafing
+    [Range(0.0f, 1.0f)]
+    public float boostStrafeFactor = 0.2f;  // Lower value = stiffer handling at high speed
 
     [Header("Physical Constraints")]
-    public float shipCollisionRadius = 8f;
-    public bool enableStrafing = true;
+    public float shipCollisionRadius = 15f;
 
-    public float standardDrag = 0.25f;
-    public float boostDrag = 0.10f;
-
-    [Header("Combat & Stuck")]
+    [Header("Combat & Stuck Detection")]
     public ShipTargetingSystem targetingSystem;
     public float stuckThreshold = 0.1f;
-    public float contactRepulsionForce = 50f;
+    public float contactRepulsionForce = 100f;
 
     [Header("Sensors")]
     public LayerMask obstacleLayer;
-    public int resolution = 72;
+    public int resolution = 72; // Number of rays (72 = 5 degrees per ray)
 
-    [Header("Flanking")]
-    public bool lockFacingDuringFlank = true;
-
-    // Flow Field
+    [Header("Flow Field (Optional)")]
     public NPCFlowFieldNavigator flowFieldNavigator;
     public bool useFlowFieldNavigation = true;
 
-    // Internal goal
+    // --- State Variables ---
     private Vector3 currentGoal;
     private Vector3 smoothedGoal;
     private Vector3 smoothedGoalVel;
     private bool hasGoal = false;
     private WaypointPriority currentPriority = WaypointPriority.None;
 
-    // Flanking
-    private GameObject flankingTarget;
-    private bool isFlankingMode = false;
+    // --- Rotation / Targeting State ---
+    private Transform focusTarget; // Object to look at
+    private Vector3? focusPoint;   // Position to look at
 
-    // Boost
+    // --- Boost State ---
     private bool boostRequested = false;
     private float targetBoostMultiplier = 1f;
 
-    // Physics
+    // --- Physics Internal ---
     private Vector3 smoothedDir;
     private Vector3 steerVelocity;
     private float stuckTimer = 0f;
     private bool isMining = false;
     private bool isPhysicallyColliding = false;
 
-    // Arrays
+    // --- Context Arrays ---
     private float[] interestMap;
     private float[] dangerMap;
     private Vector3[] rayDirections;
     private Collider[] nearbyObstacles = new Collider[60];
-    private Collider[] avoidanceColliders = new Collider[20]; // Separate buffer for ships
-
-    // Obstacle density tracking
+    private Collider[] avoidanceColliders = new Collider[20];
     private int countedObstacles = 0;
 
     protected override void Awake()
     {
         base.Awake();
 
-        if (shipCollisionRadius <= 0.1f)
+        // Auto-calculate radius if not manually set
+        if (shipCollisionRadius <= 1f)
         {
             var col = GetComponent<Collider>();
-            shipCollisionRadius = (col != null) ? col.bounds.extents.magnitude : 8f;
+            shipCollisionRadius = (col != null) ? col.bounds.extents.magnitude : 10f;
         }
 
+        // Initialize Context Steering Arrays
         interestMap = new float[resolution];
         dangerMap = new float[resolution];
         rayDirections = new Vector3[resolution];
@@ -114,9 +111,6 @@ public class NPCShipMovement : ShipMovementBase
     void Start()
     {
         if (flowFieldNavigator == null) flowFieldNavigator = GetComponent<NPCFlowFieldNavigator>();
-
-        if (maxSpeed < 30f) maxSpeed = 100f;
-        if (acceleration < 1f) acceleration = 8f;
     }
 
     void FixedUpdate()
@@ -128,43 +122,58 @@ public class NPCShipMovement : ShipMovementBase
 
     public override void UpdateMovement()
     {
-        if (!hasGoal) return;
+        if (!hasGoal)
+        {
+            // Dampen velocity if no instructions
+            rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, Vector3.zero, Time.fixedDeltaTime * 0.5f);
+            return;
+        }
 
+        // Smooth the goal position to prevent jitter
         smoothedGoal = Vector3.SmoothDamp(smoothedGoal, currentGoal, ref smoothedGoalVel, goalSmoothingTime);
 
+        // Determine lookahead based on speed
         float currentSpeed = rb.linearVelocity.magnitude;
-
-        // Scale look-ahead more aggressively, especially when boosting
         float boostMultiplier = boostRequested ? targetBoostMultiplier : 1.0f;
-        float activeLookAhead = baseLookAhead * boostMultiplier + (currentSpeed * 0.8f);
+        float activeLookAhead = baseLookAhead * boostMultiplier + (currentSpeed * 1.0f);
 
+        // 1. Get Ideal Navigation Direction (The "Global" desire)
         Vector3 globalDir = GetGlobalNavigationDirection();
         globalDir.y = 0f;
         if (globalDir.sqrMagnitude < 0.0001f) globalDir = transform.forward;
         globalDir.Normalize();
 
-        // 1. Context Maps
+        // 2. Build Context Maps
+        // Clear Maps
         System.Array.Clear(interestMap, 0, resolution);
         System.Array.Clear(dangerMap, 0, resolution);
 
+        // Fill Interest (Align with global direction)
         for (int i = 0; i < resolution; i++)
         {
             float dot = Vector3.Dot(rayDirections[i], globalDir);
             interestMap[i] = Mathf.Max(0f, dot);
         }
 
+        // Fill Danger (Obstacle Raycasting/Prediction)
         PopulatePredictiveDangerMap(activeLookAhead);
 
+        // 3. Process Maps to find Best Direction
         Vector3 bestDir = transform.forward;
         float bestScore = -1f;
 
         for (int i = 0; i < resolution; i++)
         {
-            // STRICTER danger threshold
-            if (dangerMap[i] > 0.4f)
-                interestMap[i] = 0f;
+            // Mask interest with danger
+            if (dangerMap[i] > 0.5f)
+            {
+                interestMap[i] = 0f; // Blocked
+            }
             else
-                interestMap[i] *= (1.0f - dangerMap[i] * 1.2f);
+            {
+                // Soft penalty for nearby danger
+                interestMap[i] *= (1.0f - dangerMap[i]);
+            }
 
             if (interestMap[i] > bestScore)
             {
@@ -173,43 +182,40 @@ public class NPCShipMovement : ShipMovementBase
             }
         }
 
-        // ------------------------------------------------------------
-        // CRITICAL FIX: Improved Separation Logic for BoxColliders
-        // ------------------------------------------------------------
+        // 4. Ship Separation (Prevent overlapping with other ships)
         Vector3 separation = ComputeSeparationSteer();
-        if (separation != Vector3.zero)
+        if (separation.sqrMagnitude > 0.1f)
         {
-            // If separation is strong, blend it heavily
             float separationStrength = separation.magnitude;
-
-            // Normalize for direction
-            Vector3 sepDir = separation.normalized;
-
-            // If we are VERY close, override navigation completely
+            // If very close to another ship, prioritize separation heavily
             if (separationStrength > 0.8f)
             {
-                bestDir = Vector3.Lerp(bestDir, sepDir, 0.85f).normalized;
+                bestDir = Vector3.Lerp(bestDir, separation.normalized, 0.85f).normalized;
             }
             else
             {
-                bestDir = (bestDir + sepDir * separationForce).normalized;
+                bestDir = (bestDir + separation * separationForce).normalized;
             }
         }
 
+        // 5. Handle Logic Logic (Mining/Stuck)
         HandleCombat(bestScore);
 
+        // If physically colliding, stop steering logic and let physics resolve
         if (isPhysicallyColliding)
         {
             smoothedDir = transform.forward;
             return;
         }
 
+        // 6. Final Throttle & Smoothing
         float throttle = 1.0f;
-        float distToGoal = Vector3.Distance(transform.position, smoothedGoal);
-
-        if (distToGoal < passThroughRadius)
+        if (Vector3.Distance(transform.position, smoothedGoal) < passThroughRadius)
+        {
             throttle = Mathf.Max(throttle, minThrottleNearGoal);
+        }
 
+        // If "stuck" (no good direction), try to reverse/escape
         if (bestScore < stuckThreshold)
         {
             throttle = 0.5f;
@@ -218,94 +224,62 @@ public class NPCShipMovement : ShipMovementBase
 
         smoothedDir = Vector3.SmoothDamp(smoothedDir, bestDir, ref steerVelocity, 0.28f);
 
+        // 7. Apply Forces (Movement & Rotation)
         float currentMaxSpeed = maxSpeed * targetBoostMultiplier;
-
-        // Reduce boost in dense asteroid fields
-        if (boostRequested && countedObstacles > 5)
-        {
-            float densityReduction = Mathf.Clamp01((countedObstacles - 5) / 10.0f);
-            currentMaxSpeed = Mathf.Lerp(currentMaxSpeed, maxSpeed, densityReduction);
-        }
-
         ApplyInertialMotion(smoothedDir, throttle, currentMaxSpeed);
     }
 
     /// <summary>
-    /// REWRITTEN to use ClosestPoint instead of bounds.center.
-    /// This fixes NPCs flying into the side of large ships.
+    /// Decouples Rotation from Velocity.
+    /// Handles Strafing calculations.
     /// </summary>
-    Vector3 ComputeSeparationSteer()
-    {
-        if (shipAvoidanceLayer == 0) return Vector3.zero;
-
-        // Use NonAlloc for garbage collection safety
-        int hitCount = Physics.OverlapSphereNonAlloc(transform.position, separationRadius, avoidanceColliders, shipAvoidanceLayer);
-
-        if (hitCount == 0) return Vector3.zero;
-
-        Vector3 steer = Vector3.zero;
-        int count = 0;
-        float accumulatedWeight = 0f;
-
-        for (int i = 0; i < hitCount; i++)
-        {
-            Collider h = avoidanceColliders[i];
-
-            if (h == null) continue;
-            if (h.transform.root == transform.root) continue; // Ignore self
-
-            // 1. Get the EXACT point on the collider surface closest to us
-            Vector3 closestPoint = h.ClosestPoint(transform.position);
-
-            // 2. Calculate vector away from that SURFACE point
-            Vector3 away = transform.position - closestPoint;
-
-            // If we are literally inside the collider, closestPoint might equal position.
-            // Fallback to center direction in that rare case.
-            if (away.sqrMagnitude < 0.001f)
-            {
-                away = transform.position - h.bounds.center;
-            }
-
-            away.y = 0f;
-            float distToSurface = away.magnitude;
-
-            // 3. Weight calculation based on surface distance
-            // If distToSurface is 0 (touching), weight is 1. If dist is Radius, weight is 0.
-            if (distToSurface < separationRadius)
-            {
-                // Exponential falloff - repulsion gets MUCH stronger as distance -> 0
-                float pct = Mathf.Clamp01(distToSurface / separationRadius);
-                float weight = 1f - pct;
-                weight = weight * weight; // Curve it so being close is panic mode
-
-                steer += away.normalized * weight;
-                accumulatedWeight += weight;
-                count++;
-            }
-        }
-
-        if (count == 0) return Vector3.zero;
-
-        // Normalize steer but keep the intensity based on how close we are
-        steer = steer.normalized * Mathf.Clamp01(accumulatedWeight);
-        return steer;
-    }
-
     void ApplyInertialMotion(Vector3 moveDir, float throttle, float speedLimit)
     {
-        base.RotateTowards(Quaternion.LookRotation(moveDir));
+        // --- A. ROTATION LOGIC ---
+        Quaternion desiredRotation;
 
+        if (focusTarget != null)
+        {
+            // Look at specific Transform (Enemy)
+            Vector3 lookDir = focusTarget.position - transform.position;
+            lookDir.y = 0f;
+            if (lookDir.sqrMagnitude > 0.1f)
+                desiredRotation = Quaternion.LookRotation(lookDir);
+            else
+                desiredRotation = transform.rotation;
+        }
+        else if (focusPoint.HasValue)
+        {
+            // Look at specific Point
+            Vector3 lookDir = focusPoint.Value - transform.position;
+            lookDir.y = 0f;
+            if (lookDir.sqrMagnitude > 0.1f)
+                desiredRotation = Quaternion.LookRotation(lookDir);
+            else
+                desiredRotation = Quaternion.LookRotation(moveDir);
+        }
+        else
+        {
+            // Look where we are going (Standard Flight)
+            desiredRotation = Quaternion.LookRotation(moveDir);
+        }
+
+        // Call Base implementation to apply torque/rotation
+        base.RotateTowards(desiredRotation);
+
+        // --- B. VELOCITY / STRAFE LOGIC ---
         Vector3 desiredVel = moveDir.normalized * (speedLimit * throttle);
         Vector3 v = rb.linearVelocity;
-        v.y = 0f;
+        v.y = 0f; // Enforce 2.5D gameplay
 
         float baseAccel = Mathf.Max(0.1f, acceleration);
         float effectiveAccel = baseAccel * Mathf.Max(0.1f, aiAccelerationScale);
 
-        float strafeFactor = enableStrafing ? normalStrafeFactor : 0.2f;
-        if (boostRequested) strafeFactor *= boostStrafeFactor;
+        // Determine how much lateral movement (strafing) is allowed
+        float strafeFactor = enableStrafing ? normalStrafeFactor : 0.1f;
+        if (boostRequested) strafeFactor *= boostStrafeFactor; // Less strafing when boosting
 
+        // Get our current facing direction
         Vector3 f = transform.forward;
         f.y = 0f;
         if (f.sqrMagnitude < 0.0001f) f = Vector3.forward;
@@ -315,18 +289,34 @@ public class NPCShipMovement : ShipMovementBase
         float dt = Time.fixedDeltaTime;
         Vector3 aReq = (dt > 0f) ? (dv / dt) : Vector3.zero;
 
+        // Decompose acceleration into Forward/Back and Left/Right components
         Vector3 aFwd = Vector3.Project(aReq, f);
         Vector3 aLat = aReq - aFwd;
 
+        // Clamp lateral acceleration to simulate strafing thruster limits
         float latLimit = effectiveAccel * Mathf.Clamp01(strafeFactor);
-        if (aLat.magnitude > latLimit) aLat = aLat.normalized * latLimit;
+        if (aLat.magnitude > latLimit)
+        {
+            aLat = aLat.normalized * latLimit;
+        }
 
+        // Recombine
         Vector3 a = aFwd + aLat;
-        if (a.magnitude > effectiveAccel) a = a.normalized * effectiveAccel;
 
+        // Clamp total acceleration
+        if (a.magnitude > effectiveAccel)
+        {
+            a = a.normalized * effectiveAccel;
+        }
+
+        // Apply
         Vector3 newVel = v + a * dt;
         rb.linearVelocity = new Vector3(newVel.x, rb.linearVelocity.y, newVel.z);
     }
+
+    // ==========================================================
+    // SENSORS & NAVIGATION HELPERS
+    // ==========================================================
 
     Vector3 GetGlobalNavigationDirection()
     {
@@ -334,31 +324,28 @@ public class NPCShipMovement : ShipMovementBase
         Vector3 toGoal = goalForNav - transform.position;
         toGoal.y = 0f;
 
-        if (toGoal.magnitude < passThroughRadius)
-        {
-            Vector3 f = transform.forward;
-            f.y = 0f;
-            if (f.sqrMagnitude < 0.0001f) f = Vector3.forward;
-            f.Normalize();
-            goalForNav = transform.position + f * passThroughDistance;
-        }
-
+        // If using FlowField, delegate
         if (useFlowFieldNavigation && flowFieldNavigator != null)
         {
             flowFieldNavigator.SetGoal(goalForNav);
             return flowFieldNavigator.GetNavigationDirection(transform.position);
         }
 
-        Vector3 dir = goalForNav - transform.position;
-        dir.y = 0f;
-        return (dir.sqrMagnitude < 0.0001f) ? transform.forward : dir.normalized;
+        // Pass-through logic (don't stop exactly on the dot, fly through it)
+        if (toGoal.magnitude < passThroughRadius)
+        {
+            Vector3 f = transform.forward;
+            f.y = 0f;
+            goalForNav = transform.position + f.normalized * passThroughDistance;
+        }
+
+        return (goalForNav - transform.position).normalized;
     }
 
     void PopulatePredictiveDangerMap(float lookAhead)
     {
         int count = Physics.OverlapSphereNonAlloc(transform.position, lookAhead, nearbyObstacles, obstacleLayer);
         int checks = Mathf.Min(count, nearbyObstacles.Length);
-
         countedObstacles = checks;
 
         Vector3 ourFuturePos = transform.position + rb.linearVelocity * predictionTime;
@@ -372,11 +359,9 @@ public class NPCShipMovement : ShipMovementBase
             if (obs.attachedRigidbody != null) obsVel = obs.attachedRigidbody.linearVelocity;
 
             Vector3 currentPos = obs.bounds.center;
-            // NOTE: For static BoxColliders (asteroids/stations), bounds.extents is still best for the Map
-            // because ClosePoint raycasting is too expensive to do 72 times per frame.
             float radius = obs.bounds.extents.magnitude;
 
-            // Check both current AND predicted positions
+            // Check dynamic collision (Moving Obstacles)
             if (obsVel.sqrMagnitude > 1.0f)
             {
                 Vector3 futurePos = currentPos + (obsVel * predictionTime);
@@ -384,19 +369,20 @@ public class NPCShipMovement : ShipMovementBase
             }
             else
             {
+                // Static Obstacles
                 ProcessCapsuleObstacle(currentPos, currentPos, radius, lookAhead);
             }
 
-            // Future collision check
+            // Simple future intersection check for high danger
             float futureCollisionDist = Vector3.Distance(ourFuturePos, currentPos + obsVel * predictionTime);
             if (futureCollisionDist < radius + shipCollisionRadius + dynamicClearance)
             {
                 Vector3 toObs = (currentPos - transform.position).normalized;
                 for (int i = 0; i < resolution; i++)
                 {
-                    if (Vector3.Dot(rayDirections[i], toObs) > 0.3f)
+                    if (Vector3.Dot(rayDirections[i], toObs) > 0.5f)
                     {
-                        dangerMap[i] = Mathf.Max(dangerMap[i], 0.9f);
+                        dangerMap[i] = Mathf.Max(dangerMap[i], 0.95f);
                     }
                 }
             }
@@ -405,7 +391,6 @@ public class NPCShipMovement : ShipMovementBase
 
     void ProcessCapsuleObstacle(Vector3 start, Vector3 end, float radius, float lookAhead)
     {
-        // Scale clearance with boost
         float boostClearanceMultiplier = boostRequested ? 1.5f : 1.0f;
         float safeRadius = (radius + shipCollisionRadius + dynamicClearance) * boostClearanceMultiplier;
 
@@ -413,6 +398,7 @@ public class NPCShipMovement : ShipMovementBase
         {
             Vector3 rayDir = rayDirections[i];
 
+            // Find closest point on obstacle trajectory to this ray
             float tSeg = DistancePointToSegmentParam(transform.position, start, end);
             Vector3 closestObstaclePoint = Vector3.Lerp(start, end, tSeg);
 
@@ -420,23 +406,89 @@ public class NPCShipMovement : ShipMovementBase
             toObs.y = 0f;
             float dist = toObs.magnitude;
 
-            if (dist > lookAhead) continue;
-            if (dist <= 0.001f) continue;
+            if (dist > lookAhead || dist <= 0.001f) continue;
 
-            if (Vector3.Dot(rayDir, toObs.normalized) < -0.1f) continue;
+            // Ignore obstacles behind us
+            if (Vector3.Dot(rayDir, toObs.normalized) < 0f) continue;
 
+            // Angle check
             float angleRad = Mathf.Asin(Mathf.Clamp01(safeRadius / dist));
             float angleDeg = angleRad * Mathf.Rad2Deg;
             float angleToRay = Vector3.Angle(rayDir, toObs.normalized);
 
             if (angleToRay < angleDeg)
             {
+                // Weight based on distance
                 float distFactor = 1.0f - (dist / lookAhead);
-                float weight = Mathf.Pow(distFactor, 0.7f);
+                float weight = Mathf.Pow(distFactor, 0.5f); // 0.5 power makes it fall off slower (safer)
 
                 if (weight > dangerMap[i]) dangerMap[i] = weight;
             }
         }
+    }
+
+    /// <summary>
+    /// Calculates steering to push away from nearby ships using ClosestPoint.
+    /// </summary>
+    Vector3 ComputeSeparationSteer()
+    {
+        if (shipAvoidanceLayer == 0) return Vector3.zero;
+
+        int hitCount = Physics.OverlapSphereNonAlloc(transform.position, separationRadius, avoidanceColliders, shipAvoidanceLayer);
+        if (hitCount == 0) return Vector3.zero;
+
+        Vector3 steer = Vector3.zero;
+        int count = 0;
+        float accumulatedWeight = 0f;
+
+        for (int i = 0; i < hitCount; i++)
+        {
+            Collider h = avoidanceColliders[i];
+            if (h == null) continue;
+            if (h.transform.root == transform.root) continue; // Ignore self
+
+            // Find exact point on collider surface
+            Vector3 closestPoint = h.ClosestPoint(transform.position);
+
+            Vector3 away = transform.position - closestPoint;
+            // Handle edge case where we are inside the collider
+            if (away.sqrMagnitude < 0.001f)
+            {
+                away = transform.position - h.bounds.center;
+            }
+
+            away.y = 0f;
+            float distToSurface = away.magnitude;
+
+            if (distToSurface < separationRadius)
+            {
+                // Exponential falloff
+                float pct = Mathf.Clamp01(distToSurface / separationRadius);
+                float weight = (1f - pct) * (1f - pct); // Stronger repuslion when close
+
+                steer += away.normalized * weight;
+                accumulatedWeight += weight;
+                count++;
+            }
+        }
+
+        if (count == 0) return Vector3.zero;
+        return steer.normalized * Mathf.Clamp01(accumulatedWeight);
+    }
+
+    Vector3 FindEscapeDirection()
+    {
+        float minDanger = 1.0f;
+        Vector3 escapeDir = -transform.forward; // Default to reverse
+        for (int i = 0; i < resolution; i++)
+        {
+            if (dangerMap[i] < minDanger)
+            {
+                minDanger = dangerMap[i];
+                escapeDir = rayDirections[i];
+            }
+        }
+        return escapeDir;
     }
 
     float DistancePointToSegmentParam(Vector3 p, Vector3 a, Vector3 b)
@@ -449,42 +501,34 @@ public class NPCShipMovement : ShipMovementBase
 
     void OnCollisionStay(Collision collision)
     {
+        // Physics failsafe: if we actually hit something, push away
         int combinedMask = obstacleLayer | shipAvoidanceLayer;
 
         if (((1 << collision.gameObject.layer) & combinedMask) != 0)
         {
             isPhysicallyColliding = true;
             Vector3 pushDir = Vector3.zero;
-            foreach (ContactPoint contact in collision.contacts) pushDir += contact.normal;
+            foreach (ContactPoint contact in collision.contacts)
+            {
+                pushDir += contact.normal;
+            }
             pushDir.Normalize();
             pushDir.y = 0f;
             rb.AddForce(pushDir * contactRepulsionForce, ForceMode.Acceleration);
         }
     }
 
-    Vector3 FindEscapeDirection()
-    {
-        float minDanger = 1.0f;
-        Vector3 escapeDir = transform.forward;
-        for (int i = 0; i < resolution; i++)
-        {
-            if (dangerMap[i] < minDanger)
-            {
-                minDanger = dangerMap[i];
-                escapeDir = rayDirections[i];
-            }
-        }
-        return escapeDir;
-    }
-
     void HandleCombat(float bestScore)
     {
         if (targetingSystem == null) return;
+
+        // If "Stuck" (best path is blocked), start timer
         bool stuck = bestScore < stuckThreshold;
 
         if (stuck)
         {
             stuckTimer += Time.fixedDeltaTime;
+            // If stuck for 0.5s, tell TargetingSystem to shoot rocks (Mining behavior)
             if (stuckTimer > 0.5f && !isMining)
             {
                 isMining = true;
@@ -507,7 +551,9 @@ public class NPCShipMovement : ShipMovementBase
         }
     }
 
-    // === PUBLIC API ===
+    // ==========================================================
+    // PUBLIC API
+    // ==========================================================
 
     public void SetWaypoint(Vector3 position, WaypointPriority priority = WaypointPriority.Low)
     {
@@ -529,16 +575,26 @@ public class NPCShipMovement : ShipMovementBase
         }
     }
 
-    public void SetFlankingTarget(GameObject target)
+    /// <summary>
+    /// Forces the ship to face this Transform, regardless of movement direction.
+    /// Useful for Strafing/Orbiting.
+    /// </summary>
+    public void SetFocusTarget(Transform t)
     {
-        flankingTarget = target;
-        isFlankingMode = (target != null);
+        focusTarget = t;
+        focusPoint = null;
     }
 
-    public void ClearFlankingTarget()
+    public void SetFocusPoint(Vector3 p)
     {
-        flankingTarget = null;
-        isFlankingMode = false;
+        focusTarget = null;
+        focusPoint = p;
+    }
+
+    public void ClearFocusTarget()
+    {
+        focusTarget = null;
+        focusPoint = null;
     }
 
     public void SetBoost(bool active, float multiplier = 1.0f)
@@ -547,5 +603,9 @@ public class NPCShipMovement : ShipMovementBase
         targetBoostMultiplier = active ? Mathf.Max(1f, multiplier) : 1f;
     }
 
+    // Used by NPCBehavior to check density
     public int GetObstacleCount() => countedObstacles;
+
+    // Legacy support if behavior scripts call ClearFlankingTarget directly on movement
+    public void ClearFlankingTarget() { /* No longer used in Movement, handled by Behavior */ }
 }
