@@ -18,8 +18,6 @@ public class NPCShipMovement : ShipMovementBase
     public float goalSmoothingTime = 0.3f;
     public float passThroughRadius = 40f;
     public float passThroughDistance = 150f;
-    [Range(0.1f, 1.0f)]
-    public float minThrottleNearGoal = 0.5f;
 
     [Header("Inertia & Physics")]
     public float aiAccelerationScale = 8.0f;
@@ -31,9 +29,9 @@ public class NPCShipMovement : ShipMovementBase
     [Header("Strafing Settings")]
     public bool enableStrafing = true;
     [Range(0.0f, 1.0f)]
-    public float normalStrafeFactor = 1.0f; // High value = responsive strafing
+    public float normalStrafeFactor = 1.0f;
     [Range(0.0f, 1.0f)]
-    public float boostStrafeFactor = 0.2f;  // Lower value = stiffer handling at high speed
+    public float boostStrafeFactor = 0.2f;
 
     [Header("Physical Constraints")]
     public float shipCollisionRadius = 15f;
@@ -45,11 +43,13 @@ public class NPCShipMovement : ShipMovementBase
 
     [Header("Sensors")]
     public LayerMask obstacleLayer;
-    public int resolution = 72; // Number of rays (72 = 5 degrees per ray)
+    public int resolution = 72;
 
     [Header("Flow Field (Optional)")]
     public NPCFlowFieldNavigator flowFieldNavigator;
     public bool useFlowFieldNavigation = true;
+    [Tooltip("Distance to switch from flow field to direct path")]
+    public float directApproachDistance = 60f;
 
     // --- State Variables ---
     private Vector3 currentGoal;
@@ -58,9 +58,17 @@ public class NPCShipMovement : ShipMovementBase
     private bool hasGoal = false;
     private WaypointPriority currentPriority = WaypointPriority.None;
 
+    // NEW: Multi-waypoint system for smooth paths
+    private Vector3 nextGoal; // Second waypoint for path smoothing
+    private bool hasNextGoal = false;
+    private WaypointPriority nextPriority = WaypointPriority.None;
+
+    // NEW: Combat mode flag (set by NPCBehavior)
+    private bool isInCombatManeuver = false;
+
     // --- Rotation / Targeting State ---
-    private Transform focusTarget; // Object to look at
-    private Vector3? focusPoint;   // Position to look at
+    private Transform focusTarget;
+    private Vector3? focusPoint;
 
     // --- Boost State ---
     private bool boostRequested = false;
@@ -85,14 +93,12 @@ public class NPCShipMovement : ShipMovementBase
     {
         base.Awake();
 
-        // Auto-calculate radius if not manually set
         if (shipCollisionRadius <= 1f)
         {
             var col = GetComponent<Collider>();
             shipCollisionRadius = (col != null) ? col.bounds.extents.magnitude : 10f;
         }
 
-        // Initialize Context Steering Arrays
         interestMap = new float[resolution];
         dangerMap = new float[resolution];
         rayDirections = new Vector3[resolution];
@@ -124,54 +130,48 @@ public class NPCShipMovement : ShipMovementBase
     {
         if (!hasGoal)
         {
-            // Dampen velocity if no instructions
             rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, Vector3.zero, Time.fixedDeltaTime * 0.5f);
             return;
         }
 
-        // Smooth the goal position to prevent jitter
+        // --- FIX: Logic to prevent smoothedGoal from dragging behind ---
+        // If the goal is far, we smooth. If we snapped it (Critical/High), it jumps instantly.
         smoothedGoal = Vector3.SmoothDamp(smoothedGoal, currentGoal, ref smoothedGoalVel, goalSmoothingTime);
 
-        // Determine lookahead based on speed
         float currentSpeed = rb.linearVelocity.magnitude;
         float boostMultiplier = boostRequested ? targetBoostMultiplier : 1.0f;
         float activeLookAhead = baseLookAhead * boostMultiplier + (currentSpeed * 1.0f);
 
-        // 1. Get Ideal Navigation Direction (The "Global" desire)
+        // 1. Get Ideal Navigation Direction
         Vector3 globalDir = GetGlobalNavigationDirection();
         globalDir.y = 0f;
         if (globalDir.sqrMagnitude < 0.0001f) globalDir = transform.forward;
         globalDir.Normalize();
 
         // 2. Build Context Maps
-        // Clear Maps
         System.Array.Clear(interestMap, 0, resolution);
         System.Array.Clear(dangerMap, 0, resolution);
 
-        // Fill Interest (Align with global direction)
         for (int i = 0; i < resolution; i++)
         {
             float dot = Vector3.Dot(rayDirections[i], globalDir);
             interestMap[i] = Mathf.Max(0f, dot);
         }
 
-        // Fill Danger (Obstacle Raycasting/Prediction)
         PopulatePredictiveDangerMap(activeLookAhead);
 
-        // 3. Process Maps to find Best Direction
+        // 3. Process Maps
         Vector3 bestDir = transform.forward;
         float bestScore = -1f;
 
         for (int i = 0; i < resolution; i++)
         {
-            // Mask interest with danger
             if (dangerMap[i] > 0.5f)
             {
-                interestMap[i] = 0f; // Blocked
+                interestMap[i] = 0f;
             }
             else
             {
-                // Soft penalty for nearby danger
                 interestMap[i] *= (1.0f - dangerMap[i]);
             }
 
@@ -182,12 +182,11 @@ public class NPCShipMovement : ShipMovementBase
             }
         }
 
-        // 4. Ship Separation (Prevent overlapping with other ships)
+        // 4. Ship Separation
         Vector3 separation = ComputeSeparationSteer();
         if (separation.sqrMagnitude > 0.1f)
         {
             float separationStrength = separation.magnitude;
-            // If very close to another ship, prioritize separation heavily
             if (separationStrength > 0.8f)
             {
                 bestDir = Vector3.Lerp(bestDir, separation.normalized, 0.85f).normalized;
@@ -198,41 +197,61 @@ public class NPCShipMovement : ShipMovementBase
             }
         }
 
-        // 5. Handle Logic Logic (Mining/Stuck)
+        // 5. Combat Logic
         HandleCombat(bestScore);
 
-        // If physically colliding, stop steering logic and let physics resolve
         if (isPhysicallyColliding)
         {
             smoothedDir = transform.forward;
             return;
         }
 
-        // 6. Final Throttle & Smoothing
-        float throttle = 1.0f;
-        if (Vector3.Distance(transform.position, smoothedGoal) < passThroughRadius)
-        {
-            throttle = Mathf.Max(throttle, minThrottleNearGoal);
-        }
+        // 6. THROTTLE - Different for combat vs normal
+        float throttle = isInCombatManeuver ? 1.0f : CalculateNavigationThrottle();
 
-        // If "stuck" (no good direction), try to reverse/escape
+        // CRITICAL: Even in combat mode, respect danger
         if (bestScore < stuckThreshold)
         {
             throttle = 0.5f;
             bestDir = FindEscapeDirection();
+
+            // Emergency obstacle detected during combat - break combat mode temporarily
+            if (isInCombatManeuver)
+            {
+                throttle = 0.3f; // Slow down more
+            }
+        }
+
+        // Additional safety: reduce throttle if high danger ahead
+        float maxDangerAhead = GetMaxDangerInDirection(bestDir);
+        if (maxDangerAhead > 0.7f)
+        {
+            throttle *= (1.0f - maxDangerAhead * 0.5f); // Reduce by up to 50%
         }
 
         smoothedDir = Vector3.SmoothDamp(smoothedDir, bestDir, ref steerVelocity, 0.28f);
 
-        // 7. Apply Forces (Movement & Rotation)
+        // 7. Apply Forces
         float currentMaxSpeed = maxSpeed * targetBoostMultiplier;
         ApplyInertialMotion(smoothedDir, throttle, currentMaxSpeed);
     }
 
     /// <summary>
-    /// Decouples Rotation from Velocity.
-    /// Handles Strafing calculations.
+    /// Throttle for normal navigation (not combat maneuvers)
     /// </summary>
+    float CalculateNavigationThrottle()
+    {
+        float distanceToGoal = Vector3.Distance(transform.position, smoothedGoal);
+
+        // Simple braking for waypoints
+        if (distanceToGoal < 80f)
+        {
+            return Mathf.Clamp01(distanceToGoal / 80f);
+        }
+
+        return 1.0f;
+    }
+
     void ApplyInertialMotion(Vector3 moveDir, float throttle, float speedLimit)
     {
         // --- A. ROTATION LOGIC ---
@@ -240,7 +259,6 @@ public class NPCShipMovement : ShipMovementBase
 
         if (focusTarget != null)
         {
-            // Look at specific Transform (Enemy)
             Vector3 lookDir = focusTarget.position - transform.position;
             lookDir.y = 0f;
             if (lookDir.sqrMagnitude > 0.1f)
@@ -250,7 +268,6 @@ public class NPCShipMovement : ShipMovementBase
         }
         else if (focusPoint.HasValue)
         {
-            // Look at specific Point
             Vector3 lookDir = focusPoint.Value - transform.position;
             lookDir.y = 0f;
             if (lookDir.sqrMagnitude > 0.1f)
@@ -260,26 +277,22 @@ public class NPCShipMovement : ShipMovementBase
         }
         else
         {
-            // Look where we are going (Standard Flight)
             desiredRotation = Quaternion.LookRotation(moveDir);
         }
 
-        // Call Base implementation to apply torque/rotation
         base.RotateTowards(desiredRotation);
 
         // --- B. VELOCITY / STRAFE LOGIC ---
         Vector3 desiredVel = moveDir.normalized * (speedLimit * throttle);
         Vector3 v = rb.linearVelocity;
-        v.y = 0f; // Enforce 2.5D gameplay
+        v.y = 0f;
 
         float baseAccel = Mathf.Max(0.1f, acceleration);
         float effectiveAccel = baseAccel * Mathf.Max(0.1f, aiAccelerationScale);
 
-        // Determine how much lateral movement (strafing) is allowed
         float strafeFactor = enableStrafing ? normalStrafeFactor : 0.1f;
-        if (boostRequested) strafeFactor *= boostStrafeFactor; // Less strafing when boosting
+        if (boostRequested) strafeFactor *= boostStrafeFactor;
 
-        // Get our current facing direction
         Vector3 f = transform.forward;
         f.y = 0f;
         if (f.sqrMagnitude < 0.0001f) f = Vector3.forward;
@@ -289,49 +302,70 @@ public class NPCShipMovement : ShipMovementBase
         float dt = Time.fixedDeltaTime;
         Vector3 aReq = (dt > 0f) ? (dv / dt) : Vector3.zero;
 
-        // Decompose acceleration into Forward/Back and Left/Right components
         Vector3 aFwd = Vector3.Project(aReq, f);
         Vector3 aLat = aReq - aFwd;
 
-        // Clamp lateral acceleration to simulate strafing thruster limits
         float latLimit = effectiveAccel * Mathf.Clamp01(strafeFactor);
         if (aLat.magnitude > latLimit)
         {
             aLat = aLat.normalized * latLimit;
         }
 
-        // Recombine
         Vector3 a = aFwd + aLat;
 
-        // Clamp total acceleration
         if (a.magnitude > effectiveAccel)
         {
             a = a.normalized * effectiveAccel;
         }
 
-        // Apply
         Vector3 newVel = v + a * dt;
         rb.linearVelocity = new Vector3(newVel.x, rb.linearVelocity.y, newVel.z);
     }
 
-    // ==========================================================
-    // SENSORS & NAVIGATION HELPERS
-    // ==========================================================
-
     Vector3 GetGlobalNavigationDirection()
     {
         Vector3 goalForNav = smoothedGoal;
+
+        // NEW: Look-ahead blending for smooth paths
+        if (hasNextGoal)
+        {
+            float distToCurrent = Vector3.Distance(transform.position, currentGoal);
+            float distToNext = Vector3.Distance(transform.position, nextGoal);
+            float totalDist = distToCurrent + distToNext;
+
+            // Start blending to next waypoint when close to current
+            if (distToCurrent < 150f && totalDist > 0.1f)
+            {
+                float blendFactor = 1.0f - (distToCurrent / 150f);
+                goalForNav = Vector3.Lerp(currentGoal, nextGoal, blendFactor);
+
+                // Auto-advance to next waypoint when very close
+                if (distToCurrent < 50f)
+                {
+                    currentGoal = nextGoal;
+                    currentPriority = nextPriority;
+                    hasNextGoal = false;
+                }
+            }
+        }
+
         Vector3 toGoal = goalForNav - transform.position;
         toGoal.y = 0f;
 
-        // If using FlowField, delegate
+        // ALWAYS use flow field when available - it knows about ALL obstacles
         if (useFlowFieldNavigation && flowFieldNavigator != null)
         {
             flowFieldNavigator.SetGoal(goalForNav);
-            return flowFieldNavigator.GetNavigationDirection(transform.position);
+            Vector3 flowDir = flowFieldNavigator.GetNavigationDirection(transform.position);
+
+            // Flow field returns safe path - ALWAYS use it as primary direction
+            if (flowDir.sqrMagnitude > 0.1f)
+            {
+                return flowDir;
+            }
         }
 
-        // Pass-through logic (don't stop exactly on the dot, fly through it)
+        // Fallback only if flow field fails
         if (toGoal.magnitude < passThroughRadius)
         {
             Vector3 f = transform.forward;
@@ -361,7 +395,6 @@ public class NPCShipMovement : ShipMovementBase
             Vector3 currentPos = obs.bounds.center;
             float radius = obs.bounds.extents.magnitude;
 
-            // Check dynamic collision (Moving Obstacles)
             if (obsVel.sqrMagnitude > 1.0f)
             {
                 Vector3 futurePos = currentPos + (obsVel * predictionTime);
@@ -369,11 +402,9 @@ public class NPCShipMovement : ShipMovementBase
             }
             else
             {
-                // Static Obstacles
                 ProcessCapsuleObstacle(currentPos, currentPos, radius, lookAhead);
             }
 
-            // Simple future intersection check for high danger
             float futureCollisionDist = Vector3.Distance(ourFuturePos, currentPos + obsVel * predictionTime);
             if (futureCollisionDist < radius + shipCollisionRadius + dynamicClearance)
             {
@@ -398,7 +429,6 @@ public class NPCShipMovement : ShipMovementBase
         {
             Vector3 rayDir = rayDirections[i];
 
-            // Find closest point on obstacle trajectory to this ray
             float tSeg = DistancePointToSegmentParam(transform.position, start, end);
             Vector3 closestObstaclePoint = Vector3.Lerp(start, end, tSeg);
 
@@ -407,29 +437,22 @@ public class NPCShipMovement : ShipMovementBase
             float dist = toObs.magnitude;
 
             if (dist > lookAhead || dist <= 0.001f) continue;
-
-            // Ignore obstacles behind us
             if (Vector3.Dot(rayDir, toObs.normalized) < 0f) continue;
 
-            // Angle check
             float angleRad = Mathf.Asin(Mathf.Clamp01(safeRadius / dist));
             float angleDeg = angleRad * Mathf.Rad2Deg;
             float angleToRay = Vector3.Angle(rayDir, toObs.normalized);
 
             if (angleToRay < angleDeg)
             {
-                // Weight based on distance
                 float distFactor = 1.0f - (dist / lookAhead);
-                float weight = Mathf.Pow(distFactor, 0.5f); // 0.5 power makes it fall off slower (safer)
+                float weight = Mathf.Pow(distFactor, 0.5f);
 
                 if (weight > dangerMap[i]) dangerMap[i] = weight;
             }
         }
     }
 
-    /// <summary>
-    /// Calculates steering to push away from nearby ships using ClosestPoint.
-    /// </summary>
     Vector3 ComputeSeparationSteer()
     {
         if (shipAvoidanceLayer == 0) return Vector3.zero;
@@ -445,13 +468,11 @@ public class NPCShipMovement : ShipMovementBase
         {
             Collider h = avoidanceColliders[i];
             if (h == null) continue;
-            if (h.transform.root == transform.root) continue; // Ignore self
+            if (h.transform.root == transform.root) continue;
 
-            // Find exact point on collider surface
             Vector3 closestPoint = h.ClosestPoint(transform.position);
 
             Vector3 away = transform.position - closestPoint;
-            // Handle edge case where we are inside the collider
             if (away.sqrMagnitude < 0.001f)
             {
                 away = transform.position - h.bounds.center;
@@ -462,9 +483,8 @@ public class NPCShipMovement : ShipMovementBase
 
             if (distToSurface < separationRadius)
             {
-                // Exponential falloff
                 float pct = Mathf.Clamp01(distToSurface / separationRadius);
-                float weight = (1f - pct) * (1f - pct); // Stronger repuslion when close
+                float weight = (1f - pct) * (1f - pct);
 
                 steer += away.normalized * weight;
                 accumulatedWeight += weight;
@@ -479,7 +499,7 @@ public class NPCShipMovement : ShipMovementBase
     Vector3 FindEscapeDirection()
     {
         float minDanger = 1.0f;
-        Vector3 escapeDir = -transform.forward; // Default to reverse
+        Vector3 escapeDir = -transform.forward;
         for (int i = 0; i < resolution; i++)
         {
             if (dangerMap[i] < minDanger)
@@ -489,6 +509,27 @@ public class NPCShipMovement : ShipMovementBase
             }
         }
         return escapeDir;
+    }
+
+    float GetMaxDangerInDirection(Vector3 direction)
+    {
+        float maxDanger = 0f;
+        direction.y = 0f;
+        direction.Normalize();
+
+        for (int i = 0; i < resolution; i++)
+        {
+            float angle = Vector3.Angle(rayDirections[i], direction);
+            if (angle < 30f)
+            {
+                if (dangerMap[i] > maxDanger)
+                {
+                    maxDanger = dangerMap[i];
+                }
+            }
+        }
+
+        return maxDanger;
     }
 
     float DistancePointToSegmentParam(Vector3 p, Vector3 a, Vector3 b)
@@ -501,7 +542,6 @@ public class NPCShipMovement : ShipMovementBase
 
     void OnCollisionStay(Collision collision)
     {
-        // Physics failsafe: if we actually hit something, push away
         int combinedMask = obstacleLayer | shipAvoidanceLayer;
 
         if (((1 << collision.gameObject.layer) & combinedMask) != 0)
@@ -522,13 +562,11 @@ public class NPCShipMovement : ShipMovementBase
     {
         if (targetingSystem == null) return;
 
-        // If "Stuck" (best path is blocked), start timer
         bool stuck = bestScore < stuckThreshold;
 
         if (stuck)
         {
             stuckTimer += Time.fixedDeltaTime;
-            // If stuck for 0.5s, tell TargetingSystem to shoot rocks (Mining behavior)
             if (stuckTimer > 0.5f && !isMining)
             {
                 isMining = true;
@@ -562,7 +600,37 @@ public class NPCShipMovement : ShipMovementBase
             currentGoal = position;
             hasGoal = true;
             currentPriority = priority;
-            if (smoothedGoal == Vector3.zero || !Application.isPlaying) smoothedGoal = currentGoal;
+
+            // FIX: Explicitly clear pathing data so we don't try to blend to an old 'nextGoal'
+            hasNextGoal = false;
+
+            // FIX: If this is urgent (High/Critical), snap immediately to prevent smoothing lag
+            // This prevents the "braking" when switching targets rapidly behind/ahead of ship
+            if (priority >= WaypointPriority.High || smoothedGoal == Vector3.zero || !Application.isPlaying)
+            {
+                smoothedGoal = currentGoal;
+                smoothedGoalVel = Vector3.zero; // Reset velocity of the smoother
+            }
+        }
+    }
+
+    public void SetWaypointPath(Vector3 waypoint1, Vector3 waypoint2, WaypointPriority priority = WaypointPriority.Low)
+    {
+        if (priority >= currentPriority)
+        {
+            currentGoal = waypoint1;
+            nextGoal = waypoint2;
+            hasGoal = true;
+            hasNextGoal = true;
+            currentPriority = priority;
+            nextPriority = priority;
+
+            // FIX: Also snap for paths if urgent
+            if (priority >= WaypointPriority.High || smoothedGoal == Vector3.zero || !Application.isPlaying)
+            {
+                smoothedGoal = currentGoal;
+                smoothedGoalVel = Vector3.zero;
+            }
         }
     }
 
@@ -571,14 +639,12 @@ public class NPCShipMovement : ShipMovementBase
         if (priority >= currentPriority)
         {
             hasGoal = false;
+            hasNextGoal = false;
             currentPriority = WaypointPriority.None;
+            nextPriority = WaypointPriority.None;
         }
     }
 
-    /// <summary>
-    /// Forces the ship to face this Transform, regardless of movement direction.
-    /// Useful for Strafing/Orbiting.
-    /// </summary>
     public void SetFocusTarget(Transform t)
     {
         focusTarget = t;
@@ -603,9 +669,12 @@ public class NPCShipMovement : ShipMovementBase
         targetBoostMultiplier = active ? Mathf.Max(1f, multiplier) : 1f;
     }
 
-    // Used by NPCBehavior to check density
+    public void SetCombatManeuverMode(bool active)
+    {
+        isInCombatManeuver = active;
+    }
+
     public int GetObstacleCount() => countedObstacles;
 
-    // Legacy support if behavior scripts call ClearFlankingTarget directly on movement
-    public void ClearFlankingTarget() { /* No longer used in Movement, handled by Behavior */ }
+    public void ClearFlankingTarget() { }
 }

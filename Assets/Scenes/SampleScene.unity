@@ -1018,6 +1018,7 @@ GameObject:
   - component: {fileID: 433032884}
   - component: {fileID: 433032880}
   - component: {fileID: 433032878}
+  - component: {fileID: 433032891}
   - component: {fileID: 433032879}
   - component: {fileID: 433032883}
   - component: {fileID: 433032885}
@@ -1048,8 +1049,8 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 13.41, y: 6.7, z: 11.53}
-  m_Center: {x: 0, y: 1.93, z: 0}
+  m_Size: {x: 102.06, y: 6.7, z: 55.2}
+  m_Center: {x: 0, y: 1.93, z: -5.5}
 --- !u!54 &433032879
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -1217,6 +1218,27 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   type: 0
+--- !u!65 &433032891
+BoxCollider:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 433032876}
+  m_Material: {fileID: 13400000, guid: 4d09a9e1fab4782478e8ff9b407d5eb8, type: 2}
+  m_IncludeLayers:
+    serializedVersion: 2
+    m_Bits: 0
+  m_ExcludeLayers:
+    serializedVersion: 2
+    m_Bits: 1024
+  m_LayerOverridePriority: 0
+  m_IsTrigger: 0
+  m_ProvidesContacts: 0
+  m_Enabled: 1
+  serializedVersion: 3
+  m_Size: {x: 16.37, y: 6.7, z: 41.1}
+  m_Center: {x: -42.06, y: 1.93, z: 42.3}
 --- !u!1 &456706038
 GameObject:
   m_ObjectHideFlags: 0
@@ -2601,6 +2623,54 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: driftDrag
+      value: 0.05
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: driftResponse
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: rotationSpeed
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: avoidanceUrgency
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: boostStrafeFactor
+      value: 0.804
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: cinematicResponse
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: aiAccelerationScale
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 4243448835989081168, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: m_Drag
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4243448835989081168, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: m_AngularDrag
+      value: 0.4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: disengageRange
+      value: 1500
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: engagementRange
+      value: 1000
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: approachBoostMultiplier
+      value: 1.5
+      objectReference: {fileID: 0}
     - target: {fileID: 8643607213770865094, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
       propertyPath: m_Name
       value: REMNANT_001
@@ -3591,6 +3661,54 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: driftDrag
+      value: 0.05
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: driftResponse
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: rotationSpeed
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: avoidanceUrgency
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: boostStrafeFactor
+      value: 0.804
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: cinematicResponse
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: aiAccelerationScale
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 4243448835989081168, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: m_Drag
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4243448835989081168, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: m_AngularDrag
+      value: 0.4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: disengageRange
+      value: 1500
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: engagementRange
+      value: 1000
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: approachBoostMultiplier
+      value: 1.5
+      objectReference: {fileID: 0}
     - target: {fileID: 8643607213770865094, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
       propertyPath: m_Name
       value: REMNANT_002
@@ -3918,6 +4036,54 @@ PrefabInstance:
     - target: {fileID: 2191035480234027807, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: driftDrag
+      value: 0.05
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: driftResponse
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: rotationSpeed
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: avoidanceUrgency
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: boostStrafeFactor
+      value: 0.804
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: cinematicResponse
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: aiAccelerationScale
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 4243448835989081168, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: m_Drag
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4243448835989081168, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: m_AngularDrag
+      value: 0.4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: disengageRange
+      value: 1500
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: engagementRange
+      value: 1000
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: approachBoostMultiplier
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: 8643607213770865094, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
       propertyPath: m_Name
@@ -10040,6 +10206,54 @@ PrefabInstance:
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
       objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: driftDrag
+      value: 0.05
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: driftResponse
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: rotationSpeed
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: avoidanceUrgency
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: boostStrafeFactor
+      value: 0.804
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: cinematicResponse
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: aiAccelerationScale
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 4243448835989081168, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: m_Drag
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4243448835989081168, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: m_AngularDrag
+      value: 0.4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: disengageRange
+      value: 1500
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: engagementRange
+      value: 1000
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: approachBoostMultiplier
+      value: 1.5
+      objectReference: {fileID: 0}
     - target: {fileID: 8643607213770865094, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
       propertyPath: m_Name
       value: REMNANT_003
@@ -10788,6 +11002,54 @@ PrefabInstance:
     - target: {fileID: 2191035480234027807, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
       propertyPath: m_LocalEulerAnglesHint.z
       value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: driftDrag
+      value: 0.05
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: driftResponse
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: rotationSpeed
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: avoidanceUrgency
+      value: 6
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: boostStrafeFactor
+      value: 0.804
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: cinematicResponse
+      value: 20
+      objectReference: {fileID: 0}
+    - target: {fileID: 2784888620038317592, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: aiAccelerationScale
+      value: 100
+      objectReference: {fileID: 0}
+    - target: {fileID: 4243448835989081168, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: m_Drag
+      value: 0.5
+      objectReference: {fileID: 0}
+    - target: {fileID: 4243448835989081168, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: m_AngularDrag
+      value: 0.4
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: disengageRange
+      value: 1500
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: engagementRange
+      value: 1000
+      objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: approachBoostMultiplier
+      value: 1.5
       objectReference: {fileID: 0}
     - target: {fileID: 8643607213770865094, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
       propertyPath: m_Name
