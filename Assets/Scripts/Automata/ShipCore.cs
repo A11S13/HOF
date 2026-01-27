@@ -177,8 +177,8 @@ public class ShipCore : MonoBehaviour
             case ShipClass.Fighter: return new HullStats(0.2f, 3.0f);
             case ShipClass.Corvette: return new HullStats(0.3f, 2.5f);
             case ShipClass.Frigate: return new HullStats(0.5f, 2.0f);
-            case ShipClass.Destroyer: return new HullStats(8.0f, 0.7f);
-            case ShipClass.Cruiser: return new HullStats(10.0f, 0.6f);
+            case ShipClass.Destroyer: return new HullStats(8.0f, 1.7f);
+            case ShipClass.Cruiser: return new HullStats(10.0f, 1.6f);
 
             // --- HEAVY CLASS DISTINCTION ---
             case ShipClass.Battlecruiser: return new HullStats(15f, 0.5f);  // Fast Capital
