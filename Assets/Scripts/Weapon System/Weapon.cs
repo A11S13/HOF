@@ -13,6 +13,18 @@ public enum WeaponFireType
 /// </summary>
 public abstract class Weapon : MonoBehaviour
 {
+
+    [Header("Long Range Sensor (Fixed Weapons)")]
+    public bool useSectorScan = false;
+    public float sectorScanRange = 800f;
+    [Tooltip("Degrees between each ray. Smaller = More Rays.")]
+    public float scanResolution = 2f;
+    public LayerMask scanLayers;
+
+    // Cache for our manual scan results
+    private List<GameObject> sectorScanResults = new List<GameObject>();
+    private float lastSectorScanTime;
+
     // Dependencies (injected)
     protected ShipCore shipCore;
     protected IShipController shipController;
@@ -23,7 +35,7 @@ public abstract class Weapon : MonoBehaviour
     public int ID;
 
     // Control mode
-    private IWeaponControlMode controlMode;
+    protected IWeaponControlMode controlMode;
     public bool isAI { get; private set; }
 
     // Configuration
@@ -317,17 +329,26 @@ public abstract class Weapon : MonoBehaviour
         Vector3 directionToTarget = targetPosition - transform.position;
         directionToTarget.y = 0f;
 
-        // Check if target is physically within the fire arc limits relative to the SHIP (parent)
-        // This prevents the gun from firing if the target is behind the ship but the gun hasn't rotated yet
+        // FIX: For checking arcs, we must use the Ship's forward, not the slot's parent
+        // If weapon is Locked (Fixed), it is relative to Ship. 
+        // If Turret, it is relative to Mount.
+        Transform referenceTransform = lockRotation ? shipCore.transform : transform.parent;
+
+        // Safety check for hierarchy
+        if (referenceTransform == null) referenceTransform = transform.parent;
+
         if (fireArc < 360f)
         {
-            Vector3 localDir = transform.parent.InverseTransformDirection(directionToTarget);
+            Vector3 localDir = referenceTransform.InverseTransformDirection(directionToTarget);
             float angle = Vector3.Angle(Vector3.forward, localDir);
             if (angle > fireArc * 0.5f) return false;
         }
 
-        Vector3 turretForward = transform.forward;
-        float angleToTarget = Vector3.Angle(turretForward, directionToTarget);
+        // For fixed weapons, "IsAimed" means "Is the ship pointing at it?"
+        // We use the weapon's own forward vector for the final precision check
+        Vector3 weaponForward = transform.forward;
+        float angleToTarget = Vector3.Angle(weaponForward, directionToTarget);
+
         return angleToTarget <= shipCore.firingThresholdAngle;
     }
 
@@ -336,14 +357,16 @@ public abstract class Weapon : MonoBehaviour
         return target != null ? target.transform.position : transform.position + transform.forward * 100f;
     }
 
-    // === TARGET MANAGEMENT (Unchanged from previous logic) ===
-
     public void PrioritizeTargets()
     {
+        // 1. Get Standard Sonar Targets (Short/Medium Range)
         ShipTargetingSystem.TargetData[] closestTargets = FindClosest();
         ShipTargetingSystem.TargetData[] angularClosestTargets = FindAngularClosest();
+
         Dictionary<GameObject, ShipTargetingSystem.TargetData> combinedDict = new Dictionary<GameObject, ShipTargetingSystem.TargetData>();
 
+        // 2. Add Standard Targets to Dictionary
+        // (If Fixed Weapon, we filter out "Behind" targets in step 4 to avoid getting stuck)
         foreach (var t in closestTargets) if (t.TargetObject) combinedDict[t.TargetObject] = t;
         foreach (var t in angularClosestTargets)
         {
@@ -353,8 +376,122 @@ public abstract class Weapon : MonoBehaviour
                     combinedDict[t.TargetObject] = t;
             }
         }
-        CombinedTargets = combinedDict.Values.ToArray();
+
+        // 3. NEW: Perform Long-Range Sector Scan (Raycast Fan)
+        if (useSectorScan)
+        {
+            PerformSectorScan();
+            foreach (var longRangeObj in sectorScanResults)
+            {
+                if (longRangeObj == null) continue;
+
+                // Calculate distance manually since it might be outside sonar range
+                float d = (longRangeObj.transform.position - transform.position).sqrMagnitude;
+
+                // Add to our candidates list (or update if found by sonar too)
+                var targetData = new ShipTargetingSystem.TargetData(longRangeObj, d);
+
+                if (!combinedDict.ContainsKey(longRangeObj))
+                {
+                    combinedDict[longRangeObj] = targetData;
+                }
+            }
+        }
+
+        // 4. Filter & Sort
+        var candidates = combinedDict.Values.ToArray();
+
+        if (lockRotation)
+        {
+            // STRICT FILTER for Fixed Weapons:
+            // Remove targets that are physically impossible to hit (outside Fire Arc)
+            // unless we are using SectorScan (which guarantees they are in arc).
+            var validFixedTargets = new List<ShipTargetingSystem.TargetData>();
+
+            foreach (var t in candidates)
+            {
+                if (t.TargetObject == null) continue;
+
+                // Check if aiming is possible
+                if (IsAimedAtTarget(t.TargetObject.transform.position))
+                {
+                    validFixedTargets.Add(t);
+                }
+                // If it was found by our Sector Scan, it's definitely in front, so keep it!
+                else if (sectorScanResults.Contains(t.TargetObject))
+                {
+                    validFixedTargets.Add(t);
+                }
+            }
+            CombinedTargets = validFixedTargets.ToArray();
+        }
+        else
+        {
+            CombinedTargets = candidates;
+        }
+
+        // Final Sort by Distance
         System.Array.Sort(CombinedTargets, (a, b) => a.UnifiedDistance.CompareTo(b.UnifiedDistance));
+    }
+
+    // --- ADD THIS NEW HELPER METHOD ---
+    private void PerformSectorScan()
+    {
+        // Throttling: Scan 10 times per second max
+        if (Time.time < lastSectorScanTime + 0.1f) return;
+        lastSectorScanTime = Time.time;
+
+        sectorScanResults.Clear();
+
+        // 1. Calculate how many rays we need
+        // If arc is 10 degrees and res is 2, we need 5 rays.
+        // We ensure at least 1 ray (center)
+        float activeArc = fireArc > 0 ? fireArc : 1f;
+        int rayCount = Mathf.Max(1, Mathf.CeilToInt(activeArc / scanResolution));
+
+        // Clamp to prevent performance explosion on 360 turrets accidentally left on
+        if (rayCount > 20) rayCount = 20;
+
+        // 2. Calculate Angle Step
+        float angleStep = activeArc / rayCount;
+        float startAngle = -activeArc * 0.5f + (angleStep * 0.5f); // Center the rays
+
+        // 3. Scan Loop
+        Vector3 origin = weaponSpawnPoint != null ? weaponSpawnPoint.position : transform.position;
+        Vector3 forward = weaponSpawnPoint != null ? weaponSpawnPoint.forward : transform.forward;
+
+        // Use root to ignore self
+        Transform root = transform.root;
+
+        for (int i = 0; i < rayCount; i++)
+        {
+            float currentAngle = startAngle + (angleStep * i);
+            Quaternion rot = Quaternion.Euler(0, currentAngle, 0);
+
+            // Convert local rotation to world direction
+            Vector3 rayDir = (weaponSpawnPoint != null ? weaponSpawnPoint.rotation : transform.rotation) * rot * Vector3.forward;
+
+            RaycastHit hit;
+            if (Physics.Raycast(origin, rayDir, out hit, sectorScanRange, scanLayers))
+            {
+                if (hit.transform.root != root) // Don't hit self
+                {
+                    // Check if it's a valid target (has Health/Damageable)
+                    if (hit.collider.GetComponentInParent<Damageable>() != null ||
+                        hit.collider.GetComponentInParent<Health>() != null)
+                    {
+                        GameObject targetRoot = hit.collider.transform.root.gameObject;
+                        if (!sectorScanResults.Contains(targetRoot))
+                        {
+                            sectorScanResults.Add(targetRoot);
+                        }
+                    }
+                }
+            }
+
+            // DEBUG: Visualize Rays in Scene View
+            // Debug.DrawRay(origin, rayDir * sectorScanRange, Color.red, 0.1f);
+        }
     }
 
     public GameObject FindBestAvailableTarget()

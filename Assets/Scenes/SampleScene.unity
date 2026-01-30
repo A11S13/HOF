@@ -4548,10 +4548,16 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 85e6c7547b9666240907da0779358f7e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  useSectorScan: 1
+  sectorScanRange: 1500
+  scanResolution: 10
+  scanLayers:
+    serializedVersion: 2
+    m_Bits: 10752
   ID: 0
   fireType: 1
   lockRotation: 1
-  fireArc: 360
+  fireArc: 40
   localRotationDeadZone: 0.1
   rotationSpeed: 5
   prevTarget: {fileID: 0}
@@ -4565,9 +4571,8 @@ MonoBehaviour:
   maxBeamRange: 800
   invertFireDirection: 0
   beamCollisionWidth: 1
-  beamCollisionHeight: 30
+  beamCollisionHeight: 100
   beamCollisionDepth: 1
-  fireLingerDuration: 0.5
   gimbalAngle: 40
   targetMask:
     serializedVersion: 2
@@ -4579,12 +4584,7 @@ MonoBehaviour:
   pulseSpeed: 5
   beamFadeOutDuration: 0.3
   muzzleFlashPrefab: {fileID: 7914907684440847915, guid: c7ff0233ace291343823a31c84d3db6e, type: 3}
-  muzzleFlashLifetime: 0.1
-  muzzleFlashOffset: {x: 0, y: 1.5, z: 2}
-  muzzleFlashRotation: {x: 0, y: 0, z: 0}
   impactEffectPrefab: {fileID: 321563862196570099, guid: 5ffebd4f881dc274c8b9eebcf4da2a05, type: 3}
-  impactSpawnInterval: 0.1
-  impactLifetime: 2
   beamCorePrefab: {fileID: 2565327965863846021, guid: 0c24fd47edf17224bb6e4672de0a4ef6, type: 3}
 --- !u!1 &1423364535
 GameObject:
@@ -11088,6 +11088,22 @@ PrefabInstance:
     serializedVersion: 3
     m_TransformParent: {fileID: 949660083}
     m_Modifications:
+    - target: {fileID: 1611468977438234836, guid: 4ca60c6ed20a3154c9e465349bcc79f8, type: 3}
+      propertyPath: useSectorScan
+      value: 0
+      objectReference: {fileID: 0}
+    - target: {fileID: 1611468977438234836, guid: 4ca60c6ed20a3154c9e465349bcc79f8, type: 3}
+      propertyPath: scanResolution
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 1611468977438234836, guid: 4ca60c6ed20a3154c9e465349bcc79f8, type: 3}
+      propertyPath: sectorScanRange
+      value: 1500
+      objectReference: {fileID: 0}
+    - target: {fileID: 1611468977438234836, guid: 4ca60c6ed20a3154c9e465349bcc79f8, type: 3}
+      propertyPath: beamCollisionHeight
+      value: 150
+      objectReference: {fileID: 0}
     - target: {fileID: 3915459389944485213, guid: 4ca60c6ed20a3154c9e465349bcc79f8, type: 3}
       propertyPath: m_Name
       value: BeamTurret
@@ -11211,6 +11227,10 @@ PrefabInstance:
       value: 
       objectReference: {fileID: 1036255580}
     - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
+      propertyPath: fireArc
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
       propertyPath: gimbalAngle
       value: 1
       objectReference: {fileID: 0}
@@ -11219,8 +11239,24 @@ PrefabInstance:
       value: 800
       objectReference: {fileID: 0}
     - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
+      propertyPath: useSectorScan
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
+      propertyPath: scanResolution
+      value: 10
+      objectReference: {fileID: 0}
+    - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
       propertyPath: damagePerSecond
       value: 300
+      objectReference: {fileID: 0}
+    - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
+      propertyPath: sectorScanRange
+      value: 1500
+      objectReference: {fileID: 0}
+    - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
+      propertyPath: scanLayers.m_Bits
+      value: 10752
       objectReference: {fileID: 0}
     - target: {fileID: 6164424328672221053, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
       propertyPath: m_Name
