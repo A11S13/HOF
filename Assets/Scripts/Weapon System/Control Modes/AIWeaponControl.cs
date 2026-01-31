@@ -2,6 +2,7 @@ using UnityEngine;
 
 /// <summary>
 /// AI weapon control mode - fully autonomous targeting
+/// UPDATED: Added "Drill Mode" bypass for Fixed Weapons with Sector Scan
 /// </summary>
 public class AIWeaponControl : IWeaponControlMode
 {
@@ -16,6 +17,10 @@ public class AIWeaponControl : IWeaponControlMode
 
     const float VelSampleDt = 0.05f;
 
+    // Tracking statistics
+    private int targetSwitchCount = 0;
+    private float lastTargetSwitchTime = 0f;
+
     public AIWeaponControl(float reactionDelay)
     {
         this.reactionDelay = reactionDelay;
@@ -25,7 +30,37 @@ public class AIWeaponControl : IWeaponControlMode
 
     public float UpdateControl(Weapon weapon)
     {
-        // Validate current target
+        // ----------------------------------------------------------------------
+        // 1. "DRILL MODE" BYPASS (The Fix)
+        // If this is a Fixed Weapon using Sector Scan, and we see SOMETHING:
+        // Ignore all AI logic. Just shoot the closest thing in the list.
+        // ----------------------------------------------------------------------
+        if (weapon.lockRotation && weapon.useSectorScan && weapon.sectorScanResults.Count > 0)
+        {
+            // Pick the first object (Weapon.cs sorts them by distance, so [0] is closest)
+            GameObject scanTarget = weapon.sectorScanResults[0];
+
+            if (scanTarget != null)
+            {
+                // Force-set this as the target so BeamWeapon knows where to gimbal (if enabled)
+                if (currentTarget != scanTarget)
+                {
+                    if (currentTarget != null) weapon.RemoveTargetAssignment(currentTarget);
+                    currentTarget = scanTarget;
+                    weapon.AddTargetAssignment(currentTarget);
+                }
+
+                // Force Update Rotation (resets to forward for fixed weapons)
+                weapon.RotateTowardsTarget(scanTarget.transform.position);
+
+                // Return MAX FIRE COMMAND immediately. 
+                // No checks, no angles, no delays. Just Fire.
+                return 1.0f;
+            }
+        }
+        // ----------------------------------------------------------------------
+
+        // 2. Standard Validation - Check if current target is still valid
         if (currentTarget != null)
         {
             var t = currentTarget.GetComponent<Targetable>();
@@ -37,14 +72,18 @@ public class AIWeaponControl : IWeaponControlMode
             }
         }
 
-        // Pick new target if needed
+        // 3. Target Selection (Standard Sonar Logic)
         if (Time.time >= targetLostUntil)
+        {
             PickTarget(weapon);
+        }
 
         if (currentTarget == null)
-            return -1f; // No target, don't fire
+        {
+            return -1f;
+        }
 
-        // Update target velocity
+        // 4. Velocity Calculation
         velSampleTimer -= Time.deltaTime;
         if (velSampleTimer <= 0f)
         {
@@ -54,17 +93,18 @@ public class AIWeaponControl : IWeaponControlMode
             velSampleTimer = VelSampleDt;
         }
 
-        // Rotate towards target
+        // 5. Physical Rotation
         var aimPos = GetAimPosition(weapon);
         weapon.RotateTowardsTarget(aimPos);
 
-        // Check if aimed at target
-        if (weapon.IsAimedAtTarget(aimPos))
+        // 6. Fire Authorization (Standard)
+        if (weapon.IsAimedAtTarget(currentTarget))
         {
-            return 1f - weapon.angularDistance / weapon.ShipCore.firingThresholdAngle;
+            float quality = 1f - weapon.angularDistance / weapon.ShipCore.firingThresholdAngle;
+            return Mathf.Clamp01(quality + 0.1f);
         }
 
-        return -1f; // Not aimed yet
+        return -1f;
     }
 
     public Vector3 GetAimPosition(Weapon weapon)
@@ -77,42 +117,52 @@ public class AIWeaponControl : IWeaponControlMode
 
     private void PickTarget(Weapon weapon)
     {
+        // Standard Sonar Search
         weapon.PrioritizeTargets();
 
-        if (weapon.CombinedTargets.Length == 0)
+        if (weapon.CombinedTargets == null || weapon.CombinedTargets.Length == 0)
         {
-            currentTarget = null;
+            if (currentTarget != null)
+            {
+                weapon.RemoveTargetAssignment(currentTarget);
+                currentTarget = null;
+            }
             return;
         }
 
         GameObject best = weapon.FindBestAvailableTarget();
+
         if (best == null)
         {
+            // Fallback
+            if (currentTarget != null) weapon.RemoveTargetAssignment(currentTarget);
             currentTarget = weapon.CombinedTargets[0].TargetObject;
             weapon.AddTargetAssignment(currentTarget);
+            lastTargetPos = currentTarget.transform.position;
+            targetVel = Vector3.zero;
             return;
         }
 
-        float jitter = 0.15f;
-        float now = Time.time + Random.Range(-jitter, jitter);
-
+        // Switch Logic
         bool urgent = currentTarget != null &&
             (best.transform.position - weapon.transform.position).sqrMagnitude <
             (currentTarget.transform.position - weapon.transform.position).sqrMagnitude * 0.5f;
 
-        if (best != currentTarget && (urgent || (weapon.ShouldSwitch(currentTarget, best) && now >= nextReactionTime)))
+        if (best != currentTarget && (urgent || (weapon.ShouldSwitch(currentTarget, best) && Time.time >= nextReactionTime)))
         {
-            if (currentTarget != null)
-                weapon.RemoveTargetAssignment(currentTarget);
-
+            if (currentTarget != null) weapon.RemoveTargetAssignment(currentTarget);
             currentTarget = best;
-            weapon.fireAccumulator += Random.Range(0f, 0.3f);
-
+            weapon.AddTargetAssignment(currentTarget);
             lastTargetPos = currentTarget.transform.position;
             targetVel = Vector3.zero;
+            nextReactionTime = Time.time + reactionDelay;
+        }
+        else if (currentTarget == null)
+        {
+            currentTarget = best;
             weapon.AddTargetAssignment(currentTarget);
-
-            nextReactionTime = now + reactionDelay;
+            lastTargetPos = currentTarget.transform.position;
+            targetVel = Vector3.zero;
         }
     }
 

@@ -852,6 +852,30 @@ PrefabInstance:
     m_AddedGameObjects: []
     m_AddedComponents: []
   m_SourcePrefab: {fileID: 100100000, guid: 56fae09712773584fb63896d473a98ee, type: 3}
+--- !u!1 &411307332 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8643607213770865094, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+  m_PrefabInstance: {fileID: 615656307}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &411307344
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 411307332}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b0c0551124292042b6b1d48144c66b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  unitTech: 
+  unitType: 
+  unitClass: 
+  unitRole: 
+  unitName: 
+  explosionPrefab: {fileID: 0}
+  explosionSoundHolderPrefab: {fileID: 0}
 --- !u!1 &417977923
 GameObject:
   m_ObjectHideFlags: 0
@@ -1011,6 +1035,7 @@ GameObject:
   serializedVersion: 6
   m_Component:
   - component: {fileID: 433032881}
+  - component: {fileID: 433032892}
   - component: {fileID: 433032887}
   - component: {fileID: 433032890}
   - component: {fileID: 433032889}
@@ -1205,6 +1230,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cd399738cf46d5a419db64a2a8df5fb6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  canDetachDebris: 1
+  damageThresholdForDebris: 20
 --- !u!114 &433032890
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -1239,6 +1266,25 @@ BoxCollider:
   serializedVersion: 3
   m_Size: {x: 16.37, y: 6.7, z: 41.1}
   m_Center: {x: -42.06, y: 1.93, z: 42.3}
+--- !u!114 &433032892
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 433032876}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b0c0551124292042b6b1d48144c66b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  unitTech: 
+  unitType: 
+  unitClass: 
+  unitRole: 
+  unitName: 
+  explosionPrefab: {fileID: 0}
+  explosionSoundHolderPrefab: {fileID: 0}
 --- !u!1 &456706038
 GameObject:
   m_ObjectHideFlags: 0
@@ -1994,6 +2040,10 @@ PrefabInstance:
       propertyPath: shipClass
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: capitalStyle
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6689566694522199857, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
       propertyPath: m_Mesh
       value: 
@@ -2006,10 +2056,17 @@ PrefabInstance:
       propertyPath: m_Name
       value: REMNANT_005
       objectReference: {fileID: 0}
+    - target: {fileID: 8851074323013474272, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: max
+      value: 10000
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 8643607213770865094, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      insertIndex: 1
+      addedObject: {fileID: 411307344}
   m_SourcePrefab: {fileID: 100100000, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
 --- !u!1 &624775581
 GameObject:
@@ -2500,6 +2557,30 @@ MonoBehaviour:
   shootingActivityWindow: 2
   showDebugInfo: 0
   debugLogInterval: 0.5
+--- !u!1 &798136167 stripped
+GameObject:
+  m_CorrespondingSourceObject: {fileID: 8643607213770865094, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+  m_PrefabInstance: {fileID: 2077729060}
+  m_PrefabAsset: {fileID: 0}
+--- !u!114 &798136179
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 798136167}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 6b0c0551124292042b6b1d48144c66b7, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: 
+  unitTech: 
+  unitType: 
+  unitClass: 
+  unitRole: 
+  unitName: 
+  explosionPrefab: {fileID: 0}
+  explosionSoundHolderPrefab: {fileID: 0}
 --- !u!1 &884419063
 GameObject:
   m_ObjectHideFlags: 0
@@ -4548,18 +4629,22 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 85e6c7547b9666240907da0779358f7e, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  useSectorScan: 1
-  sectorScanRange: 1500
-  scanResolution: 10
-  scanLayers:
-    serializedVersion: 2
-    m_Bits: 10752
   ID: 0
   fireType: 1
   lockRotation: 1
   fireArc: 40
   localRotationDeadZone: 0.1
   rotationSpeed: 5
+  useSectorScan: 1
+  sectorScanRange: 1500
+  minScanArc: 6
+  scanResolution: 10
+  scanThickness: 2
+  scanLayers:
+    serializedVersion: 2
+    m_Bits: 10752
+  drawDebugRays: 0
+  sectorScanResults: []
   prevTarget: {fileID: 0}
   initialFireRate: 0
   fireRate: 0
@@ -4577,6 +4662,7 @@ MonoBehaviour:
   targetMask:
     serializedVersion: 2
     m_Bits: 10752
+  disableGimbalWhenLocked: 1
   beamWidth: 2
   beamColor: {r: 0, g: 1, b: 1, a: 1}
   beamMaterial: {fileID: 2100000, guid: 7bef789abd333f3418011a934f9cc11f, type: 2}
@@ -4586,6 +4672,8 @@ MonoBehaviour:
   muzzleFlashPrefab: {fileID: 7914907684440847915, guid: c7ff0233ace291343823a31c84d3db6e, type: 3}
   impactEffectPrefab: {fileID: 321563862196570099, guid: 5ffebd4f881dc274c8b9eebcf4da2a05, type: 3}
   beamCorePrefab: {fileID: 2565327965863846021, guid: 0c24fd47edf17224bb6e4672de0a4ef6, type: 3}
+  impactSpawnInterval: 0.1
+  impactLifetime: 2
 --- !u!1 &1423364535
 GameObject:
   m_ObjectHideFlags: 0
@@ -10740,6 +10828,10 @@ PrefabInstance:
       propertyPath: shipClass
       value: 1
       objectReference: {fileID: 0}
+    - target: {fileID: 6514371984768754332, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: capitalStyle
+      value: 1
+      objectReference: {fileID: 0}
     - target: {fileID: 6689566694522199857, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
       propertyPath: m_Mesh
       value: 
@@ -10752,10 +10844,17 @@ PrefabInstance:
       propertyPath: m_Name
       value: REMNANT_004
       objectReference: {fileID: 0}
+    - target: {fileID: 8851074323013474272, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      propertyPath: max
+      value: 10000
+      objectReference: {fileID: 0}
     m_RemovedComponents: []
     m_RemovedGameObjects: []
     m_AddedGameObjects: []
-    m_AddedComponents: []
+    m_AddedComponents:
+    - targetCorrespondingSourceObject: {fileID: 8643607213770865094, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
+      insertIndex: 1
+      addedObject: {fileID: 798136179}
   m_SourcePrefab: {fileID: 100100000, guid: e3ec2de1aaf9f8b42bb983b105833389, type: 3}
 --- !u!1 &2094032403
 GameObject:
@@ -11089,6 +11188,10 @@ PrefabInstance:
     m_TransformParent: {fileID: 949660083}
     m_Modifications:
     - target: {fileID: 1611468977438234836, guid: 4ca60c6ed20a3154c9e465349bcc79f8, type: 3}
+      propertyPath: rotationSpeed
+      value: 8
+      objectReference: {fileID: 0}
+    - target: {fileID: 1611468977438234836, guid: 4ca60c6ed20a3154c9e465349bcc79f8, type: 3}
       propertyPath: useSectorScan
       value: 0
       objectReference: {fileID: 0}
@@ -11228,7 +11331,7 @@ PrefabInstance:
       objectReference: {fileID: 1036255580}
     - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
       propertyPath: fireArc
-      value: 10
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
       propertyPath: gimbalAngle
@@ -11236,7 +11339,15 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
       propertyPath: maxBeamRange
-      value: 800
+      value: 1500
+      objectReference: {fileID: 0}
+    - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
+      propertyPath: drawDebugRays
+      value: 1
+      objectReference: {fileID: 0}
+    - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
+      propertyPath: scanThickness
+      value: 5
       objectReference: {fileID: 0}
     - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
       propertyPath: useSectorScan
@@ -11244,7 +11355,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
       propertyPath: scanResolution
-      value: 10
+      value: 0.57
       objectReference: {fileID: 0}
     - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
       propertyPath: damagePerSecond
@@ -11257,6 +11368,10 @@ PrefabInstance:
     - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
       propertyPath: scanLayers.m_Bits
       value: 10752
+      objectReference: {fileID: 0}
+    - target: {fileID: 3964973535989494942, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
+      propertyPath: enableDebugLogging
+      value: 1
       objectReference: {fileID: 0}
     - target: {fileID: 6164424328672221053, guid: f88e09ef1651bce449e9535c51f6e24b, type: 3}
       propertyPath: m_Name

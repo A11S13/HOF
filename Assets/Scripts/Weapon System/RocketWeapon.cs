@@ -46,10 +46,4 @@ public class RocketWeapon : Weapon
 
         Destroy(rocket, 5f);
     }
-
-    protected override float ModifyTargetScore(GameObject target, float baseScore)
-    {
-        // Rockets are better at longer ranges
-        return baseScore * 1.2f;
-    }
 }

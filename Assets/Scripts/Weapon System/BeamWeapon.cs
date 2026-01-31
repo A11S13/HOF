@@ -1,6 +1,10 @@
 ﻿using UnityEngine;
 using System.Collections;
 
+/// <summary>
+/// BeamWeapon - Continuous fire weapon
+/// FIXED: Improved gimbal control for fixed weapons
+/// </summary>
 public class BeamWeapon : Weapon
 {
     [Header("Beam Stats")]
@@ -17,6 +21,8 @@ public class BeamWeapon : Weapon
     [Range(0f, 180f)]
     public float gimbalAngle = 30f;
     public LayerMask targetMask;
+    [Tooltip("Disable gimbal when weapon is locked (fixed mount). Recommended for fixed weapons.")]
+    public bool disableGimbalWhenLocked = true;
 
     [Header("Beam Visuals")]
     public float beamWidth = 0.5f;
@@ -108,36 +114,45 @@ public class BeamWeapon : Weapon
         UpdateBeamVisuals();
         ShowMuzzleFlash();
 
-        // --- NEW AIMING LOGIC ---
+        // --- FIXED AIMING LOGIC ---
         Vector3 startPos = weaponSpawnPoint.position;
         Vector3 mountForward = weaponSpawnPoint.forward;
         if (invertFireDirection) mountForward = -mountForward;
 
         Vector3 finalDirection = mountForward;
 
-        // If we have a target from Weapon.cs logic, try to gimbal towards it
-        // (Weapon.cs handles the main "LockRotation" logic, we just handle the fine-tuning)
-        GameObject currentTarget = (controlMode as AIWeaponControl)?.GetCurrentTarget();
-
-        if (currentTarget != null)
+        // FIX: Disable gimbal for locked weapons (they rely on ship rotation)
+        if (lockRotation && disableGimbalWhenLocked)
         {
-            Vector3 dirToTarget = (currentTarget.transform.position - startPos).normalized;
-
-            // Check if target is within gimbal limits
-            if (Vector3.Angle(mountForward, dirToTarget) <= gimbalAngle)
-            {
-                // Allowed to aim at target
-                finalDirection = dirToTarget;
-            }
-            else
-            {
-                // Clamp to max gimbal angle
-                finalDirection = Vector3.RotateTowards(mountForward, dirToTarget, gimbalAngle * Mathf.Deg2Rad, 0.0f);
-            }
-        }
-        else if (!isAI && prevTarget != null) // Player Manual Case
-        {
+            // Fixed weapons should fire straight ahead, no gimbal adjustment
             finalDirection = mountForward;
+        }
+        else
+        {
+            // Original gimbal logic for turrets
+            // If we have a target from Weapon.cs logic, try to gimbal towards it
+            GameObject currentTarget = (controlMode as AIWeaponControl)?.GetCurrentTarget();
+
+            if (currentTarget != null)
+            {
+                Vector3 dirToTarget = (currentTarget.transform.position - startPos).normalized;
+
+                // Check if target is within gimbal limits
+                if (Vector3.Angle(mountForward, dirToTarget) <= gimbalAngle)
+                {
+                    // Allowed to aim at target
+                    finalDirection = dirToTarget;
+                }
+                else
+                {
+                    // Clamp to max gimbal angle
+                    finalDirection = Vector3.RotateTowards(mountForward, dirToTarget, gimbalAngle * Mathf.Deg2Rad, 0.0f);
+                }
+            }
+            else if (!isAI && prevTarget != null) // Player Manual Case
+            {
+                finalDirection = mountForward;
+            }
         }
 
         // Perform the Hit Scan
