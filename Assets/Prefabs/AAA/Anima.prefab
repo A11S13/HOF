@@ -51,7 +51,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 4294f1503e20a3945a05b13d8ff24bb6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  morph: 0.712
+  morph: 0.49076492
   smr: {fileID: 1049363083144471386}
   rend: {fileID: 1049363083144471386}
 --- !u!114 &6227466999834427482
@@ -95,7 +95,7 @@ BoxCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 3
-  m_Size: {x: 4.21, y: 24, z: 5.9}
+  m_Size: {x: 4.21, y: 100, z: 5.9}
   m_Center: {x: 0, y: 0, z: -1.1}
 --- !u!114 &7870911165269610093
 MonoBehaviour:
@@ -122,6 +122,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cd399738cf46d5a419db64a2a8df5fb6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  canDetachDebris: 1
+  damageThresholdForDebris: 20
 --- !u!114 &5458238281897021360
 MonoBehaviour:
   m_ObjectHideFlags: 0
@@ -243,7 +245,7 @@ PrefabInstance:
       objectReference: {fileID: 2100000, guid: e40e3f05b78ba064481251ea68ee4a06, type: 2}
     - target: {fileID: -3887185075125053422, guid: 233271fc3b1e40d43ae5094f03784bf4, type: 3}
       propertyPath: 'm_BlendShapeWeights.Array.data[0]'
-      value: 71.200005
+      value: 49.076492
       objectReference: {fileID: 0}
     - target: {fileID: 919132149155446097, guid: 233271fc3b1e40d43ae5094f03784bf4, type: 3}
       propertyPath: m_Name

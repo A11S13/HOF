@@ -204,8 +204,8 @@ public abstract class Weapon : MonoBehaviour
         Vector3 castOrigin = origin + (transform.forward * 0.5f);
         Transform myRoot = transform.root;
 
-        // A. Proximity (Touch)
-        int proxCount = Physics.OverlapSphereNonAlloc(origin, scanThickness, proximityBuffer, scanLayers);
+        // A. Proximity (Touch) - ALSO CHANGED TO 'Collide'
+        int proxCount = Physics.OverlapSphereNonAlloc(origin, scanThickness, proximityBuffer, scanLayers, QueryTriggerInteraction.Collide);
         for (int k = 0; k < proxCount; k++)
         {
             Collider col = proximityBuffer[k];
@@ -218,43 +218,75 @@ public abstract class Weapon : MonoBehaviour
         {
             float currentAngle = startAngle + (angleStep * i);
             Quaternion rot = Quaternion.Euler(0, currentAngle, 0);
-            Vector3 rayDir = (weaponSpawnPoint != null ? weaponSpawnPoint.rotation : transform.rotation) * rot * Vector3.forward;
 
-            RaycastHit[] hits = Physics.SphereCastAll(castOrigin, scanThickness, rayDir, sectorScanRange, scanLayers, QueryTriggerInteraction.Ignore);
+            Quaternion baseRot = weaponSpawnPoint != null ? weaponSpawnPoint.rotation : transform.rotation;
+            Vector3 rayDir = baseRot * rot * Vector3.forward;
 
-            // Sort by distance to find closest VALID target
+            // --- THE CRITICAL FIX ---
+            // Changed QueryTriggerInteraction.Ignore -> QueryTriggerInteraction.Collide
+            RaycastHit[] hits = Physics.SphereCastAll(
+                castOrigin,
+                scanThickness,
+                rayDir,
+                sectorScanRange,
+                scanLayers,
+                QueryTriggerInteraction.Collide // <--- THIS WAS THE CULPRIT
+            );
+
             System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
 
             foreach (var hit in hits)
             {
                 if (hit.transform.root == myRoot) continue;
+
+                // This will now find the Anima because we are finally detecting its Trigger Collider
                 bool isValid = AddValidTarget(hit.collider);
-                if (isValid || hit.collider != null) break;
+
+                // Continue strictly through invalid objects, stop only on a VALID target
+                if (isValid)
+                {
+                    break;
+                }
             }
         }
     }
 
     private bool AddValidTarget(Collider col)
     {
+        // 1. Get the most relevant object that can be targeted
+        // Search upwards from the hit collider to find a Targetable component
+        Targetable targetable = col.GetComponentInParent<Targetable>();
         GameObject foundTarget = null;
-        var targetable = col.GetComponentInParent<Targetable>();
-        if (targetable != null) foundTarget = targetable.gameObject;
-        else if (col.GetComponentInParent<Asteroid>() != null) foundTarget = col.GetComponentInParent<Asteroid>().gameObject;
-        else
+
+        // 2. Respect Targeting Config (Our previous fix)
+        if (targetProvider is ShipTargetingSystem sonar && sonar.targetingConfig != null)
         {
-            var health = col.GetComponentInParent<Health>();
-            if (health != null) foundTarget = health.gameObject;
-            else
-            {
-                var dmg = col.GetComponentInParent<Damageable>();
-                if (dmg != null) foundTarget = dmg.gameObject;
-            }
+            if (targetable != null && !sonar.targetingConfig.Allows(targetable))
+                return false;
         }
 
+        // 3. Identification Logic
+        if (targetable != null)
+        {
+            foundTarget = targetable.gameObject;
+        }
+        else
+        {
+            // Fallback for asteroids or basic health objects without Targetable
+            var health = col.GetComponentInParent<Health>();
+            if (health != null) foundTarget = health.gameObject;
+        }
+
+        // 4. Final Verification
         if (foundTarget != null)
         {
+            // Ensure we aren't targeting our own ship's hierarchy
+            if (foundTarget.transform.root == transform.root)
+                return false;
+
             if (!sectorScanResults.Contains(foundTarget))
                 sectorScanResults.Add(foundTarget);
+
             return true;
         }
         return false;
@@ -309,7 +341,33 @@ public abstract class Weapon : MonoBehaviour
         Vector3 dir = pos - transform.position; dir.y = 0;
         return Vector3.Angle(transform.forward, dir) <= shipCore.firingThresholdAngle;
     }
-    public void RotateTowardsTarget(Vector3 pos) { if (lockRotation) transform.localRotation = Quaternion.identity; }
+    public void RotateTowardsTarget(Vector3 pos)
+    {
+        // 1. Fixed Weapon Mode: Always reset to center
+        if (lockRotation)
+        {
+            transform.localRotation = Quaternion.identity;
+            return;
+        }
+
+        // 2. Rotating Turret Mode
+        if (pos == Vector3.zero) return;
+
+        // Calculate the direction to the target
+        Vector3 direction = pos - transform.position;
+        direction.y = 0; // Lock rotation to the flat plane (prevents tilting up/down)
+
+        if (direction.sqrMagnitude < 0.001f) return;
+
+        // Determine the desired rotation
+        Quaternion targetRotation = Quaternion.LookRotation(direction);
+
+        // Apply the rotation smoothly
+        // NOTE: We multiply rotationSpeed by 20 so your Inspector value of "8" feels responsive (160 deg/sec).
+        // You can adjust this multiplier if it spins too fast/slow.
+        float step = rotationSpeed * 20f * Time.deltaTime;
+        transform.rotation = Quaternion.RotateTowards(transform.rotation, targetRotation, step);
+    }
     public virtual Vector3 CalculateAimPosition(GameObject t, Vector3 v) => t ? t.transform.position : Vector3.zero;
 
     // --- FIRE ---
