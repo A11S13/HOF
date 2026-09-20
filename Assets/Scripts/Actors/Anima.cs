@@ -97,7 +97,7 @@ public class Anima : MonoBehaviour
         bool wasFriendly = isFriendly;
 
         EventBus.Instance.Publish(
-            new AnimaKilledEvent(transform.position, wasFriendly)
+            new AnimaKilledEvent(transform.position, wasFriendly, gameObject.name)
         );
 
         Vector2Int currentObjectQuadrant = GetCurrentQuadrant();

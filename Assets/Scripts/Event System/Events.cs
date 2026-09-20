@@ -41,11 +41,13 @@ public struct AnimaKilledEvent : IGlobalEvent
 {
     public Vector3 Position;
     public bool WasFriendly;
+    public string ObjectName;
 
-    public AnimaKilledEvent(Vector3 pos, bool wasFriendly)
+    public AnimaKilledEvent(Vector3 pos, bool wasFriendly, string objectName = "")
     {
         Position = pos;
         WasFriendly = wasFriendly;
+        ObjectName = objectName;
     }
 }
 

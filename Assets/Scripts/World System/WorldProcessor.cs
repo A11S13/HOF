@@ -126,16 +126,16 @@ public class WorldProcessor : MonoBehaviour
         }
     }
 
-    /*void OnDrawGizmos()
+    void OnDrawGizmos()
     {
-        if (!Application.isPlaying || _stateManager == null) return;
+        if (!Application.isPlaying || _stateManager == null || _stateManager.Player == null) return;
 
-        // Draw Area of Interest circle
-        Gizmos.color = new Color(1, 1, 0, 0.2f); // Semi-transparent yellow
+        // Draw Area of Interest circle (AOI radius yellow wireframe)
+        Gizmos.color = new Color(1f, 1f, 0f, 0.6f);
         Vector3 playerPos = _stateManager.Player.transform.position;
         Gizmos.DrawWireSphere(new Vector3(playerPos.x, 0, playerPos.z), areaOfInterestRadius);
 
-        // Draw active quadrants
+        // Draw active loaded quadrants wireframes (cyan)
         Gizmos.color = Color.cyan;
         foreach (var q in _currentActiveQuadrants)
         {
@@ -146,12 +146,12 @@ public class WorldProcessor : MonoBehaviour
             );
 
             // Adjust center position to account for the cluster offset
-            center.x += -_stateManager.clusterBounds.x / 2;
-            center.z += -_stateManager.clusterBounds.y / 2;
+            center.x += -_stateManager.clusterBounds.x / 2f;
+            center.z += -_stateManager.clusterBounds.y / 2f;
 
-            Gizmos.DrawWireCube(center, new Vector3(_stateManager.quadrantSize, 1, _stateManager.quadrantSize));
+            Gizmos.DrawWireCube(center, new Vector3(_stateManager.quadrantSize, 2f, _stateManager.quadrantSize));
         }
-    }*/
+    }
 
     private Vector3 GetQuadrantCenter(Vector2Int quadrantPos)
     {
