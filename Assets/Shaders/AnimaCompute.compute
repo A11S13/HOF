@@ -1,0 +1,164 @@
+#pragma kernel CSMain
+
+struct AnimaData
+{
+    float3 position;
+    float3 forward;
+    float speedMultiplier;
+    uint isFriendly;
+};
+
+RWStructuredBuffer<AnimaData> animasBuffer;
+StructuredBuffer<float4> obstaclesBuffer; // xyz = position, w = radius
+
+uint animaCount;
+uint obstacleCount;
+float deltaTime;
+float fRadius;
+float cRadius;
+float baseMinSpeed;
+float baseMaxSpeed;
+float maxRotationSpeed;
+float3 playerPosition;
+float wPlayer, wCrowd, wAlign, wCohesion, wNoise;
+uint swarm, tPlayer, align, cohesion, crowd, noise;
+uint seed;
+
+uint hash(uint n)
+{
+    n ^= (n << 13);
+    n ^= (n >> 17);
+    n ^= (n << 5);
+    return n * 127117;
+}
+
+float random(inout uint state)
+{
+    state = hash(state);
+    return float(state) / 4294967296.0;
+}
+
+[numthreads(64, 1, 1)]
+void CSMain(uint3 id : SV_DispatchThreadID)
+{
+    uint idx = id.x;
+    if (idx >= animaCount)
+        return;
+
+    AnimaData anima = animasBuffer[idx];
+    
+    // Lock initial position and forward to XZ plane
+    float3 pos = anima.position;
+    pos.y = 0.0f;
+    
+    float3 forward = anima.forward;
+    forward.y = 0.0f;
+    forward = length(forward) > 0.001f ? normalize(forward) : float3(0, 0, 1);
+    
+    float3 desired = forward;
+
+    uint rngState = seed + idx * 197;
+
+    float minSpeed = baseMinSpeed * anima.speedMultiplier;
+    float maxSpeed = baseMaxSpeed * anima.speedMultiplier;
+
+    // 1. Obstacle Avoidance (XZ plane only)
+    float obsInf = 0;
+    float3 obsSum = 0;
+    for (uint j = 0; j < obstacleCount; j++)
+    {
+        float3 toObs = obstaclesBuffer[j].xyz - pos;
+        toObs.y = 0.0f; // Flatten obstacle vector
+        float d = length(toObs);
+        float rO = obstaclesBuffer[j].w;
+        float scanRadius = 10.0f;
+
+        if (d < scanRadius + rO)
+        {
+            float w = ((scanRadius + rO) - d) / (scanRadius + rO);
+            obsSum -= normalize(toObs) * w;
+            obsInf += w;
+        }
+    }
+    if (obsInf > 0)
+    {
+        desired = lerp(desired, normalize(obsSum), 2.0f * deltaTime);
+    }
+
+    // 2. Flocking (Swarm Behavior on XZ plane)
+    float3 alignSum = 0;
+    float3 cohSum = 0;
+    float3 sepSum = 0;
+    uint alignCount = 0;
+    uint cohCount = 0;
+
+    if (swarm != 0)
+    {
+        for (uint i = 0; i < animaCount; i++)
+        {
+            if (i == idx)
+                continue;
+            float3 nPos = animasBuffer[i].position;
+            nPos.y = 0.0f; // Flatten neighbor position
+            
+            float d = distance(pos, nPos);
+            if (d < fRadius)
+            {
+                float3 nFwd = animasBuffer[i].forward;
+                nFwd.y = 0.0f;
+                
+                alignSum += nFwd;
+                alignCount++;
+                cohSum += nPos;
+                cohCount++;
+                if (d < cRadius)
+                {
+                    sepSum += (pos - nPos) / max(d, 0.0001f);
+                }
+            }
+        }
+    }
+
+    if (align != 0 && alignCount > 0)
+        desired += normalize(alignSum / float(alignCount)) * wAlign;
+    if (cohesion != 0 && cohCount > 0)
+        desired += normalize((cohSum / float(cohCount)) - pos) * wCohesion;
+    if (crowd != 0 && length(sepSum) > 0)
+        desired += normalize(sepSum) * wCrowd;
+    
+    if (noise != 0)
+    {
+        float rx = random(rngState) - 0.5f;
+        float rz = random(rngState) - 0.5f;
+        desired += normalize(float3(rx, 0, rz)) * wNoise;
+    }
+
+    if (tPlayer != 0 && anima.isFriendly == 0)
+    {
+        float3 flatPlayerPos = playerPosition;
+        flatPlayerPos.y = 0.0f;
+        desired += normalize(flatPlayerPos - pos) * wPlayer;
+    }
+
+    // Strictly flatten desired vector to XZ plane
+    desired.y = 0.0f;
+    desired = length(desired) > 0.001f ? normalize(desired) : forward;
+
+    float speed = obsInf > 0 ? maxSpeed : lerp(minSpeed, maxSpeed, length(desired) * 0.5f + 0.5f);
+
+    // Smooth rotation interpolation on XZ plane
+    float maxAngleDelta = maxRotationSpeed * deltaTime * 0.0174532925f; // degrees to radians
+    float angle = acos(clamp(dot(forward, desired), -1.0f, 1.0f));
+    float t = (angle > 0.0001f) ? min(1.0f, maxAngleDelta / angle) : 1.0f;
+    float3 smoothedForward = normalize(lerp(forward, desired, t));
+    smoothedForward.y = 0.0f;
+    smoothedForward = normalize(smoothedForward);
+
+    // Update position strictly on XZ plane
+    pos += smoothedForward * speed * deltaTime;
+    pos.y = 0.0f;
+
+    anima.position = pos;
+    anima.forward = smoothedForward;
+    animasBuffer[idx] = anima;
+}

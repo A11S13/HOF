@@ -1405,8 +1405,7 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cb94aa0a7116e0d418b7661e3e48addf, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  rayCount: 8
-  arcAngle: 360
+  animaComputeShader: {fileID: 7200000, guid: 47223cf5dce82f44b83a5a9c9f2ec8cc, type: 3}
   fRadius: 80
   cRadius: 12
   wPlayer: 20
@@ -1426,13 +1425,7 @@ MonoBehaviour:
   obstacleLayerMask:
     serializedVersion: 2
     m_Bits: 4736
-  minObstacleScanRadius: 1
-  maxObstacleScanRadius: 50
-  minObstacleAvoidWeight: 300
-  maxObstacleAvoidWeight: 1000
   obstacleUpdateInterval: 0.1
-  spatialCellSize: 40
-  useSpatialGrid: 1
   despawnCheckInterval: 0.05
   animasPerCheck: 200
   debugDespawn: 0
@@ -4557,7 +4550,7 @@ PrefabInstance:
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
       propertyPath: m_Enabled
-      value: 1
+      value: 0
       objectReference: {fileID: 0}
     - target: {fileID: -7511558181221131132, guid: c72c2519f531e7e4eb7e3a3f871ad380, type: 3}
       propertyPath: 'm_Materials.Array.data[0]'
@@ -10278,7 +10271,7 @@ PrefabInstance:
     m_Modifications:
     - target: {fileID: 1049363083144471386, guid: f7cc35e4fa5a6fc4eb875e03995022bc, type: 3}
       propertyPath: 'm_BlendShapeWeights.Array.data[0]'
-      value: 60.5
+      value: 81.518005
       objectReference: {fileID: 0}
     - target: {fileID: 1994035252238962878, guid: f7cc35e4fa5a6fc4eb875e03995022bc, type: 3}
       propertyPath: morph
