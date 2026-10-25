@@ -4,6 +4,7 @@ using System.Collections;
 /// <summary>
 /// BeamWeapon - Continuous fire weapon
 /// FIXED: Improved gimbal control for fixed weapons
+/// UPDATED: Passes RaycastHit point to Asteroid for directional fracture
 /// </summary>
 public class BeamWeapon : Weapon
 {
@@ -168,7 +169,9 @@ public class BeamWeapon : Weapon
         {
             endPos = hit.point;
             SpawnImpactEffect(hit.point, hit.normal);
-            ApplyDamage(hit.collider);
+
+            // UPDATED: Pass the hit.point into ApplyDamage
+            ApplyDamage(hit.collider, hit.point);
         }
 
         // Update Visuals
@@ -185,14 +188,24 @@ public class BeamWeapon : Weapon
         }
     }
 
-    private void ApplyDamage(Collider hitCollider)
+    // UPDATED: Now accepts the hit point to pass to the asteroid
+    private void ApplyDamage(Collider hitCollider, Vector3 hitPoint)
     {
+        float damageAmount = damagePerSecond * Time.deltaTime;
+        var asteroid = hitCollider.GetComponentInParent<Asteroid>();
+        if (asteroid != null)
+        {
+            // Pass the exact hit point to the asteroid so chunks fly away from the laser
+            asteroid.TakeDamage(damageAmount, hitPoint);
+            return;
+        }
+
         var damageable = hitCollider.GetComponentInParent<Damageable>();
-        if (damageable != null) damageable.Damage(damagePerSecond * Time.deltaTime);
+        if (damageable != null) damageable.Damage(damageAmount);
         else
         {
             var health = hitCollider.GetComponentInParent<Health>();
-            if (health != null) health.Damage(damagePerSecond * Time.deltaTime);
+            if (health != null) health.Damage(damageAmount);
         }
     }
 

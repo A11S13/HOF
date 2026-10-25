@@ -26,33 +26,56 @@ public class AsteroidBelt : MonoBehaviour
     [Header("Spawning Probability")]
     [Range(0, 1)] public float largeAsteroidProbability = 0.1f;
     [Range(0, 1)] public float mediumAsteroidProbability = 0.3f;
-    // Small asteroid probability is calculated as (1 - large - medium)
 
     public LayerMask collisionMask;
 
     [Header("Orbital Texture")]
     public GameObject orbitalPlane;
 
-    [Header("Destruction Settings")]
-    public int mediumFragmentsFromLarge = 3;
-    public int smallFragmentsFromMedium = 4;
-    public int smallFragmentsFromLarge = 2;
-    public float fragmentOffset = 55f;
-    public float explosionForce = 10f;
-    public float fragmentCooldown = 0.1f; // Time between fragment spawns
-
     private Texture2D orbitalTexture;
     private Transform playerTransform;
     private Material orbitalMaterial;
     private Vector3 planeSize;
+
     private float cleanupRadiusSquared;
+    private List<GameObject> activeAsteroids = new List<GameObject>();
 
     void Start()
     {
         playerTransform = GameObject.FindGameObjectWithTag("Player").transform;
         InitializeOrbitalTexture();
+
         StartCoroutine(SpawnManagement());
+        StartCoroutine(CleanupRoutine());
+
         cleanupRadiusSquared = Mathf.Pow(outerRadius * cleanupMargin, 2);
+    }
+
+    private IEnumerator CleanupRoutine()
+    {
+        WaitForSeconds wait = new WaitForSeconds(1f);
+
+        while (true)
+        {
+            yield return wait;
+
+            if (playerTransform == null) continue;
+
+            // Remove destroyed/null objects quickly
+            activeAsteroids.RemoveAll(item => item == null);
+
+            for (int i = activeAsteroids.Count - 1; i >= 0; i--)
+            {
+                GameObject ast = activeAsteroids[i];
+                float sqrDist = (ast.transform.position - playerTransform.position).sqrMagnitude;
+
+                if (sqrDist > cleanupRadiusSquared)
+                {
+                    Destroy(ast);
+                    activeAsteroids.RemoveAt(i);
+                }
+            }
+        }
     }
 
     void InitializeOrbitalTexture()
@@ -72,31 +95,27 @@ public class AsteroidBelt : MonoBehaviour
 
     IEnumerator SpawnManagement()
     {
+        // CACHE THIS! This prevents massive garbage collection spikes
+        WaitForSeconds spawnWait = new WaitForSeconds(1f / spawnRate);
+
         while (true)
         {
             if (orbitalTexture != null)
             {
                 Vector3 spawnPoint = GetRingSpawnPoint();
-                
-                // Determine which size asteroid to spawn based on probabilities
+
                 float randomValue = Random.value;
                 AsteroidSize sizeToSpawn;
-                
+
                 if (randomValue < largeAsteroidProbability)
-                {
                     sizeToSpawn = AsteroidSize.Large;
-                }
                 else if (randomValue < largeAsteroidProbability + mediumAsteroidProbability)
-                {
                     sizeToSpawn = AsteroidSize.Medium;
-                }
                 else
-                {
                     sizeToSpawn = AsteroidSize.Small;
-                }
-                
+
                 CheckAndSpawnAsteroid(spawnPoint, sizeToSpawn);
-                yield return new WaitForSeconds(1f / spawnRate);
+                yield return spawnWait; // Use cached wait
             }
             else
             {
@@ -130,15 +149,9 @@ public class AsteroidBelt : MonoBehaviour
         float asteroidSize = 0f;
         switch (size)
         {
-            case AsteroidSize.Large:
-                asteroidSize = Random.Range(minLargeAsteroidSize, maxLargeAsteroidSize);
-                break;
-            case AsteroidSize.Medium:
-                asteroidSize = Random.Range(minMediumAsteroidSize, maxMediumAsteroidSize);
-                break;
-            case AsteroidSize.Small:
-                asteroidSize = Random.Range(minSmallAsteroidSize, maxSmallAsteroidSize);
-                break;
+            case AsteroidSize.Large: asteroidSize = Random.Range(minLargeAsteroidSize, maxLargeAsteroidSize); break;
+            case AsteroidSize.Medium: asteroidSize = Random.Range(minMediumAsteroidSize, maxMediumAsteroidSize); break;
+            case AsteroidSize.Small: asteroidSize = Random.Range(minSmallAsteroidSize, maxSmallAsteroidSize); break;
         }
 
         if (!Physics.CheckSphere(worldPosition, spacing + asteroidSize / 2, collisionMask))
@@ -164,22 +177,12 @@ public class AsteroidBelt : MonoBehaviour
 
         switch (asteroidSize)
         {
-            case AsteroidSize.Large:
-                prefabsToUse = largeAsteroidPrefabs;
-                break;
-            case AsteroidSize.Medium:
-                prefabsToUse = mediumAsteroidPrefabs;
-                break;
-            case AsteroidSize.Small:
-                prefabsToUse = smallAsteroidPrefabs;
-                break;
+            case AsteroidSize.Large: prefabsToUse = largeAsteroidPrefabs; break;
+            case AsteroidSize.Medium: prefabsToUse = mediumAsteroidPrefabs; break;
+            case AsteroidSize.Small: prefabsToUse = smallAsteroidPrefabs; break;
         }
 
-        if (prefabsToUse == null || prefabsToUse.Length == 0)
-        {
-            Debug.LogError("No prefabs assigned for asteroid size: " + asteroidSize);
-            return;
-        }
+        if (prefabsToUse == null || prefabsToUse.Length == 0) return;
 
         GameObject asteroidObject = Instantiate(
             prefabsToUse[Random.Range(0, prefabsToUse.Length)],
@@ -187,85 +190,17 @@ public class AsteroidBelt : MonoBehaviour
             Random.rotation
         );
 
-        // Clamp Y after instantiation
-        asteroidObject.transform.position = new Vector3(
-            asteroidObject.transform.position.x,
-            0f,
-            asteroidObject.transform.position.z
-        );
-
+        asteroidObject.transform.position = new Vector3(asteroidObject.transform.position.x, 0f, asteroidObject.transform.position.z);
         asteroidObject.transform.localScale = Vector3.one * size;
 
         Asteroid asteroidScript = asteroidObject.GetComponent<Asteroid>();
         if (asteroidScript != null)
         {
-            asteroidScript.Initialize(this, asteroidSize, playerTransform, cleanupRadiusSquared);
-        }
-    }
-
-    public void CreateAsteroidFragments(Vector3 position, AsteroidSize originalSize)
-    {
-        switch (originalSize)
-        {
-            case AsteroidSize.Large:
-                for (int i = 0; i < mediumFragmentsFromLarge; i++)
-                {
-                    Vector2 randomCircle = Random.insideUnitCircle * fragmentOffset;
-                    Vector3 spawnPos = position + new Vector3(randomCircle.x, 0, randomCircle.y);
-
-                    // Force Y=0
-                    spawnPos.y = 0f;
-
-                    SpawnAsteroid(spawnPos, Random.Range(minMediumAsteroidSize, maxMediumAsteroidSize), AsteroidSize.Medium);
-                }
-
-                for (int i = 0; i < smallFragmentsFromLarge; i++)
-                {
-                    Vector2 randomCircle = Random.insideUnitCircle * fragmentOffset;
-                    Vector3 spawnPos = position + new Vector3(randomCircle.x, 0, randomCircle.y);
-
-                    // Force Y=0
-                    spawnPos.y = 0f;
-
-                    SpawnAsteroid(spawnPos, Random.Range(minSmallAsteroidSize, maxSmallAsteroidSize), AsteroidSize.Small);
-                }
-                break;
-
-            case AsteroidSize.Medium:
-                for (int i = 0; i < smallFragmentsFromMedium; i++)
-                {
-                    Vector2 randomCircle = Random.insideUnitCircle * fragmentOffset * 0.5f;
-                    Vector3 spawnPos = position + new Vector3(randomCircle.x, 0, randomCircle.y);
-
-                    // Force Y=0
-                    spawnPos.y = 0f;
-
-                    SpawnAsteroid(spawnPos, Random.Range(minSmallAsteroidSize, maxSmallAsteroidSize), AsteroidSize.Small);
-                }
-                break;
-
-            case AsteroidSize.Small:
-                // Just disappears
-                break;
-        }
-    }
-
-    void OnDrawGizmosSelected()
-    {
-        if (playerTransform != null)
-        {
-            Gizmos.color = Color.red;
-            Gizmos.DrawWireSphere(playerTransform.position, innerRadius);
-
-            Gizmos.color = Color.green;
-            Gizmos.DrawWireSphere(playerTransform.position, outerRadius);
+            int tier = asteroidSize == AsteroidSize.Large ? 1 : (asteroidSize == AsteroidSize.Medium ? 2 : 3);
+            asteroidScript.SetupStats(tier);
+            activeAsteroids.Add(asteroidObject);
         }
     }
 }
 
-public enum AsteroidSize
-{
-    Large,
-    Medium,
-    Small
-}
+public enum AsteroidSize { Large, Medium, Small }

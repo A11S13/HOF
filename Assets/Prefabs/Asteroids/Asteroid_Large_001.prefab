@@ -82,9 +82,6 @@ PrefabInstance:
       addedObject: {fileID: 7126545957517191786}
     - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: caa51b475c118db4bb25a2ec76f76e40, type: 3}
       insertIndex: -1
-      addedObject: {fileID: 4982259728198057323}
-    - targetCorrespondingSourceObject: {fileID: 919132149155446097, guid: caa51b475c118db4bb25a2ec76f76e40, type: 3}
-      insertIndex: -1
       addedObject: {fileID: -7527024124512313688}
   m_SourcePrefab: {fileID: 100100000, guid: caa51b475c118db4bb25a2ec76f76e40, type: 3}
 --- !u!1 &6754295512699531694 stripped
@@ -104,10 +101,30 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5f76aa42a997b3b4dbfc76f9a68aca69, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  orbitalSpeed: -40
-  speedVariation: 20
+  orbitalSpeed: 0.001
+  speedVariation: 0
   rotationSpeed: 1
-  maxHealth: 1000
+  currentLayerTier: 1
+  fractureDamageThreshold: 100
+  explosionForce: 2
+  tier2Fragments:
+  - {fileID: 7193387497255227907, guid: a145f9faca8366c4b9ac38c9ef527077, type: 3}
+  - {fileID: 8775704605673239936, guid: ed8426f6448c2a341a8a9d45be3c5a33, type: 3}
+  - {fileID: 2137915002471009273, guid: 4d87b1691c71e384d9e9cf71c8954bf5, type: 3}
+  - {fileID: 5371253689945614803, guid: 2716d47c06b2e1e4d912fb4dc9c15383, type: 3}
+  - {fileID: 6564411489660716675, guid: 640416020052f5a4ca4cb61e7a7a2393, type: 3}
+  - {fileID: 1035436393487246876, guid: 127fc059eed26d445987a983d66c8256, type: 3}
+  - {fileID: 6076268845679292373, guid: d15f9181df8cdf340bc97f5a1f32ae66, type: 3}
+  - {fileID: 1670976493295216894, guid: 9adc38be7b8f1a6468ace99a14d7d299, type: 3}
+  - {fileID: 8001697375665854175, guid: 14fb3d7e20c82914896b138362675c0c, type: 3}
+  - {fileID: 8697479460371382715, guid: f5ca2afa23ada224db4c3f607a9c1077, type: 3}
+  - {fileID: 5458927927164396811, guid: 698a8fd33e419734e9d2cf62483c7ae4, type: 3}
+  - {fileID: 2842936160342573083, guid: d2b43361a7b723e4b818e3ffb2ad7c93, type: 3}
+  tier3Fragments: []
+  debrisLifetime: 15
+  debrisLifetimeVariation: 3
+  fadeDuration: 1.5
+  collideWithSiblings: 0
 --- !u!54 &-3920948739231340048
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -171,18 +188,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: 
   type: 1
---- !u!114 &4982259728198057323
-MonoBehaviour:
-  m_ObjectHideFlags: 0
-  m_CorrespondingSourceObject: {fileID: 0}
-  m_PrefabInstance: {fileID: 0}
-  m_PrefabAsset: {fileID: 0}
-  m_GameObject: {fileID: 6754295512699531694}
-  m_Enabled: 1
-  m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: cd399738cf46d5a419db64a2a8df5fb6, type: 3}
-  m_Name: 
-  m_EditorClassIdentifier: 
 --- !u!114 &-7527024124512313688
 MonoBehaviour:
   m_ObjectHideFlags: 0

@@ -38,9 +38,16 @@ public class Projectile : MonoBehaviour
 
     void OnTriggerEnter(Collider other)
     {
-        // NEW: Ignore collisions with objects on owner's layer
         if (ownerLayer != -1 && other.gameObject.layer == ownerLayer)
             return;
+
+        var asteroid = other.GetComponentInParent<Asteroid>();
+        if (asteroid != null)
+        {
+            asteroid.TakeDamage(damage);
+            Destroy(gameObject);
+            return;
+        }
 
         var d = other.GetComponent<Damageable>();
         if (d != null)
