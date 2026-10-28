@@ -734,6 +734,10 @@ PrefabInstance:
       value: 0.1
       objectReference: {fileID: 0}
     - target: {fileID: 6581376065540730464, guid: f6bfa28b5c7461940bcb78758fd1b69d, type: 3}
+      propertyPath: rotationSpeed
+      value: 5
+      objectReference: {fileID: 0}
+    - target: {fileID: 6581376065540730464, guid: f6bfa28b5c7461940bcb78758fd1b69d, type: 3}
       propertyPath: chunkExplosionForce
       value: 0.2
       objectReference: {fileID: 0}
@@ -1220,9 +1224,10 @@ MonoBehaviour:
   rotationSpeed: 2
   joystick: {fileID: 1106857797}
   attachedCamera: {fileID: 963194227}
-  rotationDeadZone: 1
-  throttleDeadZone: 5
+  throttleDeadZone: 0.05
+  rotationDeadZone: 0
   totalEnergyPool: 400
+  logRotationInput: 0
 --- !u!114 &433032886
 MonoBehaviour:
   m_ObjectHideFlags: 0

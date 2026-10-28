@@ -11,46 +11,46 @@ public class PlayerShipMovement : ShipMovementBase
     public Camera attachedCamera;
 
     [Header("Dead Zones")]
-    public float rotationDeadZone = 1f;
+    [Tooltip("Throttle dead zone multiplier (relative to joystick.DeadZone). Unchanged.")]
     public float throttleDeadZone = 10f;
+
+    [Tooltip("Separate rotation dead zone on RAW joystick input (0-1, absolute). " +
+             "0 = any deflection rotates (spin in place); raise to suppress small noise.")]
+    [Range(0f, 1f)]
+    public float rotationDeadZone = 0f;
 
     [Header("Energy Configuration")]
     [Tooltip("Total energy pool available (should match shipData.overallEnergy)")]
     public float totalEnergyPool = 400f;
+
+    [Header("Debug")]
+    [Tooltip("Log raw joystick values each FixedUpdate while handling rotation.")]
+    [SerializeField] private bool logRotationInput = false;
 
     private Vector3 targetVelocity;
     private bool isJoystickInUse;
     private Quaternion targetRotation = Quaternion.identity;
     private Vector3 baseVelocity;
 
-    // Store the base max speed from inspector/base class
     private float baseMaxSpeed;
-
-    // Effective max speed after energy scaling
     private float effectiveMaxSpeed;
-
-    // NEW: Store the speed percentage when joystick was released (0-1)
     private float releaseSpeedPercent = 1f;
 
     void Start()
     {
         cruiseControlLevel = 1f;
         releaseSpeedPercent = 1f;
-
-        // Store the original max speed as baseline
         baseMaxSpeed = maxSpeed;
         effectiveMaxSpeed = maxSpeed;
+
+        if (joystick == null)
+            Debug.LogError("[PlayerShipMovement] Joystick not assigned.");
+        else if (!(joystick is DynamicJoystick) && rotationDeadZone < joystick.DeadZone)
+            Debug.LogWarning("[PlayerShipMovement] rotationDeadZone is below joystick.DeadZone, but joystick is not a DynamicJoystick — spin-in-place inside the dead zone is not possible. Assign a DynamicJoystick.");
     }
 
-    void FixedUpdate()
-    {
-        UpdateMovement();
-    }
-
-    void Update()
-    {
-        FollowPlayerWithCamera();
-    }
+    void FixedUpdate() => UpdateMovement();
+    void Update() => FollowPlayerWithCamera();
 
     public override void UpdateMovement()
     {
@@ -59,17 +59,10 @@ public class PlayerShipMovement : ShipMovementBase
         ApplyEngineSpeedModification();
     }
 
-    /// <summary>
-    /// Called by ShipCore when engine energy distribution changes.
-    /// This replicates the old UpdateMaxSpeed() behavior with full-range scaling.
-    /// </summary>
-    /// <param name="distributedEnergy">Amount of energy allocated to engines (0-400)</param>
     public override void SetMaxSpeed(float distributedEnergy)
     {
-        // Normalize to 0-1 range
         float normalizedSliderValue = Mathf.Clamp01(distributedEnergy / totalEnergyPool);
 
-        // Apply 5% dead zone like the original
         if (normalizedSliderValue < 0.05f)
         {
             cruiseControlLevel = 0f;
@@ -78,51 +71,45 @@ public class PlayerShipMovement : ShipMovementBase
         }
         else
         {
-            // Scale from 0.05-1.0 range to 0-1 range for full gradient
             cruiseControlLevel = (normalizedSliderValue - 0.05f) / 0.95f;
-
-            // Scale acceleration across full range
             acceleration = defaultAcceleration * cruiseControlLevel;
-
-            // Scale max speed across full range
             effectiveMaxSpeed = baseMaxSpeed * cruiseControlLevel;
         }
 
-        // If ship is in cruise control and moving, update velocity immediately
         if (!isJoystickInUse && baseVelocity.magnitude > 0.01f)
-        {
             ApplyEngineSpeedModification();
-        }
+    }
+
+    Vector2 GetRawJoystickInput()
+    {
+        if (joystick is DynamicJoystick dj)
+            return dj.RawDirection;
+        return joystick != null ? joystick.Direction : Vector2.zero;
     }
 
     void HandleThrottle()
     {
+        // Throttle uses Direction (respects joystick.DeadZone). Unchanged from before.
         float rawThrottle = joystick.Direction.magnitude;
 
         if (rawThrottle > joystick.DeadZone * throttleDeadZone)
         {
             isJoystickInUse = true;
 
-            // Scale throttle based on dead zone
-            float throttle = Mathf.Clamp01((rawThrottle - joystick.DeadZone * throttleDeadZone) / (1 - joystick.DeadZone * throttleDeadZone));
+            float throttle = Mathf.Clamp01(
+                (rawThrottle - joystick.DeadZone * throttleDeadZone) /
+                (1f - joystick.DeadZone * throttleDeadZone));
 
-            // Calculate target velocity using EFFECTIVE max speed (scaled by energy)
             targetVelocity = transform.forward * throttle * effectiveMaxSpeed;
-
-            // Apply force using base class method
             ApplyForce(targetVelocity);
         }
         else if (isJoystickInUse)
         {
-            // Just released joystick - store current velocity
             isJoystickInUse = false;
             baseVelocity = rb.linearVelocity;
 
-            // Store the speed percentage at release (0-1) - this stays constant until joystick is used again
             if (effectiveMaxSpeed > 0.01f)
-            {
                 releaseSpeedPercent = Mathf.Clamp01(rb.linearVelocity.magnitude / effectiveMaxSpeed);
-            }
         }
         else
         {
@@ -132,31 +119,28 @@ public class PlayerShipMovement : ShipMovementBase
 
     void ApplyEngineSpeedModification()
     {
-        // Apply cruise control when not using joystick
         if (!isJoystickInUse && baseVelocity.magnitude > 0.01f && effectiveMaxSpeed > 0.01f)
         {
-            // Use the stored release speed percentage (doesn't change with slider)
-            // Multiply by cruiseControlLevel (energy scaling from slider)
             float targetSpeed = effectiveMaxSpeed * releaseSpeedPercent;
-
-            // Keep direction from base velocity
             Vector3 direction = baseVelocity.normalized;
             Vector3 targetVel = direction * targetSpeed;
 
-            // Safety check for NaN
             if (!float.IsNaN(targetVel.x) && !float.IsNaN(targetVel.y) && !float.IsNaN(targetVel.z))
-            {
-                // Smooth transition
                 rb.linearVelocity = Vector3.Lerp(rb.linearVelocity, targetVel, Time.fixedDeltaTime * 10f);
-            }
         }
     }
 
     void HandleRotation()
     {
-        Vector3 joystickDirection = new Vector3(joystick.Direction.x, 0, joystick.Direction.y);
+        Vector2 raw = GetRawJoystickInput();
+        Vector3 joystickDirection = new Vector3(raw.x, 0f, raw.y);
 
-        if (joystickDirection.magnitude > joystick.DeadZone * rotationDeadZone)
+        if (logRotationInput)
+            Debug.Log($"[Rotation] RawDir={raw} mag={joystickDirection.magnitude:F3} " +
+                      $"threshold={rotationDeadZone:F3} Direction={joystick.Direction} " +
+                      $"type={joystick.GetType().Name}");
+
+        if (joystickDirection.magnitude > rotationDeadZone)
         {
             float angle = Vector3.SignedAngle(Vector3.forward, joystickDirection, Vector3.up);
             targetRotation = Quaternion.Euler(0f, angle, 0f);
@@ -169,7 +153,8 @@ public class PlayerShipMovement : ShipMovementBase
     {
         if (attachedCamera != null)
         {
-            Vector3 cameraPosition = new Vector3(transform.position.x, attachedCamera.transform.position.y, transform.position.z);
+            Vector3 cameraPosition = new Vector3(
+                transform.position.x, attachedCamera.transform.position.y, transform.position.z);
             attachedCamera.transform.position = cameraPosition;
         }
     }
@@ -177,8 +162,6 @@ public class PlayerShipMovement : ShipMovementBase
     void OnCollisionEnter(Collision collision)
     {
         if (collision.gameObject.CompareTag("Asteroid"))
-        {
             rb.AddForce(collision.impulse, ForceMode.Impulse);
-        }
     }
 }
