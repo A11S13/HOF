@@ -196,7 +196,10 @@ public class AsteroidBelt : MonoBehaviour
         Asteroid asteroidScript = asteroidObject.GetComponent<Asteroid>();
         if (asteroidScript != null)
         {
-            int tier = asteroidSize == AsteroidSize.Large ? 1 : (asteroidSize == AsteroidSize.Medium ? 2 : 3);
+            // CHANGED: Large AND Medium are Tier 1 (two layers). 
+            // Small is Tier 2 (one layer).
+            int tier = asteroidSize == AsteroidSize.Small ? 2 : 1;
+
             asteroidScript.SetupStats(tier);
             activeAsteroids.Add(asteroidObject);
         }

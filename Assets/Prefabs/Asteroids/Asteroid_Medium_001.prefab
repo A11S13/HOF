@@ -104,10 +104,26 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5f76aa42a997b3b4dbfc76f9a68aca69, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  orbitalSpeed: -40
-  speedVariation: 20
+  orbitalSpeed: -0.01
+  speedVariation: 0.005
   rotationSpeed: 1
-  maxHealth: 500
+  currentLayerTier: 1
+  explosionForce: 0
+  chunkRotationSpeed: 0
+  tier2Fragments:
+  - {fileID: 8611449126384882996, guid: 3bdf4590815dec346a9b873123a0cde3, type: 3}
+  - {fileID: 4090932429612881346, guid: b86e8edbc1ff99e4cb22c356ffa83ac3, type: 3}
+  - {fileID: 8678497230278321197, guid: e3289babe26c5f8429dfa3d11a827772, type: 3}
+  - {fileID: 8645589683258146898, guid: d9688a83d623a8e4383b5e524fac6e49, type: 3}
+  - {fileID: 3146180220852886665, guid: d65581770e6c1e74593ed3a185b09308, type: 3}
+  - {fileID: 7204036562127764047, guid: b69f7be9a95bfa54faf973b23e2f2518, type: 3}
+  tier3Fragments: []
+  debrisLifetime: 15
+  debrisLifetimeVariation: 3
+  fadeDuration: 1.5
+  collideWithSiblings: 1
+  orbitalInheritance: 1
+  spinInheritance: 1
 --- !u!54 &-8012939566705933782
 Rigidbody:
   m_ObjectHideFlags: 0
@@ -183,6 +199,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: cd399738cf46d5a419db64a2a8df5fb6, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
+  canDetachDebris: 1
+  damageThresholdForDebris: 20
 --- !u!114 &5493567695291371717
 MonoBehaviour:
   m_ObjectHideFlags: 0
