@@ -150,9 +150,9 @@ MonoBehaviour:
   orbitalSpeed: 0.01
   speedVariation: 0.005
   rotationSpeed: 0.5
-  currentLayerTier: 1
-  fractureDamageThreshold: 50
-  explosionForce: 2
+  currentLayerTier: 2
+  explosionForce: 0
+  chunkRotationSpeed: 0.1
   tier2Fragments: []
   tier3Fragments:
   - {fileID: 5683417405592919603, guid: 3b407eaec19a7a9478de7e1198c41176, type: 3}
@@ -180,6 +180,8 @@ MonoBehaviour:
   debrisLifetimeVariation: 3
   fadeDuration: 1.5
   collideWithSiblings: 0
+  orbitalInheritance: 1.54
+  spinInheritance: 0.22
 --- !u!64 &9170528457154696953
 MeshCollider:
   m_ObjectHideFlags: 0

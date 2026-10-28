@@ -150,15 +150,17 @@ MonoBehaviour:
   orbitalSpeed: 0.01
   speedVariation: 0.005
   rotationSpeed: 0.5
-  currentLayerTier: 1
-  fractureDamageThreshold: 20
-  explosionForce: 2
+  currentLayerTier: 3
+  explosionForce: 0
+  chunkRotationSpeed: 0.1
   tier2Fragments: []
   tier3Fragments: []
   debrisLifetime: 15
   debrisLifetimeVariation: 3
   fadeDuration: 1.5
   collideWithSiblings: 1
+  orbitalInheritance: 1
+  spinInheritance: 1
 --- !u!64 &5458690299738406508
 MeshCollider:
   m_ObjectHideFlags: 0

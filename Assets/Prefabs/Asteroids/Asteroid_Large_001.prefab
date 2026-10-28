@@ -101,12 +101,12 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 5f76aa42a997b3b4dbfc76f9a68aca69, type: 3}
   m_Name: 
   m_EditorClassIdentifier: 
-  orbitalSpeed: 0.001
-  speedVariation: 0
-  rotationSpeed: 1
+  orbitalSpeed: -0.01
+  speedVariation: 0.005
+  rotationSpeed: 4
   currentLayerTier: 1
-  fractureDamageThreshold: 100
-  explosionForce: 2
+  explosionForce: 0
+  chunkRotationSpeed: 0
   tier2Fragments:
   - {fileID: 7193387497255227907, guid: a145f9faca8366c4b9ac38c9ef527077, type: 3}
   - {fileID: 8775704605673239936, guid: ed8426f6448c2a341a8a9d45be3c5a33, type: 3}
@@ -124,7 +124,9 @@ MonoBehaviour:
   debrisLifetime: 15
   debrisLifetimeVariation: 3
   fadeDuration: 1.5
-  collideWithSiblings: 0
+  collideWithSiblings: 1
+  orbitalInheritance: 1
+  spinInheritance: 0
 --- !u!54 &-3920948739231340048
 Rigidbody:
   m_ObjectHideFlags: 0
